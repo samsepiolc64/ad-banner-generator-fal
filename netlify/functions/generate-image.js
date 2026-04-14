@@ -1,27 +1,26 @@
 /**
- * Netlify Function: Proxy for fal.ai image generation.
- * Keeps the FAL_API_KEY secure on the server side.
+ * Netlify Function: Submit image generation to fal.ai queue.
+ * Returns a request_id immediately — no waiting for the image.
  *
- * Endpoints:
- *   NB2 text-to-image:  https://fal.run/fal-ai/nano-banana-2
- *   NB2 edit (logo):    https://fal.run/fal-ai/nano-banana-2/edit
- *   NB Pro text-to-image: https://fal.run/fal-ai/nano-banana-pro
- *   NB Pro edit (logo):   https://fal.run/fal-ai/nano-banana-pro/edit
+ * Queue endpoints (async):
+ *   NB2 text-to-image:    https://queue.fal.run/fal-ai/nano-banana-2
+ *   NB2 edit (logo):      https://queue.fal.run/fal-ai/nano-banana-2/edit
+ *   NB Pro text-to-image:  https://queue.fal.run/fal-ai/nano-banana-pro
+ *   NB Pro edit (logo):    https://queue.fal.run/fal-ai/nano-banana-pro/edit
  */
 
 const ENDPOINTS = {
   nb2: {
-    t2i: 'https://fal.run/fal-ai/nano-banana-2',
-    edit: 'https://fal.run/fal-ai/nano-banana-2/edit',
+    t2i: 'https://queue.fal.run/fal-ai/nano-banana-2',
+    edit: 'https://queue.fal.run/fal-ai/nano-banana-2/edit',
   },
   nbpro: {
-    t2i: 'https://fal.run/fal-ai/nano-banana-pro',
-    edit: 'https://fal.run/fal-ai/nano-banana-pro/edit',
+    t2i: 'https://queue.fal.run/fal-ai/nano-banana-pro',
+    edit: 'https://queue.fal.run/fal-ai/nano-banana-pro/edit',
   },
 }
 
 export default async (req) => {
-  // Only allow POST
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -73,17 +72,15 @@ export default async (req) => {
     }
 
     const data = await falRes.json()
-    const imageUrl = data.images?.[0]?.url
 
-    if (!imageUrl) {
-      return new Response(
-        JSON.stringify({ error: 'No image URL in fal.ai response' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
+    // Queue API returns { request_id, status, ... }
     return new Response(
-      JSON.stringify({ imageUrl }),
+      JSON.stringify({
+        request_id: data.request_id,
+        status: data.status,
+        modelType,
+        useLogo,
+      }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (err) {

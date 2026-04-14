@@ -45,6 +45,37 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     setStatuses((prev) => ({ ...prev, [id]: data }))
   }
 
+  const pollForResult = async (requestId, modelType, useLogo, signal) => {
+    const POLL_INTERVAL = 3000
+    const MAX_POLLS = 60 // 3s × 60 = 3 minutes max
+
+    for (let i = 0; i < MAX_POLLS; i++) {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+      const res = await fetch('/.netlify/functions/check-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, modelType, useLogo }),
+        signal,
+      })
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        throw new Error(`Poll error: HTTP ${res.status}: ${errText.slice(0, 200)}`)
+      }
+
+      const data = await res.json()
+
+      if (data.error) throw new Error(data.error)
+      if (data.status === 'COMPLETED') return data.imageUrl
+      if (data.status === 'FAILED') throw new Error('fal.ai: generation failed')
+
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL))
+    }
+
+    throw new Error('Timeout — fal.ai nie odpowiedział w 3 minuty')
+  }
+
   const generateOne = async (fmt) => {
     updateStatus(fmt.id, { status: 'generating' })
 
@@ -53,14 +84,12 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     const logoBlock = useLogo ? LOGO_BLOCK_WITH : LOGO_BLOCK_WITHOUT
     const finalPrompt = fmt.prompt.replace('{{LOGO_BLOCK}}', logoBlock)
 
-    const timeoutMs = useLogo ? 180000 : 90000
-
     try {
       const controller = new AbortController()
       abortRef.current = controller
-      const tid = setTimeout(() => controller.abort(), timeoutMs)
 
-      const res = await fetch('/.netlify/functions/generate-image', {
+      // Step 1: Submit to fal.ai queue (fast — returns request_id)
+      const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,30 +102,35 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         signal: controller.signal,
       })
 
-      clearTimeout(tid)
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '')
-        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`)
+      if (!submitRes.ok) {
+        const errText = await submitRes.text().catch(() => '')
+        throw new Error(`Submit error: HTTP ${submitRes.status}: ${errText.slice(0, 200)}`)
       }
 
-      const data = await res.json()
-      const imgUrl = data.imageUrl
+      const submitData = await submitRes.json()
+      if (!submitData.request_id) {
+        throw new Error('No request_id from fal.ai queue')
+      }
 
-      // Fetch the generated image
+      // Step 2: Poll for result (every 3s until done)
+      const imgUrl = await pollForResult(
+        submitData.request_id,
+        model.type,
+        useLogo,
+        controller.signal
+      )
+
+      // Step 3: Fetch, resize, compress, save
       let srcBlob = await (await fetch(imgUrl)).blob()
 
-      // Resize if needed
       if (model.needsResize) {
         srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       }
 
-      // Compress
       const blob = await compressToJpeg(srcBlob)
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
-      // Save file
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const filename = `${safeDomain}_${fmt.width}x${fmt.height}_${fmt.id}.jpg`
 
