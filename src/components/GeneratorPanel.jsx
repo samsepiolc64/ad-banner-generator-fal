@@ -97,7 +97,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
       // Save file
-      const filename = `${domain}_${fmt.width}x${fmt.height}_${fmt.id}.jpg`
+      const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+      const filename = `${safeDomain}_${fmt.width}x${fmt.height}_${fmt.id}.jpg`
 
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })

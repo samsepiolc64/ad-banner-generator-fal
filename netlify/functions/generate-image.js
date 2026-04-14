@@ -52,7 +52,7 @@ export default async (req) => {
     const endpoint = useLogo ? endpoints.edit : endpoints.t2i
 
     const falBody = useLogo
-      ? { prompt, aspect_ratio: ar, image_urls: [logoDataUrl] }
+      ? { prompt, aspect_ratio: ar, image_url: logoDataUrl }
       : { prompt, aspect_ratio: ar }
 
     const falRes = await fetch(endpoint, {
