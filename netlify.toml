@@ -8,6 +8,15 @@
   targetPort = 5173
   port = 8888
 
+[functions]
+  external_node_modules = ["*"]
+
+[functions."generate-image"]
+  timeout = 60
+
+[functions."research-domain"]
+  timeout = 30
+
 [[headers]]
   for = "/*"
   [headers.values]
