@@ -1,12 +1,6 @@
 /**
  * Netlify Function: Submit image generation to fal.ai queue.
- * Returns a request_id immediately — no waiting for the image.
- *
- * Queue endpoints (async):
- *   NB2 text-to-image:    https://queue.fal.run/fal-ai/nano-banana-2
- *   NB2 edit (logo):      https://queue.fal.run/fal-ai/nano-banana-2/edit
- *   NB Pro text-to-image:  https://queue.fal.run/fal-ai/nano-banana-pro
- *   NB Pro edit (logo):    https://queue.fal.run/fal-ai/nano-banana-pro/edit
+ * Returns request_id + status_url + response_url immediately.
  */
 
 const ENDPOINTS = {
@@ -31,7 +25,7 @@ export default async (req) => {
   const FAL_API_KEY = process.env.FAL_API_KEY
   if (!FAL_API_KEY) {
     return new Response(
-      JSON.stringify({ error: 'FAL_API_KEY not configured. Add it in Netlify Environment Variables.' }),
+      JSON.stringify({ error: 'FAL_API_KEY not configured.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
@@ -66,20 +60,19 @@ export default async (req) => {
     if (!falRes.ok) {
       const errText = await falRes.text().catch(() => '')
       return new Response(
-        JSON.stringify({ error: `fal.ai error: HTTP ${falRes.status} — ${errText.slice(0, 300)}` }),
+        JSON.stringify({ error: `fal.ai submit error: HTTP ${falRes.status} — ${errText.slice(0, 300)}` }),
         { status: falRes.status, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const data = await falRes.json()
 
-    // Queue API returns { request_id, status, ... }
+    // Return the URLs that fal.ai gave us — no manual URL construction
     return new Response(
       JSON.stringify({
         request_id: data.request_id,
-        status: data.status,
-        modelType,
-        useLogo,
+        status_url: data.status_url,
+        response_url: data.response_url,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )

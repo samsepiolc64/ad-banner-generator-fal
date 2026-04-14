@@ -45,7 +45,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     setStatuses((prev) => ({ ...prev, [id]: data }))
   }
 
-  const pollForResult = async (requestId, modelType, useLogo, signal) => {
+  const pollForResult = async (statusUrl, responseUrl, signal) => {
     const POLL_INTERVAL = 3000
     const MAX_POLLS = 60 // 3s × 60 = 3 minutes max
 
@@ -55,7 +55,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const res = await fetch('/.netlify/functions/check-result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ request_id: requestId, modelType, useLogo }),
+        body: JSON.stringify({ status_url: statusUrl, response_url: responseUrl }),
         signal,
       })
 
@@ -108,15 +108,14 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       }
 
       const submitData = await submitRes.json()
-      if (!submitData.request_id) {
-        throw new Error('No request_id from fal.ai queue')
+      if (!submitData.status_url || !submitData.response_url) {
+        throw new Error('No queue URLs from fal.ai — got: ' + JSON.stringify(submitData).slice(0, 200))
       }
 
       // Step 2: Poll for result (every 3s until done)
       const imgUrl = await pollForResult(
-        submitData.request_id,
-        model.type,
-        useLogo,
+        submitData.status_url,
+        submitData.response_url,
         controller.signal
       )
 
