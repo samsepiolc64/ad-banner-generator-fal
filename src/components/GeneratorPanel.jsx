@@ -4,11 +4,23 @@ import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imag
 
 const LOGO_BLOCK_WITH = `(Not used — logo is always composited locally for pixel-perfect fidelity.)`
 
-const LOGO_BLOCK_WITHOUT = `LOGO RESERVATION — important:
-- Do NOT render any brand logo, wordmark, company name in letterforms, or any mark that could be interpreted as a logo anywhere in the image. The real logo will be composited onto the banner after generation.
-- Ensure at least ONE corner of the composition (any of top-left, top-right, bottom-left, bottom-right) has a calm, uniform, content-free area — a clean negative space where a logo can be cleanly overlaid later.
-- The empty area should look like natural, purposeful compositional breathing room — NOT like an obvious gap or placeholder.
-- Do NOT render placeholder boxes, "logo here" text, dashed outlines, dotted rectangles, bracket marks, or any indicator of a reserved area. The corner should just read as tasteful empty space.`
+const LOGO_BLOCK_WITHOUT = `LOGO RULES — CRITICAL, read carefully:
+
+ALLOWED (this is realistic product photography, do it naturally):
+- Brand name / logo may appear ON THE PRODUCT ITSELF — on the jar label, bottle, box, packaging, tube, or any container surface that is part of the product mockup. This is expected for commercial product shots.
+
+FORBIDDEN — NOWHERE ELSE in the composition:
+- No brand logo, wordmark, or company name as a floating/standalone graphic element in any corner or margin
+- No badges, seals, medallions, stickers, or emblems containing the brand name anywhere outside the product surface
+- No watermarks, signatures, URL tags, or brand marks overlaid on background or negative space
+- No brand name rendered as a large typographic hero / decorative text element
+- No duplicate brand marks — if the brand name appears on the product, it must NOT appear again anywhere else in the frame
+- No "inspired-by" lookalike logos, stylized monograms, or typography that reads as a brand mark
+
+CLEAN CORNER REQUIREMENT — this is where our real logo will be overlaid:
+- Reserve at least ONE of the four corners (top-left, top-right, bottom-left, bottom-right) as calm, uniform, content-free empty space
+- The empty corner must read as natural, purposeful compositional breathing room — NOT as a gap or placeholder
+- Do NOT render placeholder boxes, "logo here" text, dashed outlines, dotted rectangles, bracket marks, or any indicator of a reserved area — just clean empty space`
 
 export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain }) {
   const [statuses, setStatuses] = useState(() => {
