@@ -5,6 +5,13 @@ const GOALS = ['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Ret
 const CHANNELS = ['Google Display Ads', 'Meta Ads (Facebook / Instagram)', 'Programmatic']
 const VARIANT_COUNTS = [1, 2, 3, 4, 5]
 
+// Domyślne formaty auto-zaznaczane przy wyborze kanału
+const CHANNEL_DEFAULT_FORMATS = {
+  'Google Display Ads': ['gdn-300x250', 'gdn-728x90', 'gdn-300x600', 'gdn-970x250'],
+  'Meta Ads (Facebook / Instagram)': ['meta-1200x628', 'meta-1200x1200', 'meta-960x1200', 'meta-1080x1920'],
+  'Programmatic': ['gdn-300x250', 'gdn-728x90', 'gdn-160x600', 'gdn-300x600'],
+}
+
 export default function CampaignForm({ onSubmit, isLoading }) {
   const [form, setForm] = useState({
     domain: '',
@@ -25,6 +32,29 @@ export default function CampaignForm({ onSubmit, isLoading }) {
     setForm((p) => {
       const arr = p[key]
       return { ...p, [key]: arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val] }
+    })
+  }
+
+  const toggleChannel = (channel) => {
+    setForm((p) => {
+      const isAdding = !p.channels.includes(channel)
+      const newChannels = isAdding
+        ? [...p.channels, channel]
+        : p.channels.filter((c) => c !== channel)
+
+      const defaults = CHANNEL_DEFAULT_FORMATS[channel] || []
+
+      let newFormats
+      if (isAdding) {
+        // Dodaj domyślne formaty kanału (bez duplikatów)
+        newFormats = [...new Set([...p.formats, ...defaults])]
+      } else {
+        // Pozostaw formaty które są domyślne dla INNYCH zaznaczonych kanałów
+        const stillNeeded = new Set(newChannels.flatMap((c) => CHANNEL_DEFAULT_FORMATS[c] || []))
+        newFormats = p.formats.filter((f) => !defaults.includes(f) || stillNeeded.has(f))
+      }
+
+      return { ...p, channels: newChannels, formats: newFormats }
     })
   }
 
@@ -63,7 +93,7 @@ export default function CampaignForm({ onSubmit, isLoading }) {
         <Pills
           options={CHANNELS}
           selected={form.channels}
-          onSelect={(v) => toggleArray('channels', v)}
+          onSelect={toggleChannel}
           multi
         />
       </Field>
