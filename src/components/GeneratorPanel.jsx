@@ -93,8 +93,18 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
     // Always reserve clean space — we'll composite the real logo locally after generation
-    const logoBlock = hasLogo ? LOGO_BLOCK_WITHOUT : LOGO_BLOCK_WITHOUT
-    const finalPrompt = fmt.prompt.replace('{{LOGO_BLOCK}}', logoBlock)
+    const logoBlock = LOGO_BLOCK_WITHOUT
+
+    // When a logo is provided, strongly suppress fal.ai from rendering the brand name as
+    // floating text. The name appears in BRAND DNA for style context only — fal.ai must NOT
+    // treat it as a text element to render. Logo is composited programmatically after generation.
+    const brandNameSuppress = hasLogo
+      ? `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: The real logo will be composited onto this image after generation. Therefore: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark floating in any area. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as text.`
+      : ''
+
+    const finalPrompt = fmt.prompt
+      .replace('{{LOGO_BLOCK}}', logoBlock)
+      .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
 
     try {
       // Step 1: Submit to fal.ai queue (no reference image — pure t2i)

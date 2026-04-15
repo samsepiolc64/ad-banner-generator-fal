@@ -133,7 +133,7 @@ ${sz.instruction}\n`
 
   // Build BRAND DNA section — uses deeper research fields if available
   const brandDna = `BRAND DNA — this is the client's actual brand. Do NOT generify. Every visual choice must feel like it belongs to THIS brand, not a generic ad:
-- Brand name: ${brand.name}
+- Brand name: ${brand.name}{{BRAND_NAME_SUPPRESS}}
 - Website: ${brand.domain}${brand.industry ? `
 - Industry: ${brand.industry}` : ''}${brand.productType ? `
 - What they sell: ${brand.productType}` : ''}
