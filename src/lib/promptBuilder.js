@@ -49,23 +49,22 @@ const VARIANT_MATRIX = [
 
 const CHANNEL_REQUIREMENTS = {
   gdn: `-- Google Display Ads --
-- Safe zone: all key elements min. 40px from each edge
+- All key elements (headline, product, CTA) should have generous breathing room from the edges — do not push content against the canvas borders
 - Static image, no animation
-- CTA button visible and readable
-- No phone/OS UI elements
+- CTA button visible and clearly readable
+- No phone or OS interface elements
 - No central QR codes`,
   meta: `-- Meta Ads --
-- Safe zone: min. 50px from each edge
-- Text max 20% of image area
-- No Facebook/Instagram UI
-- CTA button in bottom third`,
+- All key elements should have generous breathing room from every edge
+- Text should occupy a modest portion of the composition — imagery dominates
+- No Facebook or Instagram interface elements
+- CTA button placed in the lower third of the composition`,
   'meta-stories': `-- Meta Ads | 9:16 (Stories/Reels) --
-- ABSOLUTE BAN on CTA in image
-- SAFE ZONE: only y: 300px–1620px (1080×1320px centered)
-- Dead zones: top 300px and bottom 300px — place nothing there
-- Headline: y: 900–1300px`,
+- NO CTA button in the image at all — none
+- Keep the top band and bottom band of the image empty (they will be hidden by platform UI)
+- Place the headline in the middle-upper portion, centered horizontally`,
   programmatic: `-- Programmatic --
-- Safe zone: min. 15px from edges
+- Content should have clear margin from every edge
 - Readability at small sizes is priority
 - CTA button clear, action obvious`,
 }
@@ -82,27 +81,15 @@ function computeSafeZone(targetW, targetH, nativeAR) {
 
   if (nR > tR) {
     // canvas wider → crop sides
-    const contentWidth = Math.round((tR / nR) * 100)
-    const marginX = Math.round((100 - contentWidth) / 2)
     return {
       type: 'sides',
-      contentPct: contentWidth,
-      marginPct: marginX,
-      instruction: `The actual ad content zone occupies the CENTER ${contentWidth}% of the canvas width (full height). The left ${marginX}% and right ${marginX}% will be discarded.
-- Place ALL content strictly within the center ${contentWidth}% horizontal band
-- Fill the outer ${marginX}% on each side with plain background color — no content, no text, no product there`,
+      instruction: `The final delivered banner will be cropped to a narrower width. Keep all key content — headline, product, CTA — concentrated in the horizontal center of the composition. Let the left and right extremes of the canvas extend the background uniformly, with no content, text, or product there.`,
     }
   } else {
     // canvas taller → crop top/bottom
-    const contentHeight = Math.round((nR / tR) * 100)
-    const marginY = Math.round((100 - contentHeight) / 2)
     return {
       type: 'topbottom',
-      contentPct: contentHeight,
-      marginPct: marginY,
-      instruction: `The actual ad content zone occupies the FULL WIDTH × CENTER ${contentHeight}% of the canvas height. The top ${marginY}% and bottom ${marginY}% will be discarded.
-- Place ALL content strictly within the center ${contentHeight}% vertical band
-- Fill the top ${marginY}% and bottom ${marginY}% with plain background color — no content, no text, no CTA there`,
+      instruction: `The final delivered banner will be cropped to a shorter height. Keep all key content — headline, product, CTA — concentrated in the vertical center of the composition. Let the top and bottom edges of the canvas extend the background uniformly, with no content, text, or CTA there.`,
     }
   }
 }
@@ -134,13 +121,12 @@ export function buildPrompt({
     channelReqs = CHANNEL_REQUIREMENTS.programmatic
   }
 
-  // Canvas crop zone for non-native AR
+  // Canvas crop zone for non-native AR (described without numbers to prevent leakage)
   let cropZone = ''
   if (modelInfo.needsResize) {
     const sz = computeSafeZone(format.width, format.height, modelInfo.ar)
     if (sz) {
-      cropZone = `\nCANVAS CROP ZONE — CRITICAL:
-This image is generated at ${modelInfo.ar} aspect ratio. The final delivered banner is ${format.width}×${format.height}px, which will be center-cropped from this canvas.
+      cropZone = `\nCOMPOSITION CONSTRAINT:
 ${sz.instruction}\n`
     }
   }
@@ -163,13 +149,20 @@ ${sz.instruction}\n`
 - Example brand headlines from site (match this voice): ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}
 - Background preference for THIS variant: ${variantIndex === 1 ? 'dark' : 'light'}`
 
-  const prompt = `TECHNICAL SPECS:
-- Dimensions: ${format.width}x${format.height}px
+  const prompt = `OUTPUT FORMAT:
+- A finished, production-ready advertising image
 - Aspect ratio: ${format.ar}
-- Resolution: 2K
-- Output format: PNG
+- High resolution, sharp, print-quality
 - Ad channel: ${format.channel === 'meta' ? 'Meta Ads' : format.channel === 'gdn' ? 'Google Display Ads' : 'Programmatic'}
-⚠️ RENDER AS FINAL AD ONLY — absolutely no dimension labels, no pixel measurements, no safe zone markers, no margin arrows, no crop marks, no registration marks, no ruler overlays, no px labels, no corner brackets, no technical diagram overlays, no blueprint-style annotations of any kind. Output must be a clean, print-ready advertising image with zero technical markup visible.
+
+⚠️ CRITICAL — THE IMAGE MUST LOOK LIKE A FINISHED PUBLISHED AD:
+- Do NOT draw any measurement labels, size indicators, or numeric annotations anywhere in the image
+- Do NOT draw arrows pointing to edges, dashed lines, dotted borders, or bracket outlines
+- Do NOT render any text like "min.", "margin", "safe zone", "px", or any measurement values
+- Do NOT include blueprint-style markup, technical specification diagrams, or mood-board annotations
+- Do NOT render placeholder rectangles with labels inside
+- The output must look like a real ad ready for publication — NEVER like a design spec sheet or style guide
+- Zero tolerance for any technical markup, annotations, labels, or measurement indicators visible in the final image
 
 ${brandDna}
 
@@ -193,16 +186,16 @@ AD COPY PLACEMENT:
 - CTA button: "${cta}" — prominent button, rounded corners, accent color background, white text`}
 
 TYPOGRAPHY REQUIREMENTS:
-- All text must be crystal clear and highly legible
-- Headline: minimum 36px equivalent, bold weight
-- High contrast between text and background (WCAG AA minimum)
+- All text must be crystal clear and highly legible at any display size
+- Headline: substantial, bold, prominent — dominant text element in the composition
+- High contrast between text and background for accessibility
 - Font style: ${brand.typography || 'modern sans-serif'}
 
 CHANNEL-SPECIFIC REQUIREMENTS:
 ${channelReqs}
 
-NEGATIVE PROMPT:
-blurry, pixelated, low resolution, watermark, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, brand logo, logotype, wordmark, company name as graphic element, any logo or brand mark, hallucinated logo, AI-generated logo, dimension annotations, pixel measurements, safe zone markers, margin arrows, crop marks, registration marks, ruler overlays, px labels, corner brackets, technical diagram overlays, blueprint-style annotations${isStories ? ', CTA button in image, buy now text, any text in top 300px, any text in bottom 300px' : ''}`
+NEGATIVE PROMPT (do NOT render any of these):
+blurry, pixelated, low resolution, watermark, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, brand logo, logotype, wordmark, company name as graphic element, any logo or brand mark, hallucinated logo, AI-generated logo, any numeric labels, any measurement text, "px" text, pixel values, "min." labels, "max." labels, "margin" text, "safe zone" text, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels${isStories ? ', CTA button in image, buy now text, any text in top portion, any text in bottom portion' : ''}`
 
   return prompt
 }
