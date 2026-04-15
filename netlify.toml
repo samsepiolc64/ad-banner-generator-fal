@@ -15,7 +15,7 @@
   timeout = 60
 
 [functions."research-domain"]
-  timeout = 30
+  timeout = 60
 
 [functions."generate-copy"]
   timeout = 30

@@ -14,7 +14,7 @@ const BROWSER_HEADERS = {
   'Upgrade-Insecure-Requests': '1',
 }
 
-async function fetchWithTimeout(url, timeoutMs = 15000) {
+async function fetchWithTimeout(url, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -29,28 +29,30 @@ async function fetchWithTimeout(url, timeoutMs = 15000) {
   }
 }
 
-/** Try multiple URL variants — https, http, with/without www */
+/**
+ * Try URL variants IN PARALLEL — whichever succeeds first wins.
+ * Max wall time: ~8s (not 60s like sequential). If all fail quickly,
+ * we skip HTML fetch and let Claude infer from domain name alone.
+ */
 async function tryFetchVariants(domain) {
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
   const variants = [
     `https://${clean}`,
     `https://www.${clean}`,
-    `http://${clean}`,
-    `http://www.${clean}`,
   ]
 
-  for (const url of variants) {
-    try {
-      const res = await fetchWithTimeout(url)
-      if (res.ok) {
+  try {
+    return await Promise.any(
+      variants.map(async (url) => {
+        const res = await fetchWithTimeout(url, 8000)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const html = await res.text()
         return { html, finalUrl: res.url || url }
-      }
-    } catch {
-      // try next variant
-    }
+      })
+    )
+  } catch {
+    return null
   }
-  return null
 }
 
 export default async (req) => {
@@ -86,7 +88,7 @@ export default async (req) => {
 
     // Step 1: Try to fetch the website (multiple URL variants, timeout)
     const fetchResult = await tryFetchVariants(domain)
-    const html = fetchResult?.html ? fetchResult.html.slice(0, 50000) : null
+    const html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
 
     // Step 2: Build the Claude prompt — with HTML if available, or just domain name
     const SCHEMA_INSTRUCTIONS = `Return ONLY valid minified JSON (no markdown fences, no explanation) matching EXACTLY this schema:
