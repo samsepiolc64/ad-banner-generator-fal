@@ -8,7 +8,7 @@ const VARIANT_COUNTS = [1, 2, 3, 4, 5]
 // Domyślne formaty auto-zaznaczane przy wyborze kanału
 const CHANNEL_DEFAULT_FORMATS = {
   'Google Display Ads': ['meta-1200x628', 'meta-1080x1920', 'meta-1200x1200', 'meta-960x1200'],
-  'Meta Ads (Facebook / Instagram)': ['meta-1200x628', 'meta-1200x1200', 'meta-960x1200', 'meta-1080x1920'],
+  'Meta Ads (Facebook / Instagram)': ['meta-1080x1350', 'meta-1080x1920', 'meta-1080x1080'],
   'Programmatic': ['gdn-300x250', 'gdn-728x90', 'gdn-160x600', 'gdn-300x600'],
 }
 
