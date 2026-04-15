@@ -11,40 +11,43 @@ const CHANNEL_DEFAULT_FORMATS = {
   'Programmatic': ['gdn-300x250', 'gdn-728x90', 'gdn-160x600', 'gdn-300x600'],
 }
 
-const STEPS = ['domain', 'goal', 'channels', 'formats', 'headline', 'cta', 'variants', 'notes']
-
-function stepSummary(step, form) {
-  switch (step) {
-    case 'domain':    return form.domain || null
-    case 'goal':      return form.goal || null
-    case 'channels':  return form.channels.length ? form.channels.join(', ') : null
-    case 'formats': {
-      const labels = form.formats.map((id) => ALL_FORMATS.find((f) => f.id === id)?.label).filter(Boolean)
-      return labels.length ? labels.join(', ') : null
-    }
-    case 'headline':
-      return form.headlineType === 'custom' ? (form.headline || 'własne hasło') : 'AI dobierze hasło'
-    case 'cta':
-      return form.ctaType === 'custom' ? (form.cta || 'własne CTA') : 'CTA automatyczne'
-    case 'variants':  return form.variants ? `${form.variants} wariant${form.variants > 1 ? 'y' : ''}` : null
-    case 'notes':     return form.notes || 'brak uwag'
-    default:          return null
-  }
-}
-
-function stepLabel(step) {
-  switch (step) {
-    case 'domain':   return 'Jaka jest domena klienta?'
-    case 'goal':     return 'Jaki jest cel kampanii?'
-    case 'channels': return 'Na jakich kanałach mają być bannery?'
-    case 'formats':  return 'Jakie formaty bannera?'
-    case 'headline': return 'Masz gotowe hasło reklamowe?'
-    case 'cta':      return 'Masz gotowy tekst CTA?'
-    case 'variants': return 'Ile wariantów A/B na każdy format?'
-    case 'notes':    return 'Dodatkowe uwagi (opcjonalnie)'
-    default:         return step
-  }
-}
+// 3 sekcje — każda grupuje powiązane pola
+const SECTIONS = [
+  {
+    id: 'placement',
+    title: 'Gdzie?',
+    subtitle: 'Klient, kanały i formaty',
+    fields: ['domain', 'channels', 'formats'],
+    isComplete: (f) => !!f.domain.trim() && f.channels.length > 0 && f.formats.length > 0,
+    summary: (f) => {
+      const fmtLabels = f.formats.map((id) => ALL_FORMATS.find((x) => x.id === id)?.label).filter(Boolean)
+      return [f.domain, f.channels.join(' · '), fmtLabels.join(', ')].filter(Boolean).join(' — ')
+    },
+  },
+  {
+    id: 'message',
+    title: 'Co?',
+    subtitle: 'Cel, hasło i CTA',
+    fields: ['goal', 'headline', 'cta'],
+    isComplete: (f) => !!f.goal,
+    summary: (f) => {
+      const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
+      const ct = f.ctaType === 'custom' ? (f.cta || 'własne CTA') : 'CTA auto'
+      return [f.goal, hl, ct].filter(Boolean).join(' — ')
+    },
+  },
+  {
+    id: 'settings',
+    title: 'Ile?',
+    subtitle: 'Warianty i uwagi',
+    fields: ['variants', 'notes'],
+    isComplete: (f) => !!f.variants,
+    summary: (f) => {
+      const v = `${f.variants} wariant${f.variants > 1 ? 'y' : ''}`
+      return f.notes ? `${v} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : v
+    },
+  },
+]
 
 export default function CampaignForm({ onSubmit, isLoading }) {
   const [form, setForm] = useState({
@@ -59,14 +62,12 @@ export default function CampaignForm({ onSubmit, isLoading }) {
     variants: 2,
     notes: '',
   })
-  const [currentStep, setCurrentStep] = useState(0)
+  const [activeSection, setActiveSection] = useState(0)
   const domainRef = useRef(null)
 
   useEffect(() => { domainRef.current?.focus() }, [])
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }))
-
-  const advance = () => setCurrentStep((s) => Math.min(s + 1, STEPS.length - 1))
 
   const toggleArray = (key, val) => {
     setForm((p) => {
@@ -93,6 +94,8 @@ export default function CampaignForm({ onSubmit, isLoading }) {
     })
   }
 
+  const advanceSection = () => setActiveSection((s) => Math.min(s + 1, SECTIONS.length - 1))
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!form.domain || !form.goal || form.channels.length === 0 || form.formats.length === 0) return
@@ -100,66 +103,83 @@ export default function CampaignForm({ onSubmit, isLoading }) {
   }
 
   const isValid = form.domain && form.goal && form.channels.length > 0 && form.formats.length > 0
-  const isLastStep = currentStep === STEPS.length - 1
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2">
-      {STEPS.map((step, idx) => {
-        const isActive = idx === currentStep
-        const isDone = idx < currentStep
-        const isLocked = idx > currentStep
-        const summary = stepSummary(step, form)
+    <form onSubmit={handleSubmit} className="space-y-3">
+      {SECTIONS.map((section, idx) => {
+        const isActive = idx === activeSection
+        const isDone = idx < activeSection
+        const isLocked = idx > activeSection
+        const canAdvance = section.isComplete(form)
 
         return (
           <div
-            key={step}
+            key={section.id}
             className={`rounded-2xl border transition-all duration-200
               ${isActive ? 'border-gray-900 bg-white shadow-sm' : 'border-gray-200 bg-white'}
               ${isLocked ? 'opacity-40' : ''}
             `}
           >
-            {/* Header — klikalne gdy ukończone */}
+            {/* Nagłówek sekcji */}
             <button
               type="button"
-              onClick={() => isDone && setCurrentStep(idx)}
+              onClick={() => isDone && setActiveSection(idx)}
               className={`w-full flex items-center justify-between px-5 py-4 text-left
                 ${isDone ? 'cursor-pointer hover:bg-gray-50 rounded-2xl' : 'cursor-default'}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                {/* Numer / checkmark */}
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
                   ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-400'}`}>
                   {isDone ? '✓' : idx + 1}
                 </span>
                 <div className="min-w-0">
-                  <div className={`text-sm font-semibold ${isActive ? 'text-gray-900' : isDone ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {stepLabel(step)}
+                  <div className={`font-bold ${isActive ? 'text-gray-900' : isDone ? 'text-gray-600' : 'text-gray-400'}`}>
+                    {section.title}
+                    <span className={`ml-2 font-normal text-sm ${isActive ? 'text-gray-400' : 'text-gray-300'}`}>
+                      {section.subtitle}
+                    </span>
                   </div>
-                  {isDone && summary && (
-                    <div className="text-xs text-gray-400 truncate mt-0.5">{summary}</div>
+                  {isDone && (
+                    <div className="text-xs text-gray-400 truncate mt-0.5">{section.summary(form)}</div>
                   )}
                 </div>
               </div>
-              {isDone && (
-                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">zmień</span>
-              )}
+              {isDone && <span className="text-xs text-gray-400 flex-shrink-0 ml-2">zmień</span>}
             </button>
 
-            {/* Treść kroku — tylko gdy aktywny */}
+            {/* Zawartość sekcji */}
             {isActive && (
-              <div className="px-5 pb-5">
-                <StepContent
-                  step={step}
+              <div className="px-5 pb-5 space-y-5">
+                <SectionFields
+                  section={section}
                   form={form}
                   update={update}
                   toggleArray={toggleArray}
                   toggleChannel={toggleChannel}
-                  advance={advance}
-                  isLastStep={isLastStep}
-                  isLoading={isLoading}
-                  isValid={isValid}
                   domainRef={domainRef}
                 />
+
+                {/* Przycisk przejścia / submit */}
+                {idx < SECTIONS.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={advanceSection}
+                    disabled={!canAdvance}
+                    className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-bold
+                               hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Dalej →
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!isValid || isLoading}
+                    className="w-full bg-gray-900 text-white rounded-xl py-3.5 text-base font-bold
+                               hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isLoading ? 'Przygotowuję prompty...' : '⚡ Generuj bannery'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -169,8 +189,40 @@ export default function CampaignForm({ onSubmit, isLoading }) {
   )
 }
 
-function StepContent({ step, form, update, toggleArray, toggleChannel, advance, isLastStep, isLoading, isValid, domainRef }) {
-  switch (step) {
+function SectionFields({ section, form, update, toggleArray, toggleChannel, domainRef }) {
+  return (
+    <>
+      {section.fields.map((field) => (
+        <Field key={field} field={field} form={form} update={update}
+          toggleArray={toggleArray} toggleChannel={toggleChannel} domainRef={domainRef} />
+      ))}
+    </>
+  )
+}
+
+function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
+  const label = {
+    domain:   'Domena klienta',
+    channels: 'Kanały reklamowe',
+    formats:  'Formaty bannerów',
+    goal:     'Cel kampanii',
+    headline: 'Hasło reklamowe',
+    cta:      'Tekst CTA (przycisk)',
+    variants: 'Warianty A/B na każdy format',
+    notes:    'Dodatkowe uwagi (opcjonalnie)',
+  }[field]
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <FieldInput field={field} form={form} update={update}
+        toggleArray={toggleArray} toggleChannel={toggleChannel} domainRef={domainRef} />
+    </div>
+  )
+}
+
+function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef }) {
+  switch (field) {
 
     case 'domain':
       return (
@@ -179,45 +231,21 @@ function StepContent({ step, form, update, toggleArray, toggleChannel, advance, 
           type="text"
           value={form.domain}
           onChange={(e) => update('domain', e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && form.domain.trim() && advance()}
-          onBlur={() => form.domain.trim() && advance()}
           placeholder="np. leasingteam.pl"
           className="input"
           autoComplete="off"
         />
       )
 
-    case 'goal':
-      return (
-        <div className="flex flex-wrap gap-1.5">
-          {['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Retargeting'].map((opt) => (
-            <button
-              key={opt} type="button"
-              onClick={() => { update('goal', opt); advance() }}
-              className={`pill ${form.goal === opt ? 'pill-active' : ''}`}
-            >{opt}</button>
-          ))}
-        </div>
-      )
-
     case 'channels':
       return (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-1.5">
-            {['Google Display Ads', 'Meta Ads (Facebook / Instagram)', 'Programmatic'].map((opt) => (
-              <button
-                key={opt} type="button"
-                onClick={() => toggleChannel(opt)}
-                className={`pill ${form.channels.includes(opt) ? 'pill-active' : ''}`}
-              >{opt}</button>
-            ))}
-          </div>
-          {form.channels.length > 0 && (
-            <button type="button" onClick={advance}
-              className="pill pill-active">
-              Dalej →
+        <div className="flex flex-wrap gap-1.5">
+          {['Google Display Ads', 'Meta Ads (Facebook / Instagram)', 'Programmatic'].map((opt) => (
+            <button key={opt} type="button" onClick={() => toggleChannel(opt)}
+              className={`pill ${form.channels.includes(opt) ? 'pill-active' : ''}`}>
+              {opt}
             </button>
-          )}
+          ))}
         </div>
       )
 
@@ -231,21 +259,27 @@ function StepContent({ step, form, update, toggleArray, toggleChannel, advance, 
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {group.formats.map((fmt) => (
-                  <button
-                    key={fmt.id} type="button"
+                  <button key={fmt.id} type="button"
                     onClick={() => toggleArray('formats', fmt.id)}
-                    className={`pill ${form.formats.includes(fmt.id) ? 'pill-active' : ''}`}
-                  >{fmt.label}</button>
+                    className={`pill ${form.formats.includes(fmt.id) ? 'pill-active' : ''}`}>
+                    {fmt.label}
+                  </button>
                 ))}
               </div>
             </div>
           ))}
-          {form.formats.length > 0 && (
-            <button type="button" onClick={advance}
-              className="pill pill-active mt-1">
-              Dalej →
+        </div>
+      )
+
+    case 'goal':
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          {['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Retargeting'].map((opt) => (
+            <button key={opt} type="button" onClick={() => update('goal', opt)}
+              className={`pill ${form.goal === opt ? 'pill-active' : ''}`}>
+              {opt}
             </button>
-          )}
+          ))}
         </div>
       )
 
@@ -255,33 +289,20 @@ function StepContent({ step, form, update, toggleArray, toggleChannel, advance, 
           <div className="flex flex-wrap gap-1.5">
             {['Zaproponuj na podstawie strony', 'Tak — wpiszę poniżej'].map((opt) => {
               const isCustom = opt === 'Tak — wpiszę poniżej'
-              const isSelected = isCustom ? form.headlineType === 'custom' : form.headlineType === 'auto'
               return (
-                <button
-                  key={opt} type="button"
-                  onClick={() => {
-                    update('headlineType', isCustom ? 'custom' : 'auto')
-                    if (!isCustom) advance()
-                  }}
-                  className={`pill ${isSelected ? 'pill-active' : ''}`}
-                >{opt}</button>
+                <button key={opt} type="button"
+                  onClick={() => update('headlineType', isCustom ? 'custom' : 'auto')}
+                  className={`pill ${(isCustom ? form.headlineType === 'custom' : form.headlineType === 'auto') ? 'pill-active' : ''}`}>
+                  {opt}
+                </button>
               )
             })}
           </div>
           {form.headlineType === 'custom' && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={form.headline}
-                onChange={(e) => update('headline', e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && advance()}
-                placeholder="Wpisz hasło reklamowe..."
-                className="input flex-1"
-                autoFocus
-              />
-              <button type="button" onClick={advance}
-                className="pill pill-active whitespace-nowrap">Dalej →</button>
-            </div>
+            <input type="text" value={form.headline}
+              onChange={(e) => update('headline', e.target.value)}
+              placeholder="Wpisz hasło reklamowe..."
+              className="input" autoFocus />
           )}
         </div>
       )
@@ -292,33 +313,20 @@ function StepContent({ step, form, update, toggleArray, toggleChannel, advance, 
           <div className="flex flex-wrap gap-1.5">
             {['Dobierz automatycznie do celu', 'Tak — wpiszę poniżej'].map((opt) => {
               const isCustom = opt === 'Tak — wpiszę poniżej'
-              const isSelected = isCustom ? form.ctaType === 'custom' : form.ctaType === 'auto'
               return (
-                <button
-                  key={opt} type="button"
-                  onClick={() => {
-                    update('ctaType', isCustom ? 'custom' : 'auto')
-                    if (!isCustom) advance()
-                  }}
-                  className={`pill ${isSelected ? 'pill-active' : ''}`}
-                >{opt}</button>
+                <button key={opt} type="button"
+                  onClick={() => update('ctaType', isCustom ? 'custom' : 'auto')}
+                  className={`pill ${(isCustom ? form.ctaType === 'custom' : form.ctaType === 'auto') ? 'pill-active' : ''}`}>
+                  {opt}
+                </button>
               )
             })}
           </div>
           {form.ctaType === 'custom' && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={form.cta}
-                onChange={(e) => update('cta', e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && advance()}
-                placeholder="Wpisz tekst CTA..."
-                className="input flex-1"
-                autoFocus
-              />
-              <button type="button" onClick={advance}
-                className="pill pill-active whitespace-nowrap">Dalej →</button>
-            </div>
+            <input type="text" value={form.cta}
+              onChange={(e) => update('cta', e.target.value)}
+              placeholder="Wpisz tekst CTA..."
+              className="input" autoFocus />
           )}
         </div>
       )
@@ -327,50 +335,21 @@ function StepContent({ step, form, update, toggleArray, toggleChannel, advance, 
       return (
         <div className="flex flex-wrap gap-1.5">
           {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n} type="button"
-              onClick={() => { update('variants', n); advance() }}
-              className={`pill ${form.variants === n ? 'pill-active' : ''}`}
-            >{n}</button>
+            <button key={n} type="button" onClick={() => update('variants', n)}
+              className={`pill ${form.variants === n ? 'pill-active' : ''}`}>
+              {n}
+            </button>
           ))}
         </div>
       )
 
     case 'notes':
       return (
-        <div className="space-y-3">
-          <textarea
-            value={form.notes}
-            onChange={(e) => update('notes', e.target.value)}
-            placeholder="np. styl jak Apple, tylko zdjęcia produktowe bez ludzi, unikaj koloru czerwonego... (opcjonalnie)"
-            className="input min-h-[80px] resize-y"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={!isValid || isLoading}
-            className="w-full bg-gray-900 text-white rounded-xl py-3.5 text-base font-bold
-                       hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? 'Przygotowuję prompty...' : 'Generuj bannery'}
-          </button>
-        </div>
+        <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)}
+          placeholder="np. styl jak Apple, tylko zdjęcia produktowe bez ludzi, unikaj koloru czerwonego..."
+          className="input min-h-[80px] resize-y" />
       )
 
     default: return null
   }
-}
-
-function Pills({ options, selected, onSelect, multi = false }) {
-  const isSelected = (opt) => (multi ? selected.includes(opt) : selected === opt)
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((opt) => (
-        <button key={opt} type="button" onClick={() => onSelect(opt)}
-          className={`pill ${isSelected(opt) ? 'pill-active' : ''}`}>
-          {opt}
-        </button>
-      ))}
-    </div>
-  )
 }
