@@ -227,7 +227,12 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   const analysisW = drawW + pad * 2
   const analysisH = drawH + pad * 2
   const corners = analyzeCorners(bannerBmp, analysisW, analysisH)
-  const best = corners[0]
+
+  // Top-left has visual priority — use it unless it's too busy.
+  // Only fall back to the cleanest available corner when tl is clearly occupied.
+  const TL_BUSY_THRESHOLD = 0.22
+  const tlCorner = corners.find((c) => c.name === 'tl')
+  const best = (tlCorner && tlCorner.stdDev <= TL_BUSY_THRESHOLD) ? tlCorner : corners[0]
 
   // Compute position for the chosen corner
   let x = pad
@@ -256,12 +261,20 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   const isBusy = best.stdDev > 0.14
 
   // Decision tree:
+  // - Logo WITHOUT alpha (white bg not removed) → draw with multiply blend mode.
+  //   multiply: white pixels × banner = banner (white vanishes), dark pixels stay.
+  //   No sticker-box, no flood-fill artifacts — works great for logotypes on white bg.
   // - Logo WITH alpha + clean area → just drop shadow (scene-matched)
   // - Logo WITH alpha + dark/busy area → very subtle soft backing (not a hard white rectangle)
-  // - Logo WITHOUT alpha → logo has own background, draw as-is with drop shadow only
   const needsBacking = logoHasAlpha && (isDark || isBusy)
 
-  if (needsBacking) {
+  if (!logoHasAlpha) {
+    // Multiply mode: white background disappears, dark ink stays
+    ctx.save()
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.drawImage(logoBmp, x, y, drawW, drawH)
+    ctx.restore()
+  } else if (needsBacking) {
     const backingPad = Math.round(Math.min(drawW, drawH) * 0.22)
     const bx = x - backingPad
     const by = y - backingPad
@@ -282,7 +295,7 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
 
     ctx.drawImage(logoBmp, x, y, drawW, drawH)
   } else {
-    // Clean area OR opaque logo — scene-matched drop shadow only
+    // Clean area + logo with alpha — scene-matched drop shadow only
     ctx.save()
     ctx.shadowColor = isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.14)'
     ctx.shadowBlur = Math.round(drawW * 0.045)
