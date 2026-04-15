@@ -169,6 +169,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     }
   }
 
+  const retryOne = async (fmt) => {
+    if (running) return
+    setRunning(true)
+    await generateOne(fmt)
+    setRunning(false)
+  }
+
   const generateAll = async () => {
     if (running) return
     setRunning(true)
@@ -253,15 +260,24 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
               </div>
 
               {/* Status */}
-              <div className="flex-shrink-0 text-sm whitespace-nowrap">
-                {st.status === 'done' && <span className="text-brand-green font-semibold">✅ zapisano</span>}
+              <div className="flex-shrink-0 text-sm text-right">
+                {st.status === 'done' && <span className="text-brand-green font-semibold whitespace-nowrap">✅ zapisano</span>}
                 {st.status === 'error' && (
-                  <span className="text-brand-red" title={st.message}>
-                    ❌ {st.message?.slice(0, 40)}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>
+                      ❌ {st.message?.slice(0, 50)}
+                    </span>
+                    <button
+                      onClick={() => retryOne(fmt)}
+                      disabled={running}
+                      className="text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    >
+                      ↻ Ponów
+                    </button>
+                  </div>
                 )}
-                {st.status === 'generating' && <span className="text-brand-orange font-semibold">⚡ generowanie...</span>}
-                {st.status === 'idle' && <span className="text-gray-300">⏳ oczekuje</span>}
+                {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap">⚡ generowanie...</span>}
+                {st.status === 'idle' && <span className="text-gray-300 whitespace-nowrap">⏳ oczekuje</span>}
               </div>
             </div>
           )
@@ -269,17 +285,32 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       </div>
 
       {/* Generate button */}
-      <button
-        onClick={running ? stopGeneration : generateAll}
-        disabled={!folderName && fsaOk}
-        className={`w-full rounded-xl py-4 text-base font-bold transition-colors
-          ${running
-            ? 'bg-red-600 text-white hover:bg-red-700'
-            : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed'
-          }`}
-      >
-        {running ? '⏹ Zatrzymaj generowanie' : `⚡ Generuj wszystkie (${totalFormats} grafik)`}
-      </button>
+      {(() => {
+        const errorCount = Object.values(statuses).filter((s) => s.status === 'error').length
+        const allDone = Object.values(statuses).every((s) => s.status === 'done')
+        const btnLabel = running
+          ? '⏹ Zatrzymaj generowanie'
+          : allDone
+          ? '✅ Wszystkie wygenerowane'
+          : errorCount > 0
+          ? `↻ Ponów nieudane (${errorCount})`
+          : `⚡ Generuj wszystkie (${totalFormats} grafik)`
+        return (
+          <button
+            onClick={running ? stopGeneration : generateAll}
+            disabled={(!folderName && fsaOk) || allDone}
+            className={`w-full rounded-xl py-4 text-base font-bold transition-colors
+              ${running
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : allDone
+                ? 'bg-green-600 text-white cursor-default'
+                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed'
+              }`}
+          >
+            {btnLabel}
+          </button>
+        )
+      })()}
 
       <p className="text-center mt-3 text-xs text-gray-300">
         NB2 native AR → $0.08/img · NB Pro non-native AR → $0.15/img
