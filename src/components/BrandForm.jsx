@@ -74,6 +74,9 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
           tone: b.tone || '',
           exampleTaglines: b.exampleTaglines || [],
           brandPersonality: b.brandPersonality || '',
+          competitors: b.competitors || [],
+          competitorInsight: b.competitorInsight || '',
+          differentiationDirective: b.differentiationDirective || '',
         })
         setLogoUrl(b.logoUrl || null)
         setFetchedSite(!!data.fetched)
@@ -125,6 +128,11 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
           {deepBrand.tone && <div className="text-xs mt-0.5"><strong>Ton:</strong> {deepBrand.tone}</div>}
           {deepBrand.brandPersonality && <div className="text-xs mt-0.5"><strong>Osobowość:</strong> {deepBrand.brandPersonality}</div>}
           {deepBrand.exampleTaglines?.length > 0 && <div className="text-xs mt-0.5"><strong>Hasła ze strony:</strong> {deepBrand.exampleTaglines.map((t) => `"${t}"`).join(', ')}</div>}
+          {deepBrand.competitors?.length > 0 && (
+            <div className="text-xs mt-0.5"><strong>Konkurenci:</strong> {deepBrand.competitors.map((c) => c.name).join(', ')}</div>
+          )}
+          {deepBrand.competitorInsight && <div className="text-xs mt-0.5"><strong>Krajobraz konkurencji:</strong> {deepBrand.competitorInsight}</div>}
+          {deepBrand.differentiationDirective && <div className="text-xs mt-0.5"><strong>Dyrektywa odróżnienia:</strong> {deepBrand.differentiationDirective}</div>}
         </div>
       )}
 

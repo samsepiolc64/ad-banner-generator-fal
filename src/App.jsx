@@ -46,31 +46,84 @@ export default function App() {
   const [logoDataUrl, setLogoDataUrl] = useState(null)
   const [generatorFormats, setGeneratorFormats] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [copyGenStatus, setCopyGenStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'fallback'
 
   const handleCampaignSubmit = (data) => {
     setCampaignData(data)
     setStep(STEPS.BRAND)
   }
 
-  const handleBrandSubmit = (brand) => {
+  const handleBrandSubmit = async (brand) => {
     setIsLoading(true)
     setBrandData(brand)
 
-    // Build formats with prompts
     const selectedFormats = ALL_FORMATS.filter((f) => campaignData.formats.includes(f.id))
     const variantCount = campaignData.variants || 2
 
-    // Determine headlines
-    const headlines = campaignData.headlineType === 'custom' && campaignData.headline
-      ? Array(variantCount).fill(campaignData.headline)
-      : (DEFAULT_HEADLINES[campaignData.goal] || DEFAULT_HEADLINES['Conversion (Sprzedaż)']).slice(0, variantCount)
+    // --- STEP 1: Determine headlines ---
+    let headlines
+    let cta
 
-    // Determine CTA
-    const cta = campaignData.ctaType === 'custom' && campaignData.cta
-      ? campaignData.cta
-      : DEFAULT_CTAS[campaignData.goal] || 'Sprawdź ofertę'
+    if (campaignData.headlineType === 'custom' && campaignData.headline) {
+      // User typed their own headline — use it for every variant
+      headlines = Array(variantCount).fill(campaignData.headline)
+    } else {
+      // AUTO mode — ask Claude to generate per-variant headlines
+      setCopyGenStatus('generating')
+      try {
+        const res = await fetch('/.netlify/functions/generate-copy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brand,
+            goal: campaignData.goal,
+            channels: campaignData.channels,
+            variantCount,
+          }),
+        })
 
-    // Build all format × variant combinations
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+
+        // Sort by variantIndex just in case, then extract strings
+        const sorted = [...data.headlines].sort((a, b) => a.variantIndex - b.variantIndex)
+        headlines = sorted.map((h) => h.headline)
+
+        // CTA from Claude if not custom
+        if (campaignData.ctaType !== 'custom' && data.cta) {
+          cta = data.cta
+        }
+
+        setCopyGenStatus('done')
+      } catch (err) {
+        console.error('generate-copy failed, using fallback:', err)
+        // Fallback to static templates
+        headlines = (DEFAULT_HEADLINES[campaignData.goal] || DEFAULT_HEADLINES['Conversion (Sprzedaż)']).slice(0, variantCount)
+        setCopyGenStatus('fallback')
+      }
+    }
+
+    // CTA: custom input OR Claude-generated (above) OR static fallback
+    if (campaignData.ctaType === 'custom' && campaignData.cta) {
+      cta = campaignData.cta
+    } else if (!cta) {
+      cta = DEFAULT_CTAS[campaignData.goal] || 'Sprawdź ofertę'
+    }
+
+    // --- STEP 2: Build competitor context (compInsight) ---
+    // Combine insight + directive into a single block for the prompt builder
+    let compInsight = null
+    if (brand.competitorInsight || brand.differentiationDirective) {
+      const parts = []
+      if (brand.competitorInsight) parts.push(brand.competitorInsight)
+      if (brand.competitors?.length) {
+        parts.push(`Direct competitors: ${brand.competitors.map((c) => c.name).join(', ')}.`)
+      }
+      if (brand.differentiationDirective) parts.push(`Differentiation: ${brand.differentiationDirective}`)
+      compInsight = parts.join(' ')
+    }
+
+    // --- STEP 3: Build all format × variant combinations ---
     const allFormats = []
     for (const fmt of selectedFormats) {
       for (let v = 0; v < variantCount; v++) {
@@ -82,7 +135,7 @@ export default function App() {
           brand: { ...brand, campaignGoal: campaignData.goal },
           headline: headlines[v] || headlines[0],
           cta,
-          compInsight: null,
+          compInsight,
           notes: campaignData.notes || null,
           modelInfo,
         })
@@ -95,6 +148,7 @@ export default function App() {
           ar: fmt.ar,
           channel: fmt.channel,
           prompt,
+          headline: headlines[v] || headlines[0],
         })
       }
     }
@@ -158,6 +212,12 @@ export default function App() {
 
           {step === STEPS.BRAND && (
             <>
+              {isLoading && copyGenStatus === 'generating' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4 flex items-center gap-2">
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-700"></div>
+                  <span>Claude pisze hasła reklamowe dopasowane do marki i konkurencji...</span>
+                </div>
+              )}
               <BrandForm
                 domain={campaignData?.domain}
                 onSubmit={handleBrandSubmit}

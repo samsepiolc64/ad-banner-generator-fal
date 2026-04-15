@@ -17,6 +17,9 @@
 [functions."research-domain"]
   timeout = 30
 
+[functions."generate-copy"]
+  timeout = 30
+
 [[headers]]
   for = "/*"
   [headers.values]

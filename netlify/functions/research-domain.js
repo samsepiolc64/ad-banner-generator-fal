@@ -104,13 +104,20 @@ export default async (req) => {
   "audience": "specific target audience with demographics + psychographics",
   "usp": "concrete differentiators — what makes this brand different from competitors",
   "brandPersonality": "3-5 adjectives describing brand personality — e.g. 'bold, trustworthy, innovative, warm'",
-  "logoUrl": "absolute URL to logo image found on the site, or null"
+  "logoUrl": "absolute URL to logo image found on the site, or null",
+  "competitors": [
+    { "name": "competitor brand name", "domain": "competitor.com", "positioning": "how they position themselves in 1 short sentence" }
+  ],
+  "competitorInsight": "1-2 sentences describing the competitive landscape — what competitors do VISUALLY and in MESSAGING (typical colors, typical imagery, typical taglines/copy approach). Be concrete — this informs how OUR ad should contrast.",
+  "differentiationDirective": "1 sentence — the single clearest way THIS brand should visually/verbally stand out against that landscape. Actionable for creative direction."
 }
 
 IMPORTANT:
 - Be SPECIFIC and CONCRETE. Avoid generic adjectives like "modern", "clean", "premium" unless paired with concrete visual evidence.
 - Base every field on actual evidence from the site (or domain name if no HTML).
-- If a field is truly unknowable, use a sensible inference, never leave empty.`
+- If a field is truly unknowable, use a sensible inference, never leave empty.
+- "competitors": identify 3-5 real direct competitors in the SAME market (same country if local brand, same language if applicable). Use your training knowledge — DO NOT invent fake brands. If you don't know real ones, return an empty array [].
+- "competitorInsight" and "differentiationDirective" should always be filled — they guide creative contrast even when competitor list is empty.`
 
     const userContent = html
       ? `You are a senior brand strategist. Extract deep brand DNA from this website.
@@ -141,7 +148,7 @@ ${SCHEMA_INSTRUCTIONS}`
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: [{ role: 'user', content: userContent }],
       }),
     })
