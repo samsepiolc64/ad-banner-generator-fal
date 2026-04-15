@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
-import { cropToAspect, compressToJpeg } from '../lib/imageUtils'
+import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
 
 const LOGO_BLOCK_WITH = `LOGO PLACEMENT — reference image provided:
 - A reference image of the brand logo is attached as input. Reproduce it EXACTLY as shown — same colors, shapes, letterforms, proportions. Do NOT redraw, stylize, distort, reinterpret or hallucinate the logo in any way.
@@ -80,15 +80,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     updateStatus(fmt.id, { status: 'generating' })
 
     const model = resolveModel(fmt)
-    const useLogo = !!logoDataUrl
-    const logoBlock = useLogo ? LOGO_BLOCK_WITH : LOGO_BLOCK_WITHOUT
+    const hasLogo = !!logoDataUrl
+    // Always reserve clean space — we'll composite the real logo locally after generation
+    const logoBlock = hasLogo ? LOGO_BLOCK_WITHOUT : LOGO_BLOCK_WITHOUT
     const finalPrompt = fmt.prompt.replace('{{LOGO_BLOCK}}', logoBlock)
 
     try {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // Step 1: Submit to fal.ai queue (fast — returns request_id)
+      // Step 1: Submit to fal.ai queue (no reference image — pure t2i)
       const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,8 +97,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           prompt: finalPrompt,
           ar: model.ar,
           modelType: model.type,
-          useLogo,
-          logoDataUrl: useLogo ? logoDataUrl : undefined,
+          useLogo: false,
         }),
         signal: controller.signal,
       })
@@ -119,11 +119,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         controller.signal
       )
 
-      // Step 3: Fetch, resize, compress, save
+      // Step 3: Fetch, resize, composite logo (pixel-perfect), compress, save
       let srcBlob = await (await fetch(imgUrl)).blob()
 
       if (model.needsResize) {
         srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
+      }
+
+      // Overlay the REAL logo (exact pixels) onto the generated banner
+      if (hasLogo) {
+        srcBlob = await compositeLogoOnBanner(srcBlob, logoDataUrl, fmt.width, fmt.height)
       }
 
       const blob = await compressToJpeg(srcBlob)

@@ -89,42 +89,49 @@ export default async (req) => {
     const html = fetchResult?.html ? fetchResult.html.slice(0, 50000) : null
 
     // Step 2: Build the Claude prompt — with HTML if available, or just domain name
+    const SCHEMA_INSTRUCTIONS = `Return ONLY valid minified JSON (no markdown fences, no explanation) matching EXACTLY this schema:
+{
+  "name": "official brand name",
+  "industry": "specific industry vertical — e.g. 'premium menswear e-commerce', 'B2B logistics SaaS', 'sustainable skincare DTC', 'regional real estate agency'",
+  "productType": "what they actually sell — be concrete (products, services, categories)",
+  "colors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" },
+  "visualStyle": "concrete visual identity in 1 sentence — e.g. 'warm earth tones with hand-drawn organic shapes on cream backgrounds' (NOT generic words like 'minimalist, premium')",
+  "visualMotifs": "concrete recurring graphic elements seen on the site — shapes, patterns, icon styles, imagery types (e.g. 'isometric 3D illustrations, subtle grid backgrounds, circular product badges')",
+  "photoStyle": "photography character — lighting, composition, subjects (e.g. 'soft daylight, overhead flat-lays of product with natural props')",
+  "typography": "font characteristics — serif/sans, weight, feel (e.g. 'geometric sans-serif, thin weight for body, bold condensed for headlines')",
+  "tone": "brand voice in 3-4 words — e.g. 'warm, direct, no-nonsense' or 'playful, irreverent, millennial'",
+  "exampleTaglines": ["up to 3 actual headlines/taglines copied from the site — Polish if site is Polish"],
+  "audience": "specific target audience with demographics + psychographics",
+  "usp": "concrete differentiators — what makes this brand different from competitors",
+  "brandPersonality": "3-5 adjectives describing brand personality — e.g. 'bold, trustworthy, innovative, warm'",
+  "logoUrl": "absolute URL to logo image found on the site, or null"
+}
+
+IMPORTANT:
+- Be SPECIFIC and CONCRETE. Avoid generic adjectives like "modern", "clean", "premium" unless paired with concrete visual evidence.
+- Base every field on actual evidence from the site (or domain name if no HTML).
+- If a field is truly unknowable, use a sensible inference, never leave empty.`
+
     const userContent = html
-      ? `Analyze this website HTML and extract brand data. Return ONLY valid JSON, no markdown, no explanation.
+      ? `You are a senior brand strategist. Extract deep brand DNA from this website.
 
 Website: ${domain}
 
-HTML:
+HTML (truncated):
 ${html}
 
-Extract and return this JSON structure:
-{
-  "name": "Brand name",
-  "colors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" },
-  "style": "visual style description (3-5 words)",
-  "photoStyle": "photography style",
-  "typography": "font/typography description",
-  "audience": "target audience",
-  "usp": "key differentiators",
-  "logoUrl": "absolute URL to logo or null"
-}`
-      : `I could not fetch the website ${domain}. Based on the domain name alone and your general knowledge, make your best inference about this brand. Return ONLY valid JSON, no markdown, no explanation.
+${SCHEMA_INSTRUCTIONS}`
+      : `You are a senior brand strategist. I could not fetch the website ${domain}. Based on the domain name and your general knowledge, make your best inference about this brand.
 
-If you don't recognize the domain, make reasonable assumptions from the domain name (e.g. ".pl" = Polish brand, industry hints from the name).
+Rules:
+- ".pl" → Polish brand
+- Look for industry hints in the name
+- If you recognize the brand (major companies), use what you know
+- Otherwise make reasonable inferences
 
-Return this JSON structure:
-{
-  "name": "Brand name inferred from domain",
-  "colors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" },
-  "style": "visual style description (3-5 words)",
-  "photoStyle": "photography style",
-  "typography": "font/typography description",
-  "audience": "likely target audience",
-  "usp": "likely key differentiators",
-  "logoUrl": null
-}`
+${SCHEMA_INSTRUCTIONS}`
 
-    // Step 3: Send to Claude
+    // Step 3: Send to Claude (Sonnet for better extraction)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -133,8 +140,8 @@ Return this JSON structure:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2048,
         messages: [{ role: 'user', content: userContent }],
       }),
     })

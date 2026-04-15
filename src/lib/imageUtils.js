@@ -56,6 +56,48 @@ export async function compressToJpeg(srcBlob, maxBytes = 500000) {
   return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.5))
 }
 
+/**
+ * Composite a user-provided logo onto a generated banner.
+ * Logo is placed top-left at ~18% of banner width with padding,
+ * preserving original aspect ratio and pixel-perfect fidelity.
+ */
+export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, targetH) {
+  const [bannerBmp, logoBmp] = await Promise.all([
+    createImageBitmap(bannerBlob),
+    (async () => {
+      const r = await fetch(logoDataUrl)
+      const b = await r.blob()
+      return createImageBitmap(b)
+    })(),
+  ])
+
+  const c = document.createElement('canvas')
+  c.width = bannerBmp.width
+  c.height = bannerBmp.height
+  const ctx = c.getContext('2d')
+  ctx.drawImage(bannerBmp, 0, 0)
+
+  // Logo sizing: 18% of banner width, preserve aspect ratio
+  // Cap the height at 14% of banner height so wide bars (728x90) stay readable
+  const logoMaxW = Math.round(bannerBmp.width * 0.18)
+  const logoMaxH = Math.round(bannerBmp.height * 0.14)
+  const logoRatio = logoBmp.width / logoBmp.height
+
+  let drawW = logoMaxW
+  let drawH = Math.round(drawW / logoRatio)
+  if (drawH > logoMaxH) {
+    drawH = logoMaxH
+    drawW = Math.round(drawH * logoRatio)
+  }
+
+  // Padding: 3.5% of shorter edge, minimum 8px
+  const pad = Math.max(8, Math.round(Math.min(bannerBmp.width, bannerBmp.height) * 0.035))
+
+  ctx.drawImage(logoBmp, pad, pad, drawW, drawH)
+
+  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92))
+}
+
 /** Convert an SVG or image file to a PNG data URL (for logo) */
 export function fileToPngDataUrl(file, maxWidth = 600) {
   return new Promise((resolve, reject) => {

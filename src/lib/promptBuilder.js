@@ -145,6 +145,24 @@ ${sz.instruction}\n`
     }
   }
 
+  // Build BRAND DNA section — uses deeper research fields if available
+  const brandDna = `BRAND DNA — this is the client's actual brand. Do NOT generify. Every visual choice must feel like it belongs to THIS brand, not a generic ad:
+- Brand name: ${brand.name}
+- Website: ${brand.domain}${brand.industry ? `
+- Industry: ${brand.industry}` : ''}${brand.productType ? `
+- What they sell: ${brand.productType}` : ''}
+- Primary color: ${brand.colors.primary} — dominant brand color, use prominently
+- Secondary color: ${brand.colors.secondary}
+- Accent color: ${brand.colors.accent} — for CTA button and highlights
+- Visual identity: ${brand.visualStyle || brand.style || 'minimalist, premium feel'}${brand.visualMotifs ? `
+- Recurring visual motifs from the site: ${brand.visualMotifs} — incorporate at least one` : ''}
+- Photography character: ${brand.photoStyle || 'lifestyle photography, bright natural light'}
+- Typography feel: ${brand.typography || 'modern geometric sans-serif, bold headlines'}${brand.tone ? `
+- Tone of voice: ${brand.tone}` : ''}${brand.brandPersonality ? `
+- Brand personality: ${brand.brandPersonality}` : ''}${brand.exampleTaglines?.length ? `
+- Example brand headlines from site (match this voice): ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}
+- Background preference for THIS variant: ${variantIndex === 1 ? 'dark' : 'light'}`
+
   const prompt = `TECHNICAL SPECS:
 - Dimensions: ${format.width}x${format.height}px
 - Aspect ratio: ${format.ar}
@@ -153,16 +171,7 @@ ${sz.instruction}\n`
 - Ad channel: ${format.channel === 'meta' ? 'Meta Ads' : format.channel === 'gdn' ? 'Google Display Ads' : 'Programmatic'}
 ⚠️ RENDER AS FINAL AD ONLY — absolutely no dimension labels, no pixel measurements, no safe zone markers, no margin arrows, no crop marks, no registration marks, no ruler overlays, no px labels, no corner brackets, no technical diagram overlays, no blueprint-style annotations of any kind. Output must be a clean, print-ready advertising image with zero technical markup visible.
 
-BRAND CONTEXT:
-- Brand name: ${brand.name}
-- Website: ${brand.domain}
-- Primary color: ${brand.colors.primary} — use as dominant brand color
-- Secondary color: ${brand.colors.secondary}
-- Accent color: ${brand.colors.accent} — for CTA button and highlights
-- Background preference: ${variantIndex === 1 ? 'dark' : 'light'}
-- Typography style: ${brand.typography || 'modern geometric sans-serif, bold headlines, clean'}
-- Visual style: ${brand.style || 'minimalist, premium feel'}
-- Photography style: ${brand.photoStyle || 'lifestyle photography, bright natural light'}
+${brandDna}
 
 LOGO HANDLING:
 {{LOGO_BLOCK}}

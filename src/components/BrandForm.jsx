@@ -22,6 +22,8 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
   const [researchError, setResearchError] = useState(null)
   const [logoUrl, setLogoUrl] = useState(null)
   const [fetchedSite, setFetchedSite] = useState(false)
+  // Extra brand fields from Claude (not shown in the form but used in prompts)
+  const [deepBrand, setDeepBrand] = useState({})
 
   // Run research automatically when domain is set
   useEffect(() => {
@@ -57,11 +59,21 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
           primary: b.colors?.primary || '#000000',
           secondary: b.colors?.secondary || '#666666',
           accent: b.colors?.accent || '#E84C0E',
-          style: b.style || 'minimalist, premium',
+          style: b.visualStyle || b.style || 'minimalist, premium',
           photoStyle: b.photoStyle || 'lifestyle photography',
           typography: b.typography || 'modern sans-serif, bold headlines',
           audience: b.audience || '',
           usp: b.usp || '',
+        })
+        // Keep the deeper research fields for the prompt builder
+        setDeepBrand({
+          industry: b.industry || '',
+          productType: b.productType || '',
+          visualStyle: b.visualStyle || '',
+          visualMotifs: b.visualMotifs || '',
+          tone: b.tone || '',
+          exampleTaglines: b.exampleTaglines || [],
+          brandPersonality: b.brandPersonality || '',
         })
         setLogoUrl(b.logoUrl || null)
         setFetchedSite(!!data.fetched)
@@ -84,6 +96,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     if (!brand.name) return
     onSubmit({
       ...brand,
+      ...deepBrand,
       domain,
       logoUrl,
       colors: { primary: brand.primary, secondary: brand.secondary, accent: brand.accent },
@@ -105,7 +118,13 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {researchState === 'done' && fetchedSite && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-4">
-          ✅ <strong>Auto-research zakończony</strong> — Claude przeanalizował stronę <strong>{domain}</strong>. Możesz poprawić dane przed dalej.
+          <div className="font-semibold mb-1.5">✅ Auto-research zakończony — Claude przeanalizował {domain}</div>
+          {deepBrand.industry && <div className="text-xs mt-1"><strong>Branża:</strong> {deepBrand.industry}</div>}
+          {deepBrand.productType && <div className="text-xs mt-0.5"><strong>Sprzedaje:</strong> {deepBrand.productType}</div>}
+          {deepBrand.visualMotifs && <div className="text-xs mt-0.5"><strong>Motywy wizualne:</strong> {deepBrand.visualMotifs}</div>}
+          {deepBrand.tone && <div className="text-xs mt-0.5"><strong>Ton:</strong> {deepBrand.tone}</div>}
+          {deepBrand.brandPersonality && <div className="text-xs mt-0.5"><strong>Osobowość:</strong> {deepBrand.brandPersonality}</div>}
+          {deepBrand.exampleTaglines?.length > 0 && <div className="text-xs mt-0.5"><strong>Hasła ze strony:</strong> {deepBrand.exampleTaglines.map((t) => `"${t}"`).join(', ')}</div>}
         </div>
       )}
 
