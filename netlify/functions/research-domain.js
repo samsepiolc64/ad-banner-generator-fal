@@ -1,15 +1,57 @@
 /**
  * Netlify Function: Domain research via Claude API.
- * Fetches the client's website and extracts brand data (colors, fonts, style, USP, logo).
- *
- * STATUS: Placeholder — requires ANTHROPIC_API_KEY.
- * When the key is available, this function will:
- * 1. Fetch the client's homepage HTML
- * 2. Send it to Claude with extraction instructions
- * 3. Return structured brand data
- *
- * For now, returns a 501 so the frontend falls back to manual brand input.
+ * Tries to fetch the website; if that fails, still asks Claude
+ * to infer the brand from the domain name alone.
  */
+
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Upgrade-Insecure-Requests': '1',
+}
+
+async function fetchWithTimeout(url, timeoutMs = 15000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      headers: BROWSER_HEADERS,
+      redirect: 'follow',
+      signal: controller.signal,
+    })
+    return res
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Try multiple URL variants — https, http, with/without www */
+async function tryFetchVariants(domain) {
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const variants = [
+    `https://${clean}`,
+    `https://www.${clean}`,
+    `http://${clean}`,
+    `http://www.${clean}`,
+  ]
+
+  for (const url of variants) {
+    try {
+      const res = await fetchWithTimeout(url)
+      if (res.ok) {
+        const html = await res.text()
+        return { html, finalUrl: res.url || url }
+      }
+    } catch {
+      // try next variant
+    }
+  }
+  return null
+}
 
 export default async (req) => {
   if (req.method !== 'POST') {
@@ -19,7 +61,6 @@ export default async (req) => {
     })
   }
 
-  // Accept either CLAUDE_API_KEY or ANTHROPIC_API_KEY (for flexibility)
   const ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY
 
   if (!ANTHROPIC_API_KEY) {
@@ -43,40 +84,17 @@ export default async (req) => {
       )
     }
 
-    // Step 1: Fetch the website HTML
-    const url = domain.startsWith('http') ? domain : `https://${domain}`
-    let html = ''
-    try {
-      const pageRes = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BannerGen/1.0)' },
-      })
-      html = await pageRes.text()
-      // Trim to ~50k chars to fit in Claude context
-      html = html.slice(0, 50000)
-    } catch (fetchErr) {
-      return new Response(
-        JSON.stringify({ error: `Could not fetch ${url}: ${fetchErr.message}`, fallback: 'manual' }),
-        { status: 422, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
+    // Step 1: Try to fetch the website (multiple URL variants, timeout)
+    const fetchResult = await tryFetchVariants(domain)
+    const html = fetchResult?.html ? fetchResult.html.slice(0, 50000) : null
 
-    // Step 2: Send to Claude for extraction
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: `Analyze this website HTML and extract brand data. Return ONLY valid JSON, no markdown.
+    // Step 2: Build the Claude prompt — with HTML if available, or just domain name
+    const userContent = html
+      ? `Analyze this website HTML and extract brand data. Return ONLY valid JSON, no markdown, no explanation.
 
-HTML from ${domain}:
+Website: ${domain}
+
+HTML:
 ${html}
 
 Extract and return this JSON structure:
@@ -89,16 +107,45 @@ Extract and return this JSON structure:
   "audience": "target audience",
   "usp": "key differentiators",
   "logoUrl": "absolute URL to logo or null"
-}`,
-          },
-        ],
+}`
+      : `I could not fetch the website ${domain}. Based on the domain name alone and your general knowledge, make your best inference about this brand. Return ONLY valid JSON, no markdown, no explanation.
+
+If you don't recognize the domain, make reasonable assumptions from the domain name (e.g. ".pl" = Polish brand, industry hints from the name).
+
+Return this JSON structure:
+{
+  "name": "Brand name inferred from domain",
+  "colors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" },
+  "style": "visual style description (3-5 words)",
+  "photoStyle": "photography style",
+  "typography": "font/typography description",
+  "audience": "likely target audience",
+  "usp": "likely key differentiators",
+  "logoUrl": null
+}`
+
+    // Step 3: Send to Claude
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: userContent }],
       }),
     })
 
     if (!claudeRes.ok) {
       const errText = await claudeRes.text().catch(() => '')
       return new Response(
-        JSON.stringify({ error: `Claude API error: ${claudeRes.status}`, fallback: 'manual' }),
+        JSON.stringify({
+          error: `Claude API error: HTTP ${claudeRes.status} — ${errText.slice(0, 200)}`,
+          fallback: 'manual',
+        }),
         { status: 502, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -110,15 +157,26 @@ Extract and return this JSON structure:
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return new Response(
-        JSON.stringify({ error: 'Could not parse Claude response', fallback: 'manual' }),
+        JSON.stringify({ error: 'Could not parse Claude response', fallback: 'manual', raw: text.slice(0, 300) }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const brandData = JSON.parse(jsonMatch[0])
+    let brandData
+    try {
+      brandData = JSON.parse(jsonMatch[0])
+    } catch (parseErr) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON from Claude: ' + parseErr.message, fallback: 'manual' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     return new Response(
-      JSON.stringify({ brand: { ...brandData, domain } }),
+      JSON.stringify({
+        brand: { ...brandData, domain },
+        fetched: !!html,
+      }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (err) {

@@ -21,6 +21,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
   const [researchState, setResearchState] = useState('idle')
   const [researchError, setResearchError] = useState(null)
   const [logoUrl, setLogoUrl] = useState(null)
+  const [fetchedSite, setFetchedSite] = useState(false)
 
   // Run research automatically when domain is set
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
           usp: b.usp || '',
         })
         setLogoUrl(b.logoUrl || null)
+        setFetchedSite(!!data.fetched)
         setResearchState('done')
       } catch (err) {
         if (cancelled) return
@@ -101,9 +103,15 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {researchState === 'done' && (
+      {researchState === 'done' && fetchedSite && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-4">
-          ✅ <strong>Auto-research zakończony</strong> — dane marki wypełnione automatycznie na podstawie <strong>{domain}</strong>. Możesz je poprawić przed dalej.
+          ✅ <strong>Auto-research zakończony</strong> — Claude przeanalizował stronę <strong>{domain}</strong>. Możesz poprawić dane przed dalej.
+        </div>
+      )}
+
+      {researchState === 'done' && !fetchedSite && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800 mb-4">
+          🔶 <strong>Strona niedostępna</strong> — nie udało się pobrać <strong>{domain}</strong>, ale Claude zgadnął dane na podstawie nazwy domeny. <strong>Sprawdź i popraw</strong> poniższe pola.
         </div>
       )}
 
