@@ -11,16 +11,30 @@
  * to infer the brand from the domain name alone.
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-/** Lazily create a Supabase client — null if env vars not set */
-function getSupabase() {
+/**
+ * Lazily create a Supabase client — null if env vars not set OR if the
+ * package fails to load (bundling issue on Netlify). We use a dynamic
+ * import so a broken install never crashes the whole function — at worst
+ * we lose the L2 cache and fall back to running Claude every time.
+ */
+async function getSupabase() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_KEY
   if (!url || !key) return null
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  try {
+    const mod = await import('@supabase/supabase-js')
+    const createClient = mod.createClient || mod.default?.createClient
+    if (!createClient) {
+      console.warn('Supabase: createClient not found in module exports')
+      return null
+    }
+    return createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  } catch (e) {
+    console.warn('Supabase: failed to load @supabase/supabase-js —', e.message)
+    return null
+  }
 }
 
 /** Normalize a domain so the cache key is stable */
@@ -157,7 +171,7 @@ export default async (req) => {
     }
 
     const normalizedDomain = normalizeDomain(domain)
-    const supabase = getSupabase()
+    const supabase = await getSupabase()
 
     // ---- L2 CACHE LOOKUP (Supabase) ----
     // Skip cache if user explicitly asked for fresh research (refresh button)
@@ -291,8 +305,13 @@ ${SCHEMA_INSTRUCTIONS}`
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (err) {
+    console.error('research-domain fatal error:', err)
     return new Response(
-      JSON.stringify({ error: err.message, fallback: 'manual' }),
+      JSON.stringify({
+        error: err.message || 'Unknown error',
+        stack: err.stack?.split('\n').slice(0, 3).join(' | '),
+        fallback: 'manual',
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
