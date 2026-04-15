@@ -1,8 +1,77 @@
 /**
- * Netlify Function: Domain research via Claude API.
- * Tries to fetch the website; if that fails, still asks Claude
+ * Netlify Function: Domain research via Claude API + Supabase L2 cache.
+ *
+ * Flow:
+ *   1. If ?force=true OR not in body: skip cache → always run fresh research
+ *   2. Otherwise: SELECT from supabase brand_research WHERE domain = ?
+ *      - Hit → return cached data (fast, ~50ms, zero Claude cost)
+ *      - Miss → run Claude → UPSERT result into supabase
+ *
+ * Tries to fetch the client website; if that fails, still asks Claude
  * to infer the brand from the domain name alone.
  */
+
+import { createClient } from '@supabase/supabase-js'
+
+/** Lazily create a Supabase client — null if env vars not set */
+function getSupabase() {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_KEY
+  if (!url || !key) return null
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+/** Normalize a domain so the cache key is stable */
+function normalizeDomain(domain) {
+  return String(domain || '')
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/+$/, '')
+}
+
+/** Read from Supabase L2 cache; returns null if miss or error */
+async function readSharedCache(supabase, normalizedDomain) {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase
+      .from('brand_research')
+      .select('brand_data, fetched, updated_at')
+      .eq('domain', normalizedDomain)
+      .maybeSingle()
+    if (error) {
+      console.warn('Supabase read error:', error.message)
+      return null
+    }
+    return data || null
+  } catch (e) {
+    console.warn('Supabase read exception:', e.message)
+    return null
+  }
+}
+
+/** Upsert successful research into Supabase L2 cache; never throws */
+async function writeSharedCache(supabase, normalizedDomain, brand, fetched) {
+  if (!supabase) return
+  try {
+    const { error } = await supabase
+      .from('brand_research')
+      .upsert(
+        {
+          domain: normalizedDomain,
+          brand_data: brand,
+          fetched: !!fetched,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'domain' }
+      )
+    if (error) console.warn('Supabase write error:', error.message)
+  } catch (e) {
+    console.warn('Supabase write exception:', e.message)
+  }
+}
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -77,7 +146,8 @@ export default async (req) => {
   }
 
   try {
-    const { domain } = await req.json()
+    const body = await req.json()
+    const { domain, force } = body
 
     if (!domain) {
       return new Response(
@@ -86,6 +156,27 @@ export default async (req) => {
       )
     }
 
+    const normalizedDomain = normalizeDomain(domain)
+    const supabase = getSupabase()
+
+    // ---- L2 CACHE LOOKUP (Supabase) ----
+    // Skip cache if user explicitly asked for fresh research (refresh button)
+    if (!force) {
+      const cached = await readSharedCache(supabase, normalizedDomain)
+      if (cached) {
+        return new Response(
+          JSON.stringify({
+            brand: { ...cached.brand_data, domain },
+            fetched: cached.fetched,
+            source: 'shared-cache',
+            cachedAt: cached.updated_at,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // ---- CACHE MISS (or forced refresh) → run actual research ----
     // Step 1: Try to fetch the website (multiple URL variants, timeout)
     const fetchResult = await tryFetchVariants(domain)
     const html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
@@ -188,10 +279,14 @@ ${SCHEMA_INSTRUCTIONS}`
       )
     }
 
+    // ---- WRITE TO L2 CACHE (best-effort, non-blocking failure) ----
+    await writeSharedCache(supabase, normalizedDomain, brandData, !!html)
+
     return new Response(
       JSON.stringify({
         brand: { ...brandData, domain },
         fetched: !!html,
+        source: 'fresh',
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )

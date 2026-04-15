@@ -33,6 +33,8 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
   const [fetchedSite, setFetchedSite] = useState(false)
   const [deepBrand, setDeepBrand] = useState({})
   const [cachedTimestamp, setCachedTimestamp] = useState(null)
+  // 'local' (from this browser's localStorage), 'shared' (from Supabase), 'fresh' (just researched)
+  const [cacheSource, setCacheSource] = useState(null)
 
   /** Apply a brand data object (from API or cache) to the form + deep brand state */
   const applyBrandData = useCallback((b, fromCache = false) => {
@@ -62,8 +64,12 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     setLogoUrl(b.logoUrl || null)
   }, [])
 
-  /** Run the Claude research API — with graceful HTML/JSON handling */
-  const runResearch = useCallback(async (signal) => {
+  /**
+   * Run the Claude research API — with graceful HTML/JSON handling.
+   * @param {AbortSignal} [signal]
+   * @param {boolean} [force] — if true, bypasses Supabase L2 cache (for refresh button)
+   */
+  const runResearch = useCallback(async (signal, force = false) => {
     setResearchState('researching')
     setResearchError(null)
 
@@ -71,7 +77,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
       const res = await fetch('/.netlify/functions/research-domain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain }),
+        body: JSON.stringify({ domain, force }),
         signal,
       })
 
@@ -104,9 +110,17 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
       applyBrandData(b, false)
       setFetchedSite(!!data.fetched)
       setResearchState('done')
-      setCachedTimestamp(Date.now())
 
-      // Save to cache so next visit is instant
+      // Track where this came from (server-side shared cache vs. fresh Claude call)
+      if (data.source === 'shared-cache') {
+        setCacheSource('shared')
+        setCachedTimestamp(data.cachedAt ? new Date(data.cachedAt).getTime() : Date.now())
+      } else {
+        setCacheSource('fresh')
+        setCachedTimestamp(Date.now())
+      }
+
+      // Always save to L1 (localStorage) so next visit on this browser is instant
       saveResearch(domain, b, !!data.fetched)
     } catch (err) {
       if (signal?.aborted) return
@@ -125,24 +139,26 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     const cached = loadResearch(domain)
 
     if (cached) {
-      // CACHE HIT — don't hit the API
+      // L1 CACHE HIT (this browser's localStorage) — don't hit the API
       applyBrandData(cached.brand, true)
       setFetchedSite(cached.fetched)
       setCachedTimestamp(cached.timestamp)
+      setCacheSource('local')
       setResearchState('cached')
     } else {
-      // CACHE MISS — run research automatically
+      // L1 MISS — run research (server may still hit L2 Supabase cache)
       runResearch(controller.signal)
     }
 
     return () => controller.abort()
   }, [domain, applyBrandData, runResearch])
 
-  /** Manual refresh — user clicked "Odśwież research" */
+  /** Manual refresh — user clicked "Odśwież research". Bypasses BOTH caches. */
   const handleRefresh = () => {
     clearResearch(domain)
     setCachedTimestamp(null)
-    runResearch()
+    setCacheSource(null)
+    runResearch(undefined, true) // force=true → server skips Supabase, calls Claude
   }
 
   const update = (key, val) => setBrand((p) => ({ ...p, [key]: val }))
@@ -186,18 +202,47 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
   // Decide which top banner to show
   const renderBanner = () => {
     if (researchState === 'cached') {
+      // L1 hit — local browser cache
       return (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm text-indigo-900 mb-4">
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">💾</span>
             <div className="flex-1">
-              <div className="font-semibold mb-0.5">Dane z cache — {formatAge(cachedTimestamp)}</div>
+              <div className="font-semibold mb-0.5">
+                Dane z cache lokalnego — {formatAge(cachedTimestamp)}
+              </div>
               <div className="text-xs text-indigo-700 mb-2">
-                Claude już kiedyś przeanalizował <strong>{domain}</strong>. Dane zostały automatycznie załadowane. Jeśli coś się zmieniło na stronie, odśwież research.
+                Już kiedyś analizowałeś <strong>{domain}</strong> w tej przeglądarce. Dane zostały załadowane automatycznie. Jeśli strona klienta się zmieniła — odśwież.
               </div>
               <button
                 onClick={handleRefresh}
                 className="text-xs bg-indigo-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                🔄 Odśwież research
+              </button>
+              {renderDeepBrandDetails()}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (researchState === 'done' && cacheSource === 'shared') {
+      // L2 hit — Supabase shared cache (someone else already researched this domain)
+      return (
+        <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm text-teal-900 mb-4">
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg leading-none mt-0.5">☁️</span>
+            <div className="flex-1">
+              <div className="font-semibold mb-0.5">
+                Dane z cache współdzielonego — {formatAge(cachedTimestamp)}
+              </div>
+              <div className="text-xs text-teal-700 mb-2">
+                Ktoś już wcześniej analizował <strong>{domain}</strong> — dane przyszły z bazy Supabase (zero kosztu Claude API). Jeśli chcesz świeży research — odśwież.
+              </div>
+              <button
+                onClick={handleRefresh}
+                className="text-xs bg-teal-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-teal-700 transition-colors"
               >
                 🔄 Odśwież research
               </button>
@@ -214,7 +259,9 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">✅</span>
             <div className="flex-1">
-              <div className="font-semibold mb-1.5">Research zakończony — Claude przeanalizował {domain}</div>
+              <div className="font-semibold mb-1.5">
+                Świeży research — Claude przeanalizował {domain}
+              </div>
               {renderDeepBrandDetails()}
               <button
                 onClick={handleRefresh}
