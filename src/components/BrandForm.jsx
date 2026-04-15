@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
- * Manual brand data form — used when Claude API is not available for auto-research.
- * When Claude API is connected, this form is auto-filled from domain research.
+ * Brand data form — auto-filled by Claude API domain research,
+ * with manual fallback if the API is unavailable or fails.
  */
 export default function BrandForm({ domain, onSubmit, isLoading }) {
   const [brand, setBrand] = useState({
@@ -17,6 +17,64 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     usp: '',
   })
 
+  // Research state: 'idle' | 'researching' | 'done' | 'failed'
+  const [researchState, setResearchState] = useState('idle')
+  const [researchError, setResearchError] = useState(null)
+  const [logoUrl, setLogoUrl] = useState(null)
+
+  // Run research automatically when domain is set
+  useEffect(() => {
+    if (!domain) return
+
+    let cancelled = false
+    const runResearch = async () => {
+      setResearchState('researching')
+      setResearchError(null)
+
+      try {
+        const res = await fetch('/.netlify/functions/research-domain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain }),
+        })
+
+        const data = await res.json()
+
+        if (cancelled) return
+
+        if (!res.ok) {
+          // 501 = API key not configured; other codes = real errors
+          setResearchState('failed')
+          setResearchError(data.message || data.error || `HTTP ${res.status}`)
+          return
+        }
+
+        // Auto-fill the form from Claude's response
+        const b = data.brand || {}
+        setBrand({
+          name: b.name || '',
+          primary: b.colors?.primary || '#000000',
+          secondary: b.colors?.secondary || '#666666',
+          accent: b.colors?.accent || '#E84C0E',
+          style: b.style || 'minimalist, premium',
+          photoStyle: b.photoStyle || 'lifestyle photography',
+          typography: b.typography || 'modern sans-serif, bold headlines',
+          audience: b.audience || '',
+          usp: b.usp || '',
+        })
+        setLogoUrl(b.logoUrl || null)
+        setResearchState('done')
+      } catch (err) {
+        if (cancelled) return
+        setResearchState('failed')
+        setResearchError(err.message)
+      }
+    }
+
+    runResearch()
+    return () => { cancelled = true }
+  }, [domain])
+
   const update = (key, val) => setBrand((p) => ({ ...p, [key]: val }))
 
   const handleSubmit = (e) => {
@@ -25,16 +83,41 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     onSubmit({
       ...brand,
       domain,
+      logoUrl,
       colors: { primary: brand.primary, secondary: brand.secondary, accent: brand.accent },
     })
   }
 
+  // Loading state — research in progress
+  if (researchState === 'researching') {
+    return (
+      <div className="py-10 text-center">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-gray-900 mb-4"></div>
+        <div className="text-sm font-semibold text-gray-900">Analizuję markę {domain}...</div>
+        <div className="text-xs text-gray-400 mt-1">Claude czyta stronę i wyciąga dane brandowe</div>
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
-        💡 <strong>Tryb ręczny</strong> — wpisz dane marki poniżej. Po podłączeniu klucza Claude API
-        ten formularz będzie wypełniany automatycznie na podstawie researchu domeny <strong>{domain}</strong>.
-      </div>
+      {researchState === 'done' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-4">
+          ✅ <strong>Auto-research zakończony</strong> — dane marki wypełnione automatycznie na podstawie <strong>{domain}</strong>. Możesz je poprawić przed dalej.
+        </div>
+      )}
+
+      {researchState === 'failed' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 mb-4">
+          ⚠️ <strong>Auto-research nieudany</strong> — {researchError}. Wypełnij dane marki ręcznie.
+        </div>
+      )}
+
+      {researchState === 'idle' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
+          💡 <strong>Tryb ręczny</strong> — wpisz dane marki poniżej.
+        </div>
+      )}
 
       <Field label="Nazwa marki">
         <input
