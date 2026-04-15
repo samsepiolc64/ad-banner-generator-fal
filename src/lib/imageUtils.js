@@ -121,11 +121,71 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 /**
+ * Detect scene lighting direction by comparing left vs right and top vs bottom luminance.
+ * Returns { dx, dy } — a normalized vector pointing FROM the light source TOWARD shadows.
+ * Used to cast a realistic drop shadow matching the scene.
+ */
+function detectLightingDirection(bitmap) {
+  const scale = Math.min(1, 200 / Math.max(bitmap.width, bitmap.height))
+  const sw = Math.round(bitmap.width * scale)
+  const sh = Math.round(bitmap.height * scale)
+  const c = document.createElement('canvas')
+  c.width = sw
+  c.height = sh
+  const ctx = c.getContext('2d')
+  ctx.drawImage(bitmap, 0, 0, sw, sh)
+  const data = ctx.getImageData(0, 0, sw, sh).data
+
+  let leftL = 0, rightL = 0, topL = 0, bottomL = 0
+  let leftN = 0, rightN = 0, topN = 0, bottomN = 0
+
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      const i = (y * sw + x) * 4
+      const l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+      if (x < sw / 2) { leftL += l; leftN++ } else { rightL += l; rightN++ }
+      if (y < sh / 2) { topL += l; topN++ } else { bottomL += l; bottomN++ }
+    }
+  }
+
+  const dxRaw = (rightL / rightN - leftL / leftN) / 255   // positive = brighter on right → light from right → shadow falls left
+  const dyRaw = (bottomL / bottomN - topL / topN) / 255   // positive = brighter on bottom → light from below → shadow falls up
+
+  // Shadow falls AWAY from light: flip sign
+  // Clamp and soften to avoid extreme shadows when scene is balanced
+  const dx = Math.max(-1, Math.min(1, -dxRaw * 2))
+  const dy = Math.max(-1, Math.min(1, -dyRaw * 2))
+
+  return { dx, dy }
+}
+
+/**
+ * Sample the average color within a region — used for tonal matching.
+ * Returns { r, g, b } normalized 0-255.
+ */
+function sampleRegionColor(bitmap, rx, ry, rw, rh) {
+  const scale = Math.min(1, 100 / Math.max(rw, rh))
+  const sw = Math.max(4, Math.round(rw * scale))
+  const sh = Math.max(4, Math.round(rh * scale))
+  const c = document.createElement('canvas')
+  c.width = sw
+  c.height = sh
+  c.getContext('2d').drawImage(bitmap, rx, ry, rw, rh, 0, 0, sw, sh)
+  const data = c.getContext('2d').getImageData(0, 0, sw, sh).data
+  let r = 0, g = 0, b = 0, n = 0
+  for (let i = 0; i < data.length; i += 4) {
+    r += data[i]; g += data[i + 1]; b += data[i + 2]; n++
+  }
+  return { r: r / n, g: g / n, b: b / n }
+}
+
+/**
  * Composite a user-provided logo onto a generated banner.
  * - Pixel-perfect fidelity (no AI redraw)
  * - Smart placement: analyzes 4 corners and picks the cleanest one
- * - Adapts to lightness: subtle white backing on dark areas, soft shadow on light areas
- * - Size adapts to banner aspect ratio (wider banners get smaller logo)
+ * - Scene-aware: cast shadow direction matches scene lighting
+ * - Respects existing transparency: if logo has alpha, no white backing needed
+ * - Adaptive size: wide banners get smaller logo, tall banners get larger
  */
 export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, targetH) {
   const [bannerBmp, logoBmp] = await Promise.all([
@@ -136,6 +196,13 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
       return createImageBitmap(b)
     })(),
   ])
+
+  // Is the logo itself transparent? (affects whether we need white backing)
+  const logoCheckCanvas = document.createElement('canvas')
+  logoCheckCanvas.width = logoBmp.width
+  logoCheckCanvas.height = logoBmp.height
+  logoCheckCanvas.getContext('2d').drawImage(logoBmp, 0, 0)
+  const logoHasAlpha = hasTransparency(logoCheckCanvas)
 
   // Adaptive size: wide banners → smaller logo, tall banners → larger
   const aspectRatio = bannerBmp.width / bannerBmp.height
@@ -169,6 +236,15 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   else if (best.name === 'bl') { x = pad; y = bannerBmp.height - drawH - pad }
   else if (best.name === 'br') { x = bannerBmp.width - drawW - pad; y = bannerBmp.height - drawH - pad }
 
+  // Scene-aware lighting detection — determines shadow direction
+  const lighting = detectLightingDirection(bannerBmp)
+  const shadowOffsetX = Math.round(drawW * 0.015 * lighting.dx)
+  const shadowOffsetY = Math.round(drawW * 0.015 * lighting.dy + drawW * 0.006) // bias slightly down (gravity)
+
+  // Sample the region behind the logo — used to judge if backing is actually needed
+  const regionColor = sampleRegionColor(bannerBmp, x, y, drawW, drawH)
+  const regionLum = (0.299 * regionColor.r + 0.587 * regionColor.g + 0.114 * regionColor.b) / 255
+
   // Draw composite
   const c = document.createElement('canvas')
   c.width = bannerBmp.width
@@ -176,34 +252,42 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   const ctx = c.getContext('2d')
   ctx.drawImage(bannerBmp, 0, 0)
 
-  const isDark = best.luminance < 0.45
+  const isDark = regionLum < 0.45
   const isBusy = best.stdDev > 0.14
 
-  // On dark OR busy areas — add subtle white rounded backing for legibility
-  if (isDark || isBusy) {
-    const backingPad = Math.round(Math.min(drawW, drawH) * 0.25)
+  // Decision tree:
+  // - Logo WITH alpha + clean area → just drop shadow (scene-matched)
+  // - Logo WITH alpha + dark/busy area → very subtle soft backing (not a hard white rectangle)
+  // - Logo WITHOUT alpha → logo has own background, draw as-is with drop shadow only
+  const needsBacking = logoHasAlpha && (isDark || isBusy)
+
+  if (needsBacking) {
+    const backingPad = Math.round(Math.min(drawW, drawH) * 0.22)
     const bx = x - backingPad
     const by = y - backingPad
     const bw = drawW + backingPad * 2
     const bh = drawH + backingPad * 2
-    const br = Math.round(Math.min(bw, bh) * 0.12)
+    const br = Math.round(Math.min(bw, bh) * 0.14)
 
     ctx.save()
-    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.78)'
-    // Soft outer shadow on the backing for a gentle lift
-    ctx.shadowColor = 'rgba(0,0,0,0.15)'
-    ctx.shadowBlur = Math.round(drawW * 0.05)
-    ctx.shadowOffsetY = Math.round(drawW * 0.012)
+    // Softer backing: white on dark, slight translucency — don't scream "sticker"
+    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.72)'
+    ctx.shadowColor = 'rgba(0,0,0,0.18)'
+    ctx.shadowBlur = Math.round(drawW * 0.06)
+    ctx.shadowOffsetX = shadowOffsetX * 0.6
+    ctx.shadowOffsetY = shadowOffsetY * 0.6 + Math.round(drawW * 0.008)
     roundRect(ctx, bx, by, bw, bh, br)
     ctx.fill()
     ctx.restore()
+
     ctx.drawImage(logoBmp, x, y, drawW, drawH)
   } else {
-    // Light & clean area — draw logo with a very subtle drop shadow for lift
+    // Clean area OR opaque logo — scene-matched drop shadow only
     ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.10)'
-    ctx.shadowBlur = Math.round(drawW * 0.03)
-    ctx.shadowOffsetY = Math.round(drawW * 0.008)
+    ctx.shadowColor = isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.14)'
+    ctx.shadowBlur = Math.round(drawW * 0.045)
+    ctx.shadowOffsetX = shadowOffsetX
+    ctx.shadowOffsetY = shadowOffsetY
     ctx.drawImage(logoBmp, x, y, drawW, drawH)
     ctx.restore()
   }
@@ -211,8 +295,133 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92))
 }
 
-/** Convert an SVG or image file to a PNG data URL (for logo) */
-export function fileToPngDataUrl(file, maxWidth = 600) {
+/**
+ * Check if an image already has transparent pixels (alpha < 255 anywhere).
+ * Samples a grid of pixels (fast, not full scan) for performance.
+ */
+export function hasTransparency(canvas) {
+  const ctx = canvas.getContext('2d')
+  const step = Math.max(1, Math.floor(Math.min(canvas.width, canvas.height) / 40))
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+
+  for (let y = 0; y < canvas.height; y += step) {
+    for (let x = 0; x < canvas.width; x += step) {
+      const i = (y * canvas.width + x) * 4
+      if (imgData[i + 3] < 250) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Remove a uniform background from a logo via flood-fill from the 4 corners.
+ * Works when background is a solid color (white, black, colored) — common for
+ * PNG/JPG logos exported from websites or PDFs.
+ *
+ * Returns: { canvas, removed, reason, bgColor }
+ *   - removed: true if bg was removed, false if skipped (non-uniform)
+ *   - reason: why skipped (or null on success)
+ *   - bgColor: detected background RGB tuple
+ */
+export function removeBackgroundFloodFill(canvas, tolerance = 18) {
+  const ctx = canvas.getContext('2d')
+  const w = canvas.width
+  const h = canvas.height
+  const imgData = ctx.getImageData(0, 0, w, h)
+  const data = imgData.data
+
+  // Sample 4 corners
+  const cornerPx = [
+    [0, 0],
+    [w - 1, 0],
+    [0, h - 1],
+    [w - 1, h - 1],
+  ]
+  const cornerColors = cornerPx.map(([x, y]) => {
+    const i = (y * w + x) * 4
+    return [data[i], data[i + 1], data[i + 2], data[i + 3]]
+  })
+
+  // If any corner is already transparent, treat that as bg
+  const anyTransparentCorner = cornerColors.some((c) => c[3] < 250)
+  if (anyTransparentCorner) {
+    return { canvas, removed: false, reason: 'already-has-alpha', bgColor: null }
+  }
+
+  // Check if corners are similar in color (indicating uniform bg)
+  const [r0, g0, b0] = cornerColors[0]
+  const uniform = cornerColors.every(
+    ([r, g, b]) =>
+      Math.abs(r - r0) < tolerance &&
+      Math.abs(g - g0) < tolerance &&
+      Math.abs(b - b0) < tolerance
+  )
+
+  if (!uniform) {
+    return { canvas, removed: false, reason: 'non-uniform-background', bgColor: null }
+  }
+
+  // Average corner colors for a stable bg reference
+  const bgR = Math.round(cornerColors.reduce((s, c) => s + c[0], 0) / 4)
+  const bgG = Math.round(cornerColors.reduce((s, c) => s + c[1], 0) / 4)
+  const bgB = Math.round(cornerColors.reduce((s, c) => s + c[2], 0) / 4)
+
+  // Iterative flood fill with 8-connectivity (4 cardinals, visited check)
+  const visited = new Uint8Array(w * h)
+  const stack = []
+
+  for (const [x, y] of cornerPx) {
+    stack.push(y * w + x)
+  }
+
+  // Soft-edge thresholds: fully transparent inside inner radius, feathered outside
+  const innerT = tolerance * 0.6
+  const outerT = tolerance
+
+  while (stack.length > 0) {
+    const idx = stack.pop()
+    if (visited[idx]) continue
+    visited[idx] = 1
+
+    const di = idx * 4
+    const dr = Math.abs(data[di] - bgR)
+    const dg = Math.abs(data[di + 1] - bgG)
+    const db = Math.abs(data[di + 2] - bgB)
+    const dist = Math.max(dr, dg, db)
+
+    if (dist > outerT) continue // too different, don't continue flood here
+
+    if (dist <= innerT) {
+      data[di + 3] = 0 // fully transparent
+    } else {
+      // Feather: partial alpha for soft edges
+      const t = (dist - innerT) / (outerT - innerT)
+      data[di + 3] = Math.round(t * 255)
+    }
+
+    // Expand to neighbors
+    const px = idx % w
+    const py = (idx - px) / w
+
+    if (px > 0) stack.push(idx - 1)
+    if (px < w - 1) stack.push(idx + 1)
+    if (py > 0) stack.push(idx - w)
+    if (py < h - 1) stack.push(idx + w)
+  }
+
+  ctx.putImageData(imgData, 0, 0)
+  return { canvas, removed: true, reason: null, bgColor: [bgR, bgG, bgB] }
+}
+
+/**
+ * Convert an SVG or image file to a PNG data URL (for logo).
+ * Optionally runs client-side background removal for logos on uniform bg.
+ *
+ * Returns: { dataUrl, bgRemoved, reason, hasAlpha }
+ */
+export function fileToPngDataUrl(file, maxWidth = 600, options = {}) {
+  const { tryRemoveBg = true } = options
+
   return new Promise((resolve, reject) => {
     const isSvg = file.type === 'image/svg+xml' || file.name.endsWith('.svg')
     const reader = new FileReader()
@@ -226,7 +435,48 @@ export function fileToPngDataUrl(file, maxWidth = 600) {
         cvs.height = h
         cvs.getContext('2d').drawImage(img, 0, 0, maxWidth, h)
         if (img._blobUrl) URL.revokeObjectURL(img._blobUrl)
-        resolve(cvs.toDataURL('image/png'))
+
+        // SVG is always transparent — skip bg removal
+        if (isSvg) {
+          resolve({
+            dataUrl: cvs.toDataURL('image/png'),
+            bgRemoved: false,
+            reason: 'svg',
+            hasAlpha: true,
+          })
+          return
+        }
+
+        // Check if already has transparency
+        const alreadyHasAlpha = hasTransparency(cvs)
+        if (alreadyHasAlpha) {
+          resolve({
+            dataUrl: cvs.toDataURL('image/png'),
+            bgRemoved: false,
+            reason: 'already-has-alpha',
+            hasAlpha: true,
+          })
+          return
+        }
+
+        // Try client-side flood-fill background removal
+        if (tryRemoveBg) {
+          const result = removeBackgroundFloodFill(cvs)
+          resolve({
+            dataUrl: cvs.toDataURL('image/png'),
+            bgRemoved: result.removed,
+            reason: result.reason || 'flood-fill',
+            hasAlpha: result.removed,
+          })
+          return
+        }
+
+        resolve({
+          dataUrl: cvs.toDataURL('image/png'),
+          bgRemoved: false,
+          reason: 'skipped',
+          hasAlpha: false,
+        })
       }
       img.onerror = () => {
         if (img._blobUrl) URL.revokeObjectURL(img._blobUrl)
@@ -244,5 +494,39 @@ export function fileToPngDataUrl(file, maxWidth = 600) {
 
     reader.onerror = () => reject(new Error('File read failed'))
     isSvg ? reader.readAsText(file) : reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Replace the background of an existing PNG data URL with AI-removed version.
+ * Calls the Netlify function which proxies to fal.ai's rembg.
+ */
+export async function removeBackgroundAI(dataUrl) {
+  const res = await fetch('/.netlify/functions/remove-bg', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageDataUrl: dataUrl }),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new Error(`AI bg-removal failed: HTTP ${res.status} — ${errText.slice(0, 200)}`)
+  }
+
+  const data = await res.json()
+  if (!data.imageUrl && !data.dataUrl) {
+    throw new Error('No image returned from bg-removal')
+  }
+
+  // Fetch the result image and convert to dataUrl
+  if (data.dataUrl) return data.dataUrl
+
+  const imgRes = await fetch(data.imageUrl)
+  const blob = await imgRes.blob()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Failed to read bg-removed image'))
+    reader.readAsDataURL(blob)
   })
 }

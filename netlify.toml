@@ -20,6 +20,9 @@
 [functions."generate-copy"]
   timeout = 30
 
+[functions."remove-bg"]
+  timeout = 30
+
 [[headers]]
   for = "/*"
   [headers.values]
