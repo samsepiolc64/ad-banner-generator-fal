@@ -87,7 +87,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     throw new Error('Timeout — fal.ai nie odpowiedział w 3 minuty')
   }
 
-  const generateOne = async (fmt) => {
+  const generateOne = async (fmt, signal) => {
     updateStatus(fmt.id, { status: 'generating' })
 
     const model = resolveModel(fmt)
@@ -97,9 +97,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     const finalPrompt = fmt.prompt.replace('{{LOGO_BLOCK}}', logoBlock)
 
     try {
-      const controller = new AbortController()
-      abortRef.current = controller
-
       // Step 1: Submit to fal.ai queue (no reference image — pure t2i)
       const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
@@ -110,7 +107,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           modelType: model.type,
           useLogo: false,
         }),
-        signal: controller.signal,
+        signal,
       })
 
       if (!submitRes.ok) {
@@ -127,7 +124,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const imgUrl = await pollForResult(
         submitData.status_url,
         submitData.response_url,
-        controller.signal
+        signal
       )
 
       // Step 3: Fetch, resize, composite logo (pixel-perfect), compress, save
@@ -172,7 +169,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const retryOne = async (fmt) => {
     if (running) return
     setRunning(true)
-    await generateOne(fmt)
+    const controller = new AbortController()
+    abortRef.current = controller
+    await generateOne(fmt, controller.signal)
     setRunning(false)
   }
 
@@ -180,10 +179,15 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     if (running) return
     setRunning(true)
 
-    for (const fmt of formats) {
-      if (statuses[fmt.id]?.status === 'done') continue
-      await generateOne(fmt)
-    }
+    // Single shared AbortController — stopGeneration cancels all in-flight requests at once
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    const pending = formats.filter((f) => statuses[f.id]?.status !== 'done')
+
+    // Fire all submissions simultaneously — fal.ai queue handles concurrency on their end.
+    // Each generateOne independently polls its own request_id, so they truly run in parallel.
+    await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
 
     setRunning(false)
   }
