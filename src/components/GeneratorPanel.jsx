@@ -2,9 +2,8 @@ import { useState, useRef } from 'react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
 
-const LOGO_BLOCK_WITH = `(Not used — logo is always composited locally for pixel-perfect fidelity.)`
-
-const LOGO_BLOCK_WITHOUT = `LOGO RULES — CRITICAL, read carefully:
+// Used when a real logo WILL be composited after generation — reserve a clean corner
+const LOGO_BLOCK_WITH_LOGO = `LOGO RULES — CRITICAL, read carefully:
 
 ALLOWED (this is realistic product photography, do it naturally):
 - Brand name / logo may appear ON THE PRODUCT ITSELF — on the jar label, bottle, box, packaging, tube, or any container surface that is part of the product mockup. This is expected for commercial product shots.
@@ -21,6 +20,20 @@ CLEAN CORNER REQUIREMENT — this is where our real logo will be overlaid:
 - Reserve at least ONE of the four corners (top-left, top-right, bottom-left, bottom-right) as calm, uniform, content-free empty space
 - The empty corner must read as natural, purposeful compositional breathing room — NOT as a gap or placeholder
 - Do NOT render placeholder boxes, "logo here" text, dashed outlines, dotted rectangles, bracket marks, or any indicator of a reserved area — just clean empty space`
+
+// Used when NO logo is provided — no corner reservation needed, still forbid floating logos
+const LOGO_BLOCK_NO_LOGO = `LOGO RULES — CRITICAL, read carefully:
+
+ALLOWED (this is realistic product photography, do it naturally):
+- Brand name / logo may appear ON THE PRODUCT ITSELF — on the jar label, bottle, box, packaging, tube, or any container surface that is part of the product mockup.
+
+FORBIDDEN everywhere outside the product surface:
+- No brand logo, wordmark, or company name as a floating/standalone graphic element anywhere in the composition
+- No badges, seals, medallions, stickers, or emblems containing the brand name outside the product
+- No watermarks, signatures, URL tags, or brand marks overlaid on background or negative space
+- No brand name rendered as a large typographic hero / decorative text element
+- No "inspired-by" lookalike logos, stylized monograms, or typography that reads as a brand mark
+- Do NOT add any brand identity text element that was not explicitly listed in AD COPY PLACEMENT`
 
 export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain }) {
   const [statuses, setStatuses] = useState(() => {
@@ -92,15 +105,14 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
-    // Always reserve clean space — we'll composite the real logo locally after generation
-    const logoBlock = LOGO_BLOCK_WITHOUT
 
-    // When a logo is provided, strongly suppress fal.ai from rendering the brand name as
-    // floating text. The name appears in BRAND DNA for style context only — fal.ai must NOT
-    // treat it as a text element to render. Logo is composited programmatically after generation.
-    const brandNameSuppress = hasLogo
-      ? `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: The real logo will be composited onto this image after generation. Therefore: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark floating in any area. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as text.`
-      : ''
+    // Pick the right logo block based on whether a real logo will be composited
+    const logoBlock = hasLogo ? LOGO_BLOCK_WITH_LOGO : LOGO_BLOCK_NO_LOGO
+
+    // Always suppress fal.ai from rendering the brand name as floating text.
+    // With logo: real logo is composited after — fal.ai must not pre-draw it.
+    // Without logo: still unwanted — hallucinated wordmarks look unprofessional.
+    const brandNameSuppress = `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark as a floating element. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as standalone text.`
 
     const finalPrompt = fmt.prompt
       .replace('{{LOGO_BLOCK}}', logoBlock)
