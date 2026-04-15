@@ -44,16 +44,19 @@ export async function compressToJpeg(srcBlob, maxBytes = 500000) {
     if (b && b.size <= maxBytes) return b
   }
 
-  for (let sc = 0.9; sc >= 0.4; sc = Math.round((sc - 0.1) * 10) / 10) {
+  for (let sc = 0.9; sc >= 0.2; sc = Math.round((sc - 0.1) * 10) / 10) {
     const c2 = document.createElement('canvas')
     c2.width = Math.round(bmp.width * sc)
     c2.height = Math.round(bmp.height * sc)
     c2.getContext('2d').drawImage(bmp, 0, 0, c2.width, c2.height)
-    const b = await new Promise((r) => c2.toBlob(r, 'image/jpeg', 0.75))
-    if (b && b.size <= maxBytes) return b
+    for (let q = 0.75; q >= 0.4; q = Math.round((q - 0.1) * 10) / 10) {
+      const b = await new Promise((r) => c2.toBlob(r, 'image/jpeg', q))
+      if (b && b.size <= maxBytes) return b
+    }
   }
 
-  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.5))
+  // Absolute fallback — 20% scale, q=0.3: should be well under 500 KB for any banner size
+  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.3))
 }
 
 /**
