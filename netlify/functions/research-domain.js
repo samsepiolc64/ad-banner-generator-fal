@@ -19,12 +19,13 @@ export default async (req) => {
     })
   }
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+  // Accept either CLAUDE_API_KEY or ANTHROPIC_API_KEY (for flexibility)
+  const ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY
 
   if (!ANTHROPIC_API_KEY) {
     return new Response(
       JSON.stringify({
-        error: 'ANTHROPIC_API_KEY not configured',
+        error: 'CLAUDE_API_KEY (or ANTHROPIC_API_KEY) not configured',
         fallback: 'manual',
         message: 'Klucz Claude API nie jest skonfigurowany. Użyj ręcznego formularza marki.',
       }),
