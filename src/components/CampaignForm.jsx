@@ -130,7 +130,11 @@ export default function CampaignForm({ onSubmit, isLoading }) {
               <div className="flex items-center gap-3 min-w-0">
                 <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
                   ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-400'}`}>
-                  {isDone ? '✓' : idx + 1}
+                  {isDone ? (
+                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <path d="M2 6l3 3 5-5"/>
+                    </svg>
+                  ) : idx + 1}
                 </span>
                 <div className="min-w-0">
                   <div className={`font-bold ${isActive ? 'text-gray-900' : isDone ? 'text-gray-600' : 'text-gray-400'}`}>
@@ -165,19 +169,39 @@ export default function CampaignForm({ onSubmit, isLoading }) {
                     type="button"
                     onClick={advanceSection}
                     disabled={!canAdvance}
-                    className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-bold
-                               hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                    className="w-full bg-brand-navy text-white rounded-xl py-3 text-sm font-bold
+                               hover:bg-brand-navy-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+                               transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    Dalej →
+                    Dalej
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                      <path d="M6 12l4-4-4-4"/>
+                    </svg>
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={!isValid || isLoading}
-                    className="w-full bg-gray-900 text-white rounded-xl py-3.5 text-base font-bold
-                               hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    className="w-full bg-brand-blue text-white rounded-xl py-3.5 text-base font-bold
+                               hover:bg-brand-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed
+                               transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {isLoading ? 'Przygotowuję prompty...' : '⚡ Generuj bannery'}
+                    {isLoading ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
+                        </svg>
+                        Przygotowuję prompty...
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                          <path d="M9 1L3 9h5l-1 6 7-8H9l1-6z"/>
+                        </svg>
+                        Generuj bannery
+                      </>
+                    )}
                   </button>
                 )}
               </div>

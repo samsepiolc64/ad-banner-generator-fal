@@ -177,18 +177,24 @@ export default function App() {
           </div>
 
           {/* Step indicator */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center mt-3">
             {['Kampania', 'Marka', 'Generowanie'].map((label, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className={`flex items-center gap-1.5 text-xs font-medium
-                  ${i === step ? 'text-gray-900' : i < step ? 'text-brand-green' : 'text-gray-300'}`}>
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold
-                    ${i === step ? 'bg-gray-900 text-white' : i < step ? 'bg-brand-green text-white' : 'bg-gray-200 text-gray-400'}`}>
-                    {i < step ? '✓' : i + 1}
+              <div key={i} className="flex items-center">
+                <div className={`flex items-center gap-1.5 text-xs font-semibold
+                  ${i === step ? 'text-brand-navy' : i < step ? 'text-brand-green' : 'text-gray-300'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
+                    ${i === step ? 'bg-brand-navy text-white' : i < step ? 'bg-brand-green text-white' : 'bg-gray-200 text-gray-400'}`}>
+                    {i < step ? (
+                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
+                        <path d="M2 6l3 3 5-5"/>
+                      </svg>
+                    ) : (
+                      <span className="text-[10px] font-bold">{i + 1}</span>
+                    )}
                   </span>
                   {label}
                 </div>
-                {i < 2 && <div className="w-8 h-px bg-gray-200" />}
+                {i < 2 && <div className="flex-1 mx-2 h-px bg-gray-200 min-w-[20px]" />}
               </div>
             ))}
           </div>
@@ -198,9 +204,12 @@ export default function App() {
         {step > 0 && step < STEPS.GENERATE && (
           <button
             onClick={goBack}
-            className="text-sm text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1"
+            className="text-sm text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1 cursor-pointer transition-colors"
           >
-            ← Wróć
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M10 12L6 8l4-4"/>
+            </svg>
+            Wróć
           </button>
         )}
 
