@@ -270,177 +270,140 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
 
   // Decide which top banner to show
   const renderBanner = () => {
-    if (researchState === 'prefilled') {
-      return (
-        <div className="bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 rounded-lg p-3 text-sm text-violet-900 dark:text-violet-200 mb-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">🗂️</span>
-            <div className="flex-1">
-              <div className="font-semibold mb-0.5">Dane marki z bazy klientów</div>
-              <div className="text-xs text-violet-700 dark:text-violet-400 mb-2">
-                Formularz został wypełniony danymi <strong>{domain}</strong> z Twojej bazy. Sprawdź i popraw jeśli coś się zmieniło.
-              </div>
-              <button
-                onClick={handleRefresh}
-                className="text-xs bg-violet-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-violet-700 transition-colors"
-              >
-                🔄 Odśwież research
-              </button>
-            </div>
-          </div>
-        </div>
-      )
+    const configs = {
+      prefilled: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5">
+            <rect x="2" y="3" width="12" height="10" rx="1.5"/>
+            <path d="M5 7h6M5 10h4"/>
+          </svg>
+        ),
+        title: `Dane marki z bazy — ${domain}`,
+        body: 'Formularz wypełniony z Twojej bazy klientów. Sprawdź i popraw jeśli coś się zmieniło.',
+        btnLabel: 'Odśwież research',
+        showDetails: false,
+      },
+      cached: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M8 5v3.5l2 1.5"/>
+          </svg>
+        ),
+        title: `Cache lokalny — ${formatAge(cachedTimestamp)}`,
+        body: `Dane ${domain} załadowane z pamięci przeglądarki. Odśwież jeśli strona klienta się zmieniła.`,
+        btnLabel: 'Odśwież research',
+        showDetails: true,
+      },
+      shared: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5">
+            <path d="M13 10.5c0 1.1-.9 2-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1"/>
+            <path d="M10 3.5 8 1.5 6 3.5M8 1.5v7"/>
+          </svg>
+        ),
+        title: `Cache współdzielony — ${formatAge(cachedTimestamp)}`,
+        body: `Dane ${domain} pobrane z bazy Supabase (zero kosztu Claude API). Odśwież dla świeższych danych.`,
+        btnLabel: 'Odśwież research',
+        showDetails: true,
+      },
+      done_ok: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M5.5 8l2 2 3-3"/>
+          </svg>
+        ),
+        title: `Research gotowy — ${domain}`,
+        body: null,
+        btnLabel: 'Odśwież research',
+        showDetails: true,
+      },
+      done_nosite: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
+            <path d="M8 2L14 13H2L8 2z"/>
+            <path d="M8 7v3M8 11.5v.5"/>
+          </svg>
+        ),
+        title: 'Strona niedostępna',
+        body: `Nie udało się pobrać ${domain} — Claude wygenerował dane na podstawie nazwy domeny. Sprawdź i popraw pola poniżej.`,
+        btnLabel: 'Spróbuj ponownie',
+        showDetails: false,
+      },
+      failed: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M5.5 5.5l5 5M10.5 5.5l-5 5"/>
+          </svg>
+        ),
+        title: 'Auto-research nieudany',
+        body: `${researchError} — Wypełnij dane marki ręcznie lub spróbuj ponownie.`,
+        btnLabel: 'Spróbuj ponownie',
+        showDetails: false,
+      },
     }
 
-    if (researchState === 'cached') {
-      // L1 hit — local browser cache
-      return (
-        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 text-sm text-indigo-900 dark:text-indigo-200 mb-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">💾</span>
-            <div className="flex-1">
-              <div className="font-semibold mb-0.5">
-                Dane z cache lokalnego — {formatAge(cachedTimestamp)}
-              </div>
-              <div className="text-xs text-indigo-700 dark:text-indigo-400 mb-2">
-                Już kiedyś analizowałeś <strong>{domain}</strong> w tej przeglądarce. Dane zostały załadowane automatycznie. Jeśli strona klienta się zmieniła — odśwież.
-              </div>
-              <button
-                onClick={handleRefresh}
-                className="text-xs bg-indigo-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-indigo-700 transition-colors"
-              >
-                🔄 Odśwież research
-              </button>
-              {renderDeepBrandDetails()}
-            </div>
+    let key = null
+    if (researchState === 'prefilled')                      key = 'prefilled'
+    else if (researchState === 'cached')                    key = 'cached'
+    else if (researchState === 'done' && cacheSource === 'shared') key = 'shared'
+    else if (researchState === 'done' && fetchedSite)       key = 'done_ok'
+    else if (researchState === 'done' && !fetchedSite)      key = 'done_nosite'
+    else if (researchState === 'failed')                    key = 'failed'
+
+    if (!key) return null
+    const c = configs[key]
+
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-4">
+        <div className="flex items-start gap-2.5">
+          {c.icon}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">{c.title}</div>
+            {c.body && <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{c.body}</div>}
+            {c.showDetails && renderDeepBrandDetails()}
+            <button
+              onClick={handleRefresh}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl px-3 py-1.5 font-medium hover:border-gray-400 dark:hover:border-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            >
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                <path d="M12 7A5 5 0 1 1 9 2.6"/>
+                <path d="M9 1v3h3"/>
+              </svg>
+              {c.btnLabel}
+            </button>
           </div>
         </div>
-      )
-    }
-
-    if (researchState === 'done' && cacheSource === 'shared') {
-      // L2 hit — Supabase shared cache (someone else already researched this domain)
-      return (
-        <div className="bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-lg p-3 text-sm text-teal-900 dark:text-teal-200 mb-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">☁️</span>
-            <div className="flex-1">
-              <div className="font-semibold mb-0.5">
-                Dane z cache współdzielonego — {formatAge(cachedTimestamp)}
-              </div>
-              <div className="text-xs text-teal-700 dark:text-teal-400 mb-2">
-                Ktoś już wcześniej analizował <strong>{domain}</strong> — dane przyszły z bazy Supabase (zero kosztu Claude API). Jeśli chcesz świeży research — odśwież.
-              </div>
-              <button
-                onClick={handleRefresh}
-                className="text-xs bg-teal-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-teal-700 transition-colors"
-              >
-                🔄 Odśwież research
-              </button>
-              {renderDeepBrandDetails()}
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    if (researchState === 'done' && fetchedSite) {
-      return (
-        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm text-green-800 dark:text-green-300 mb-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">✅</span>
-            <div className="flex-1">
-              <div className="font-semibold mb-1.5">
-                Świeży research — Claude przeanalizował {domain}
-              </div>
-              {renderDeepBrandDetails()}
-              <button
-                onClick={handleRefresh}
-                className="mt-2 text-xs text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-200 underline"
-              >
-                🔄 Odśwież research
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    if (researchState === 'done' && !fetchedSite) {
-      return (
-        <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-lg p-3 text-sm text-orange-800 dark:text-orange-300 mb-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">🔶</span>
-            <div className="flex-1">
-              <div className="font-semibold mb-0.5">Strona niedostępna</div>
-              <div className="text-xs">
-                Nie udało się pobrać <strong>{domain}</strong>, ale Claude zgadnął dane na podstawie nazwy domeny.{' '}
-                <strong>Sprawdź i popraw</strong> pola poniżej.
-              </div>
-              <button
-                onClick={handleRefresh}
-                className="mt-2 text-xs text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 underline"
-              >
-                🔄 Spróbuj ponownie
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    if (researchState === 'failed') {
-      return (
-        <div className="bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-300 mb-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">⚠️</span>
-            <div className="flex-1">
-              <div className="font-semibold mb-0.5">Auto-research nieudany</div>
-              <div className="text-xs mb-2">{researchError} — Wypełnij dane marki ręcznie lub spróbuj ponownie.</div>
-              <button
-                onClick={handleRefresh}
-                className="text-xs bg-yellow-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-yellow-700 transition-colors"
-              >
-                🔄 Spróbuj ponownie
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    return null
+      </div>
+    )
   }
 
   /** Reusable block showing the deep research details */
   const renderDeepBrandDetails = () => {
-    const hasAny =
-      deepBrand.industry ||
-      deepBrand.productType ||
-      deepBrand.visualMotifs ||
-      deepBrand.tone ||
-      deepBrand.brandPersonality ||
-      deepBrand.exampleTaglines?.length ||
-      deepBrand.competitors?.length ||
-      deepBrand.competitorInsight
+    const rows = [
+      deepBrand.industry        && { label: 'Branża',               val: deepBrand.industry },
+      deepBrand.productType     && { label: 'Sprzedaje',            val: deepBrand.productType },
+      deepBrand.visualMotifs    && { label: 'Motywy wizualne',      val: deepBrand.visualMotifs },
+      deepBrand.tone            && { label: 'Ton',                  val: deepBrand.tone },
+      deepBrand.brandPersonality && { label: 'Osobowość',           val: deepBrand.brandPersonality },
+      deepBrand.exampleTaglines?.length && { label: 'Hasła',        val: deepBrand.exampleTaglines.map((t) => `"${t}"`).join(', ') },
+      deepBrand.competitors?.length     && { label: 'Konkurenci',   val: deepBrand.competitors.map((c) => c.name).join(', ') },
+      deepBrand.competitorInsight       && { label: 'Krajobraz',    val: deepBrand.competitorInsight },
+      deepBrand.differentiationDirective && { label: 'Odróżnienie', val: deepBrand.differentiationDirective },
+    ].filter(Boolean)
 
-    if (!hasAny) return null
+    if (!rows.length) return null
 
     return (
-      <div className="mt-1.5 space-y-0.5">
-        {deepBrand.industry && <div className="text-xs"><strong>Branża:</strong> {deepBrand.industry}</div>}
-        {deepBrand.productType && <div className="text-xs"><strong>Sprzedaje:</strong> {deepBrand.productType}</div>}
-        {deepBrand.visualMotifs && <div className="text-xs"><strong>Motywy wizualne:</strong> {deepBrand.visualMotifs}</div>}
-        {deepBrand.tone && <div className="text-xs"><strong>Ton:</strong> {deepBrand.tone}</div>}
-        {deepBrand.brandPersonality && <div className="text-xs"><strong>Osobowość:</strong> {deepBrand.brandPersonality}</div>}
-        {deepBrand.exampleTaglines?.length > 0 && (
-          <div className="text-xs"><strong>Hasła ze strony:</strong> {deepBrand.exampleTaglines.map((t) => `"${t}"`).join(', ')}</div>
-        )}
-        {deepBrand.competitors?.length > 0 && (
-          <div className="text-xs"><strong>Konkurenci:</strong> {deepBrand.competitors.map((c) => c.name).join(', ')}</div>
-        )}
-        {deepBrand.competitorInsight && <div className="text-xs"><strong>Krajobraz konkurencji:</strong> {deepBrand.competitorInsight}</div>}
-        {deepBrand.differentiationDirective && <div className="text-xs"><strong>Dyrektywa odróżnienia:</strong> {deepBrand.differentiationDirective}</div>}
+      <div className="mt-2 space-y-1">
+        {rows.map(({ label, val }) => (
+          <div key={label} className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+            <span className="text-gray-400 dark:text-gray-500 uppercase tracking-wide text-[10px] font-medium mr-1.5">{label}</span>
+            {val}
+          </div>
+        ))}
       </div>
     )
   }
