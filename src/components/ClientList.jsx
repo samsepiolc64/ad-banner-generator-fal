@@ -153,7 +153,7 @@ function ClientRow({ client, onStartFlow }) {
           </button>
           <button
             type="button"
-            onClick={() => onStartFlow(domain)}
+            onClick={() => onStartFlow(domain, client.brand_data)}
             className="text-xs px-4 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-gray-700 transition-colors font-semibold dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
           >
             Twórz banery →

@@ -71,6 +71,7 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [step, setStep] = useState(STEPS.CAMPAIGN)
   const [initialDomain, setInitialDomain] = useState('')
+  const [initialBrandData, setInitialBrandData] = useState(null)
   const [campaignData, setCampaignData] = useState(null)
   const [brandData, setBrandData] = useState(null)
   const [logoDataUrl, setLogoDataUrl] = useState(null)
@@ -82,6 +83,7 @@ export default function App() {
     setPanelOpen(false)
     setStep(STEPS.CAMPAIGN)
     setInitialDomain('')
+    setInitialBrandData(null)
     setCampaignData(null)
     setBrandData(null)
     setLogoDataUrl(null)
@@ -91,12 +93,14 @@ export default function App() {
 
   const onNew = () => {
     setInitialDomain('')
+    setInitialBrandData(null)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
   }
 
-  const onStartFlow = (domain) => {
+  const onStartFlow = (domain, brandData = null) => {
     setInitialDomain(domain)
+    setInitialBrandData(brandData)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
   }
@@ -321,6 +325,7 @@ export default function App() {
                               domain={campaignData?.domain}
                               onSubmit={handleBrandSubmit}
                               isLoading={isLoading}
+                              initialBrand={initialBrandData}
                             />
                           </>
                         )}

@@ -13,25 +13,56 @@ import { loadResearch, saveResearch, clearResearch, formatAge } from '../lib/res
  *  3. If research response is HTML (gateway timeout) instead of JSON,
  *     we show a friendly error and let the user fill the form manually.
  */
-export default function BrandForm({ domain, onSubmit, isLoading }) {
-  const [brand, setBrand] = useState({
-    name: '',
-    primary: '#000000',
-    secondary: '#666666',
-    accent: '#E84C0E',
-    style: 'minimalist, premium',
-    photoStyle: 'lifestyle photography',
-    typography: 'modern sans-serif, bold headlines',
-    audience: '',
-    usp: '',
+export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = null }) {
+  const [brand, setBrand] = useState(() => {
+    const defaults = {
+      name: '',
+      primary: '#000000',
+      secondary: '#666666',
+      accent: '#E84C0E',
+      style: 'minimalist, premium',
+      photoStyle: 'lifestyle photography',
+      typography: 'modern sans-serif, bold headlines',
+      audience: '',
+      usp: '',
+    }
+    if (!initialBrand?.name) return defaults
+    return {
+      ...defaults,
+      name: initialBrand.name || defaults.name,
+      primary: initialBrand.colors?.primary || initialBrand.primary || defaults.primary,
+      secondary: initialBrand.colors?.secondary || initialBrand.secondary || defaults.secondary,
+      accent: initialBrand.colors?.accent || initialBrand.accent || defaults.accent,
+      style: initialBrand.visualStyle || initialBrand.style || defaults.style,
+      photoStyle: initialBrand.photoStyle || defaults.photoStyle,
+      typography: initialBrand.typography || defaults.typography,
+      audience: initialBrand.audience || initialBrand.targetAudience || defaults.audience,
+      usp: initialBrand.usp || defaults.usp,
+    }
   })
 
-  // researchState: 'checking-cache' | 'cached' | 'researching' | 'done' | 'failed'
-  const [researchState, setResearchState] = useState('checking-cache')
+  // researchState: 'checking-cache' | 'cached' | 'researching' | 'done' | 'failed' | 'prefilled'
+  const [researchState, setResearchState] = useState(() =>
+    initialBrand?.name ? 'prefilled' : 'checking-cache'
+  )
   const [researchError, setResearchError] = useState(null)
-  const [logoUrl, setLogoUrl] = useState(null)
+  const [logoUrl, setLogoUrl] = useState(() => initialBrand?.logoUrl || null)
   const [fetchedSite, setFetchedSite] = useState(false)
-  const [deepBrand, setDeepBrand] = useState({})
+  const [deepBrand, setDeepBrand] = useState(() => {
+    if (!initialBrand?.name) return {}
+    return {
+      industry: initialBrand.industry || '',
+      productType: initialBrand.productType || '',
+      visualStyle: initialBrand.visualStyle || '',
+      visualMotifs: initialBrand.visualMotifs || '',
+      tone: initialBrand.tone || '',
+      exampleTaglines: initialBrand.exampleTaglines || [],
+      brandPersonality: initialBrand.brandPersonality || '',
+      competitors: initialBrand.competitors || [],
+      competitorInsight: initialBrand.competitorInsight || '',
+      differentiationDirective: initialBrand.differentiationDirective || '',
+    }
+  })
   const [cachedTimestamp, setCachedTimestamp] = useState(null)
   // 'local' (from this browser's localStorage), 'shared' (from Supabase), 'fresh' (just researched)
   const [cacheSource, setCacheSource] = useState(null)
@@ -129,9 +160,47 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     }
   }, [domain, applyBrandData])
 
+  /** Pre-fill from client DB brand_data when initialBrand is provided */
+  useEffect(() => {
+    if (!initialBrand || !initialBrand.name) return
+
+    setBrand((prev) => ({
+      ...prev,
+      ...{
+        name: initialBrand.name || prev.name,
+        primary: initialBrand.colors?.primary || initialBrand.primary || prev.primary,
+        secondary: initialBrand.colors?.secondary || initialBrand.secondary || prev.secondary,
+        accent: initialBrand.colors?.accent || initialBrand.accent || prev.accent,
+        style: initialBrand.visualStyle || initialBrand.style || prev.style,
+        photoStyle: initialBrand.photoStyle || prev.photoStyle,
+        typography: initialBrand.typography || prev.typography,
+        audience: initialBrand.audience || initialBrand.targetAudience || prev.audience,
+        usp: initialBrand.usp || prev.usp,
+      },
+      colors: { ...prev.colors, ...(initialBrand.colors || {}) },
+    }))
+    setDeepBrand({
+      industry: initialBrand.industry || '',
+      productType: initialBrand.productType || '',
+      visualStyle: initialBrand.visualStyle || '',
+      visualMotifs: initialBrand.visualMotifs || '',
+      tone: initialBrand.tone || '',
+      exampleTaglines: initialBrand.exampleTaglines || [],
+      brandPersonality: initialBrand.brandPersonality || '',
+      competitors: initialBrand.competitors || [],
+      competitorInsight: initialBrand.competitorInsight || '',
+      differentiationDirective: initialBrand.differentiationDirective || '',
+    })
+    if (initialBrand.logoUrl) setLogoUrl(initialBrand.logoUrl)
+    setResearchState('prefilled')
+  }, [initialBrand])
+
   /** On domain change: check cache first, run research only if cache miss */
   useEffect(() => {
     if (!domain) return
+
+    // Skip auto-research if we already have pre-filled data from the client DB
+    if (initialBrand?.name) return
 
     const controller = new AbortController()
 
@@ -151,7 +220,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     }
 
     return () => controller.abort()
-  }, [domain, applyBrandData, runResearch])
+  }, [domain, applyBrandData, runResearch, initialBrand])
 
   /** Manual refresh — user clicked "Odśwież research". Bypasses BOTH caches. */
   const handleRefresh = () => {
@@ -201,6 +270,28 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
 
   // Decide which top banner to show
   const renderBanner = () => {
+    if (researchState === 'prefilled') {
+      return (
+        <div className="bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 rounded-lg p-3 text-sm text-violet-900 dark:text-violet-200 mb-4">
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg leading-none mt-0.5">🗂️</span>
+            <div className="flex-1">
+              <div className="font-semibold mb-0.5">Dane marki z bazy klientów</div>
+              <div className="text-xs text-violet-700 dark:text-violet-400 mb-2">
+                Formularz został wypełniony danymi <strong>{domain}</strong> z Twojej bazy. Sprawdź i popraw jeśli coś się zmieniło.
+              </div>
+              <button
+                onClick={handleRefresh}
+                className="text-xs bg-violet-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-violet-700 transition-colors"
+              >
+                🔄 Odśwież research
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     if (researchState === 'cached') {
       // L1 hit — local browser cache
       return (
