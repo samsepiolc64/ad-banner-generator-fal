@@ -41,6 +41,24 @@ const DEFAULT_CTAS = {
   Retargeting: 'Wróć i skorzystaj',
 }
 
+const FLOW_STEPS = [
+  { id: 0, label: 'Kampania',    sub: 'Kanały, formaty i cel kampanii' },
+  { id: 1, label: 'Marka',       sub: 'Dane brandu i styl wizualny'    },
+  { id: 2, label: 'Generowanie', sub: 'Logo, generowanie i pobieranie' },
+]
+
+function stepSummary(id, campaignData, brandData) {
+  if (id === 0 && campaignData) {
+    const fmtCount = campaignData.formats.length
+    return `${campaignData.domain} · ${campaignData.goal} · ${fmtCount} format${fmtCount > 1 ? 'y' : ''}`
+  }
+  if (id === 1 && brandData) {
+    const parts = [brandData.name, brandData.industry].filter(Boolean)
+    return parts.join(' · ') || 'Dane marki'
+  }
+  return ''
+}
+
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -58,7 +76,7 @@ export default function App() {
   const [logoDataUrl, setLogoDataUrl] = useState(null)
   const [generatorFormats, setGeneratorFormats] = useState([])
   const [isLoading, setIsLoading] = useState(false)
-  const [copyGenStatus, setCopyGenStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'fallback'
+  const [copyGenStatus, setCopyGenStatus] = useState('idle')
 
   const goHome = () => {
     setPanelOpen(false)
@@ -85,6 +103,8 @@ export default function App() {
 
   const handleCampaignSubmit = (data) => {
     setCampaignData(data)
+    setBrandData(null)
+    setGeneratorFormats([])
     setStep(STEPS.BRAND)
   }
 
@@ -95,7 +115,6 @@ export default function App() {
     const selectedFormats = ALL_FORMATS.filter((f) => campaignData.formats.includes(f.id))
     const variantCount = campaignData.variants || 2
 
-    // --- STEP 1: Determine headlines ---
     let headlines
     let cta
 
@@ -114,17 +133,11 @@ export default function App() {
             variantCount,
           }),
         })
-
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
-
         const sorted = [...data.headlines].sort((a, b) => a.variantIndex - b.variantIndex)
         headlines = sorted.map((h) => h.headline)
-
-        if (campaignData.ctaType !== 'custom' && data.cta) {
-          cta = data.cta
-        }
-
+        if (campaignData.ctaType !== 'custom' && data.cta) cta = data.cta
         setCopyGenStatus('done')
       } catch (err) {
         console.error('generate-copy failed, using fallback:', err)
@@ -139,19 +152,15 @@ export default function App() {
       cta = DEFAULT_CTAS[campaignData.goal] || 'Sprawdź ofertę'
     }
 
-    // --- STEP 2: Build competitor context ---
     let compInsight = null
     if (brand.competitorInsight || brand.differentiationDirective) {
       const parts = []
       if (brand.competitorInsight) parts.push(brand.competitorInsight)
-      if (brand.competitors?.length) {
-        parts.push(`Direct competitors: ${brand.competitors.map((c) => c.name).join(', ')}.`)
-      }
+      if (brand.competitors?.length) parts.push(`Direct competitors: ${brand.competitors.map((c) => c.name).join(', ')}.`)
       if (brand.differentiationDirective) parts.push(`Differentiation: ${brand.differentiationDirective}`)
       compInsight = parts.join(' ')
     }
 
-    // --- STEP 3: Build all format × variant combinations ---
     const allFormats = []
     for (const fmt of selectedFormats) {
       for (let v = 0; v < variantCount; v++) {
@@ -167,7 +176,6 @@ export default function App() {
           notes: campaignData.notes || null,
           modelInfo,
         })
-
         allFormats.push({
           id: `${fmt.id}-v${v + 1}`,
           label: `${fmt.label} · V${v + 1} — ${variantName}`,
@@ -190,10 +198,6 @@ export default function App() {
     setLogoDataUrl(dataUrl)
   }, [])
 
-  const goBack = () => {
-    if (step > 0) setStep(step - 1)
-  }
-
   return (
     <div className="flex min-h-screen bg-white dark:bg-gray-950">
       <Sidebar
@@ -204,13 +208,13 @@ export default function App() {
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
       />
 
-      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-52' : 'ml-14'}`}>
-        {/* Header — sticky, full width */}
+      <div className={`flex-1 min-w-0 transition-all duration-300 ${sidebarOpen ? 'ml-52' : 'ml-14'}`}>
+        {/* Header */}
         <header className="sticky top-0 z-10 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800">
           <div className="px-6 md:px-10 lg:px-16 py-4 flex justify-between items-center">
-            <div className="flex items-baseline gap-2.5">
-              <h1 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">Banner Generator</h1>
-            </div>
+            <h1 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">
+              Generator banerów
+            </h1>
 
             {!panelOpen ? (
               <button
@@ -233,90 +237,124 @@ export default function App() {
         </header>
 
         {/* Slide-down panel */}
-        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${panelOpen ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${panelOpen ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-6 md:px-10 lg:px-16 py-8 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
-            <div className="max-w-2xl">
-              {/* Step indicator */}
-              <div className="flex items-center gap-2 mb-6">
-                {['Kampania', 'Marka', 'Generowanie'].map((label, i) => (
-                  <div key={i} className="flex items-center">
-                    <div className={`flex items-center gap-1.5 text-xs font-semibold
-                      ${i === step ? 'text-gray-900 dark:text-white' : i < step ? 'text-green-500' : 'text-gray-300 dark:text-gray-600'}`}>
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
-                        ${i === step ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : i < step ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}>
-                        {i < step ? (
-                          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
-                            <path d="M2 6l3 3 5-5"/>
-                          </svg>
-                        ) : (
-                          <span className="text-[10px] font-bold">{i + 1}</span>
+
+            {/* Flow accordion */}
+            <div className="space-y-3">
+              {FLOW_STEPS.map(({ id, label, sub }) => {
+                const isActive = step === id
+                const isDone   = step > id
+                const isLocked = step < id
+
+                return (
+                  <div
+                    key={id}
+                    className={`rounded-2xl border transition-all duration-200
+                      ${isActive  ? 'border-gray-200 dark:border-gray-700 shadow-md dark:shadow-none' : 'border-gray-100 dark:border-gray-800'}
+                      ${isLocked  ? 'opacity-40' : ''}
+                      bg-white dark:bg-gray-900/40`}
+                  >
+                    {/* Nagłówek kroku */}
+                    <button
+                      type="button"
+                      onClick={() => isDone && setStep(id)}
+                      className={`w-full flex items-center justify-between px-5 py-4 text-left
+                        ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded-2xl' : 'cursor-default'}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
+                          ${isDone
+                            ? 'bg-green-500 text-white'
+                            : isActive
+                              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                              : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}
+                        >
+                          {isDone ? (
+                            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                              <path d="M2 6l3 3 5-5"/>
+                            </svg>
+                          ) : (
+                            id + 1
+                          )}
+                        </span>
+
+                        <div className="min-w-0">
+                          <div className={`font-bold
+                            ${isActive  ? 'text-gray-900 dark:text-white'
+                            : isDone    ? 'text-gray-600 dark:text-gray-300'
+                            :             'text-gray-400 dark:text-gray-600'}`}
+                          >
+                            {label}
+                            <span className={`ml-2 font-normal text-sm
+                              ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
+                              {sub}
+                            </span>
+                          </div>
+                          {isDone && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                              {stepSummary(id, campaignData, brandData)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {isDone && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>
+                      )}
+                    </button>
+
+                    {/* Zawartość kroku */}
+                    {isActive && (
+                      <div className="px-5 pb-5">
+                        {id === STEPS.CAMPAIGN && (
+                          <CampaignForm
+                            onSubmit={handleCampaignSubmit}
+                            isLoading={isLoading}
+                            initialDomain={initialDomain}
+                          />
                         )}
-                      </span>
-                      {label}
-                    </div>
-                    {i < 2 && <div className="flex-1 mx-2 h-px bg-gray-100 dark:bg-gray-800 min-w-[20px]" />}
+
+                        {id === STEPS.BRAND && (
+                          <>
+                            {isLoading && copyGenStatus === 'generating' && (
+                              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-300 mb-4 flex items-center gap-2">
+                                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-700 dark:border-blue-700 dark:border-t-blue-300"></div>
+                                <span>Claude pisze hasła reklamowe dopasowane do marki i konkurencji...</span>
+                              </div>
+                            )}
+                            <BrandForm
+                              domain={campaignData?.domain}
+                              onSubmit={handleBrandSubmit}
+                              isLoading={isLoading}
+                            />
+                          </>
+                        )}
+
+                        {id === STEPS.GENERATE && (
+                          <>
+                            <LogoUpload onLogoChange={handleLogoChange} />
+                            <GeneratorPanel
+                              formats={generatorFormats}
+                              logoDataUrl={logoDataUrl}
+                              brandName={brandData?.name}
+                              domain={campaignData?.domain}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-
-              {/* Back button within flow */}
-              {step > 0 && step < STEPS.GENERATE && (
-                <button
-                  onClick={goBack}
-                  className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mb-3 flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                    <path d="M10 12L6 8l4-4"/>
-                  </svg>
-                  Wróć
-                </button>
-              )}
-
-              {/* Step content */}
-              {step === STEPS.CAMPAIGN && (
-                <CampaignForm
-                  onSubmit={handleCampaignSubmit}
-                  isLoading={isLoading}
-                  initialDomain={initialDomain}
-                />
-              )}
-
-              {step === STEPS.BRAND && (
-                <>
-                  {isLoading && copyGenStatus === 'generating' && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4 flex items-center gap-2">
-                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-700"></div>
-                      <span>Claude pisze hasła reklamowe dopasowane do marki i konkurencji...</span>
-                    </div>
-                  )}
-                  <BrandForm
-                    domain={campaignData?.domain}
-                    onSubmit={handleBrandSubmit}
-                    isLoading={isLoading}
-                  />
-                </>
-              )}
-
-              {step === STEPS.GENERATE && (
-                <>
-                  <LogoUpload onLogoChange={handleLogoChange} />
-                  <GeneratorPanel
-                    formats={generatorFormats}
-                    logoDataUrl={logoDataUrl}
-                    brandName={brandData?.name}
-                    domain={campaignData?.domain}
-                  />
-                </>
-              )}
-
-              <p className="mt-6 text-[11px] text-gray-300 dark:text-gray-600">
-                Banner Generator · Verseo · Powered by fal.ai Nano Banana
-              </p>
+                )
+              })}
             </div>
+
+            <p className="mt-6 text-[11px] text-gray-300 dark:text-gray-600">
+              Banner Generator · Verseo · Powered by fal.ai Nano Banana
+            </p>
           </div>
         </div>
 
-        {/* Client list — always visible */}
+        {/* Client list */}
         <ClientList onNew={onNew} onStartFlow={onStartFlow} />
       </div>
     </div>
