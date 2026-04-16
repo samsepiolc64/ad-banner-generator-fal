@@ -69,6 +69,7 @@ export default function App() {
   }, [darkMode])
 
   const [panelOpen, setPanelOpen] = useState(false)
+  const [flowKey, setFlowKey] = useState(0)
   const [step, setStep] = useState(STEPS.CAMPAIGN)
   const [initialDomain, setInitialDomain] = useState('')
   const [initialBrandData, setInitialBrandData] = useState(null)
@@ -94,6 +95,7 @@ export default function App() {
   const onNew = () => {
     setInitialDomain('')
     setInitialBrandData(null)
+    setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
   }
@@ -101,6 +103,7 @@ export default function App() {
   const onStartFlow = (domain, brandData = null) => {
     setInitialDomain(domain)
     setInitialBrandData(brandData)
+    setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
   }
@@ -307,6 +310,7 @@ export default function App() {
                       <div className="pb-6">
                         {id === STEPS.CAMPAIGN && (
                           <CampaignForm
+                            key={flowKey}
                             onSubmit={handleCampaignSubmit}
                             isLoading={isLoading}
                             initialDomain={initialDomain}
