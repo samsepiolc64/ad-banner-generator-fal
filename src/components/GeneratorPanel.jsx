@@ -16,10 +16,11 @@ FORBIDDEN — NOWHERE ELSE in the composition:
 - No duplicate brand marks — if the brand name appears on the product, it must NOT appear again anywhere else in the frame
 - No "inspired-by" lookalike logos, stylized monograms, or typography that reads as a brand mark
 
-CLEAN CORNER REQUIREMENT — this is where our real logo will be overlaid:
-- Reserve at least ONE of the four corners (top-left, top-right, bottom-left, bottom-right) as calm, uniform, content-free empty space
-- The empty corner must read as natural, purposeful compositional breathing room — NOT as a gap or placeholder
-- Do NOT render placeholder boxes, "logo here" text, dashed outlines, dotted rectangles, bracket marks, or any indicator of a reserved area — just clean empty space`
+CLEAN CORNER REQUIREMENT — this is where our real logo will be composited later:
+- At least ONE corner (top-left preferred, or top-right) must be naturally uncluttered: filled only with the background color or gradient — no objects, no text, no decorative elements
+- Achieve this through natural composition (push hero content away from that corner) — NOT by drawing any shape, box, or frame
+- ABSOLUTELY FORBIDDEN in the clean corner: white box, white card, white rectangle, gray box, gray rectangle, rounded rectangle, frosted panel, semi-transparent overlay, glowing area, empty frame, border outline, badge shape, or ANY distinct geometric shape
+- The corner must look like a natural part of the background — same texture, same color, indistinguishable from the rest of the background`
 
 // Used when NO logo is provided — no corner reservation needed, still forbid floating logos
 const LOGO_BLOCK_NO_LOGO = `LOGO RULES — CRITICAL, read carefully:
