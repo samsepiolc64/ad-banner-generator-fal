@@ -342,6 +342,7 @@ export default function App() {
                               logoDataUrl={logoDataUrl}
                               brandName={brandData?.name}
                               domain={campaignData?.domain}
+                              notes={campaignData?.notes}
                             />
                           </>
                         )}

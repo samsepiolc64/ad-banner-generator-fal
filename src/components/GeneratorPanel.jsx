@@ -36,7 +36,14 @@ FORBIDDEN everywhere outside the product surface:
 - No "inspired-by" lookalike logos, stylized monograms, or typography that reads as a brand mark
 - Do NOT add any brand identity text element that was not explicitly listed in AD COPY PLACEMENT`
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain }) {
+/** Extract the first http(s) URL from a string, or null */
+function extractUrl(text) {
+  if (!text) return null
+  const m = text.match(/https?:\/\/[^\s,;)]+/)
+  return m ? m[0] : null
+}
+
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -106,6 +113,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
+    const productRefUrl = extractUrl(notes)
+    const hasRef = hasLogo || !!productRefUrl
 
     // Pick the right logo block based on whether a real logo will be composited
     const logoBlock = hasLogo ? LOGO_BLOCK_WITH_LOGO : LOGO_BLOCK_NO_LOGO
@@ -115,12 +124,22 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Without logo: still unwanted — hallucinated wordmarks look unprofessional.
     const brandNameSuppress = `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark as a floating element. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as standalone text.`
 
-    const finalPrompt = fmt.prompt
+    // If a product reference URL was provided, inject a strong instruction to use it
+    const productRefBlock = productRefUrl
+      ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nThe first reference image provided is the EXACT product to feature in this ad. You MUST reproduce this product with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and graphic elements on the surface\n- Exact size relationships between product parts\nDo NOT redesign, simplify, or reinterpret the product. Render it as a faithful photographic reproduction of the reference image.`
+      : ''
+
+    const finalPrompt = (fmt.prompt + productRefBlock)
       .replace('{{LOGO_BLOCK}}', logoBlock)
       .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
 
     try {
-      // Step 1: Submit to fal.ai queue (no reference image — pure t2i)
+      // Build image_urls: logo (data URL) + product reference URL (if provided)
+      const imageUrls = []
+      if (hasLogo) imageUrls.push(logoDataUrl)
+      if (productRefUrl) imageUrls.push(productRefUrl)
+
+      // Step 1: Submit to fal.ai queue
       const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,7 +147,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           prompt: finalPrompt,
           ar: model.ar,
           modelType: model.type,
-          useLogo: false,
+          useLogo: hasRef,
+          logoDataUrl: imageUrls.length > 0 ? imageUrls : undefined,
         }),
         signal,
       })
@@ -167,7 +187,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-      const filename = `${safeDomain}_${fmt.width}x${fmt.height}_${fmt.id}.jpg`
+      // fmt.id = "meta-1200x628-v1" — keep only dimensions + variant, drop channel prefix
+      const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
+      const filename = `${safeDomain}_${fmtSlug}.jpg`
 
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })

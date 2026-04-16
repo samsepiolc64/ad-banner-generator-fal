@@ -44,8 +44,13 @@ export default async (req) => {
     const endpoints = ENDPOINTS[modelType] || ENDPOINTS.nbpro
     const endpoint = useLogo ? endpoints.edit : endpoints.t2i
 
-    const falBody = useLogo
-      ? { prompt, aspect_ratio: ar, image_urls: [logoDataUrl] }
+    // logoDataUrl may be a single string or an array of URLs/data-URLs
+    const imageUrls = useLogo
+      ? (Array.isArray(logoDataUrl) ? logoDataUrl : [logoDataUrl]).filter(Boolean)
+      : []
+
+    const falBody = imageUrls.length > 0
+      ? { prompt, aspect_ratio: ar, image_urls: imageUrls }
       : { prompt, aspect_ratio: ar }
 
     const falRes = await fetch(endpoint, {
