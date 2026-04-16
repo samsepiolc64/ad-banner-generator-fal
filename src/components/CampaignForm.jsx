@@ -106,7 +106,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+      <div className="rounded-xl bg-gray-50 dark:bg-gray-800/30 divide-y divide-gray-200 dark:divide-gray-700 px-4">
         {SECTIONS.map((section, idx) => {
           const isActive = idx === activeSection
           const isDone = idx < activeSection
@@ -119,22 +119,26 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
               <button
                 type="button"
                 onClick={() => isDone && setActiveSection(idx)}
-                className={`w-full flex items-center justify-between py-4 text-left transition-colors
-                  ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 -mx-1 px-1 rounded-xl' : 'cursor-default'}`}
+                className={`w-full flex items-center justify-between py-3.5 text-left transition-colors
+                  ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-                    ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {/* Mały wskaźnik — bez numeru */}
+                  <span className="flex-shrink-0 flex items-center justify-center w-4 h-4">
                     {isDone ? (
-                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-green-500">
                         <path d="M2 6l3 3 5-5"/>
                       </svg>
-                    ) : idx + 1}
+                    ) : isActive ? (
+                      <span className="w-2 h-2 rounded-full bg-gray-900 dark:bg-white block"/>
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 block"/>
+                    )}
                   </span>
                   <div className="min-w-0">
-                    <div className={`font-bold ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-600'}`}>
+                    <div className={`font-semibold text-sm ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-600'}`}>
                       {section.title}
-                      <span className={`ml-2 font-normal text-sm ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
+                      <span className={`ml-1.5 font-normal ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
                         {section.subtitle}
                       </span>
                     </div>
@@ -148,7 +152,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
 
               {/* Zawartość sekcji */}
               {isActive && (
-                <div className="pb-6 space-y-5">
+                <div className="pb-5 space-y-5">
                   <SectionFields
                     section={section}
                     form={form}
