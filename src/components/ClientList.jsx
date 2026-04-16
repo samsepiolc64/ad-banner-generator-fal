@@ -122,9 +122,33 @@ function BrandPanel({ brand }) {
   )
 }
 
-function ClientRow({ client, onStartFlow }) {
+function ClientRow({ client, onStartFlow, onRefreshed }) {
   const [open, setOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshDone, setRefreshDone] = useState(false)
   const domain = client.domain
+
+  const handleRefresh = async (e) => {
+    e.stopPropagation()
+    setRefreshing(true)
+    setRefreshDone(false)
+    try {
+      const res = await fetch('/.netlify/functions/research-domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, force: true }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      onRefreshed(domain, data.brand)
+      setRefreshDone(true)
+      setTimeout(() => setRefreshDone(false), 3000)
+    } catch (err) {
+      console.error('Refresh failed:', err)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   return (
     <div>
@@ -141,6 +165,35 @@ function ClientRow({ client, onStartFlow }) {
 
         {/* Przyciski */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Odśwież brand */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            title="Odśwież dane marki"
+            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-colors
+              ${refreshDone
+                ? 'border-green-300 dark:border-green-700 text-green-500'
+                : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300'}
+              disabled:cursor-not-allowed`}
+          >
+            {refreshing ? (
+              <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+              </svg>
+            ) : refreshDone ? (
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                <path d="M2 6l3 3 5-5"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <path d="M13.5 8A5.5 5.5 0 1 1 10 3.07"/>
+                <path d="M10 1v3.5H13.5"/>
+              </svg>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -183,6 +236,12 @@ export default function ClientList({ onNew, onStartFlow }) {
       .finally(() => setLoading(false))
   }, [])
 
+  const handleRefreshed = (domain, newBrandData) => {
+    setClients((prev) =>
+      prev.map((c) => c.domain === domain ? { ...c, brand_data: newBrandData } : c)
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -219,7 +278,7 @@ export default function ClientList({ onNew, onStartFlow }) {
       {/* Lista */}
       <div>
         {clients.map((client) => (
-          <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} />
+          <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} />
         ))}
       </div>
     </div>
