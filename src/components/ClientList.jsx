@@ -144,15 +144,17 @@ function ClientRow({ client, onStartFlow }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors
-              ${open ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}
+            className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors
+              ${open
+                ? 'bg-gray-100 border-gray-200 text-gray-700'
+                : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'}`}
           >
             Brand {open ? '▲' : '▾'}
           </button>
           <button
             type="button"
             onClick={() => onStartFlow(domain)}
-            className="text-xs px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors font-medium"
+            className="text-xs px-4 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-gray-700 transition-colors font-semibold"
           >
             Twórz banery →
           </button>
