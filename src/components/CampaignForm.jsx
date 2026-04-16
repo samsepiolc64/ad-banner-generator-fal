@@ -49,9 +49,9 @@ const SECTIONS = [
   },
 ]
 
-export default function CampaignForm({ onSubmit, isLoading }) {
-  const [form, setForm] = useState({
-    domain: '',
+export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }) {
+  const [form, setForm] = useState(() => ({
+    domain: initialDomain,
     goal: '',
     channels: [],
     formats: [],
@@ -61,7 +61,7 @@ export default function CampaignForm({ onSubmit, isLoading }) {
     cta: '',
     variants: 2,
     notes: '',
-  })
+  }))
   const [activeSection, setActiveSection] = useState(0)
   const domainRef = useRef(null)
 

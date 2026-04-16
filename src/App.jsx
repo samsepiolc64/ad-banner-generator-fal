@@ -3,6 +3,7 @@ import CampaignForm from './components/CampaignForm'
 import BrandForm from './components/BrandForm'
 import LogoUpload from './components/LogoUpload'
 import GeneratorPanel from './components/GeneratorPanel'
+import ClientList from './components/ClientList'
 import { ALL_FORMATS } from './lib/formats'
 import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
 import { resolveModel } from './lib/modelRouting'
@@ -40,13 +41,26 @@ const DEFAULT_CTAS = {
 }
 
 export default function App() {
+  const [view, setView] = useState('home') // 'home' | 'flow'
   const [step, setStep] = useState(STEPS.CAMPAIGN)
+  const [initialDomain, setInitialDomain] = useState('')
   const [campaignData, setCampaignData] = useState(null)
   const [brandData, setBrandData] = useState(null)
   const [logoDataUrl, setLogoDataUrl] = useState(null)
   const [generatorFormats, setGeneratorFormats] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [copyGenStatus, setCopyGenStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'fallback'
+
+  const goHome = () => {
+    setView('home')
+    setStep(STEPS.CAMPAIGN)
+    setInitialDomain('')
+    setCampaignData(null)
+    setBrandData(null)
+    setLogoDataUrl(null)
+    setGeneratorFormats([])
+    setCopyGenStatus('idle')
+  }
 
   const handleCampaignSubmit = (data) => {
     setCampaignData(data)
@@ -111,7 +125,6 @@ export default function App() {
     }
 
     // --- STEP 2: Build competitor context (compInsight) ---
-    // Combine insight + directive into a single block for the prompt builder
     let compInsight = null
     if (brand.competitorInsight || brand.differentiationDirective) {
       const parts = []
@@ -167,17 +180,45 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-[720px] mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-baseline gap-2.5 mb-1">
-            <h1 className="text-xl font-bold tracking-tight">Banner Generator</h1>
-            <span className="text-xs text-gray-400">fal.ai · Nano Banana · v2.0</span>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-6 px-4 md:px-8 lg:px-12">
+      {/* Header bar — full width */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="text-xl font-bold tracking-tight">Banner Generator</h1>
+          <span className="text-xs text-gray-400">fal.ai · Nano Banana · v2.0</span>
+        </div>
 
+        {/* Wróć do listy — tylko w widoku flow */}
+        {view === 'flow' && (
+          <button
+            type="button"
+            onClick={goHome}
+            className="text-sm text-gray-400 hover:text-gray-700 flex items-center gap-1 transition-colors"
+          >
+            ← Wróć do listy
+          </button>
+        )}
+      </div>
+
+      {/* Widok: home */}
+      {view === 'home' && (
+        <ClientList
+          onNew={() => {
+            setInitialDomain('')
+            setView('flow')
+          }}
+          onStartFlow={(domain) => {
+            setInitialDomain(domain)
+            setView('flow')
+          }}
+        />
+      )}
+
+      {/* Widok: flow */}
+      {view === 'flow' && (
+        <div className="max-w-2xl mx-auto">
           {/* Step indicator */}
-          <div className="flex items-center mt-3">
+          <div className="flex items-center gap-2 mb-6">
             {['Kampania', 'Marka', 'Generowanie'].map((label, i) => (
               <div key={i} className="flex items-center">
                 <div className={`flex items-center gap-1.5 text-xs font-semibold
@@ -198,60 +239,64 @@ export default function App() {
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Back button */}
-        {step > 0 && step < STEPS.GENERATE && (
-          <button
-            onClick={goBack}
-            className="text-sm text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1 cursor-pointer transition-colors"
-          >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-              <path d="M10 12L6 8l4-4"/>
-            </svg>
-            Wróć
-          </button>
-        )}
-
-        {/* Step content */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          {step === STEPS.CAMPAIGN && (
-            <CampaignForm onSubmit={handleCampaignSubmit} isLoading={isLoading} />
+          {/* Back button within flow */}
+          {step > 0 && step < STEPS.GENERATE && (
+            <button
+              onClick={goBack}
+              className="text-sm text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <path d="M10 12L6 8l4-4"/>
+              </svg>
+              Wróć
+            </button>
           )}
 
-          {step === STEPS.BRAND && (
-            <>
-              {isLoading && copyGenStatus === 'generating' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4 flex items-center gap-2">
-                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-700"></div>
-                  <span>Claude pisze hasła reklamowe dopasowane do marki i konkurencji...</span>
-                </div>
-              )}
-              <BrandForm
-                domain={campaignData?.domain}
-                onSubmit={handleBrandSubmit}
+          {/* Step content */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            {step === STEPS.CAMPAIGN && (
+              <CampaignForm
+                onSubmit={handleCampaignSubmit}
                 isLoading={isLoading}
+                initialDomain={initialDomain}
               />
-            </>
-          )}
+            )}
 
-          {step === STEPS.GENERATE && (
-            <>
-              <LogoUpload onLogoChange={handleLogoChange} />
-              <GeneratorPanel
-                formats={generatorFormats}
-                logoDataUrl={logoDataUrl}
-                brandName={brandData?.name}
-                domain={campaignData?.domain}
-              />
-            </>
-          )}
+            {step === STEPS.BRAND && (
+              <>
+                {isLoading && copyGenStatus === 'generating' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4 flex items-center gap-2">
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-700"></div>
+                    <span>Claude pisze hasła reklamowe dopasowane do marki i konkurencji...</span>
+                  </div>
+                )}
+                <BrandForm
+                  domain={campaignData?.domain}
+                  onSubmit={handleBrandSubmit}
+                  isLoading={isLoading}
+                />
+              </>
+            )}
+
+            {step === STEPS.GENERATE && (
+              <>
+                <LogoUpload onLogoChange={handleLogoChange} />
+                <GeneratorPanel
+                  formats={generatorFormats}
+                  logoDataUrl={logoDataUrl}
+                  brandName={brandData?.name}
+                  domain={campaignData?.domain}
+                />
+              </>
+            )}
+          </div>
+
+          <p className="text-center mt-4 text-[11px] text-gray-300">
+            Banner Generator · Verseo · Powered by fal.ai Nano Banana
+          </p>
         </div>
-
-        <p className="text-center mt-4 text-[11px] text-gray-300">
-          Banner Generator · Verseo · Powered by fal.ai Nano Banana
-        </p>
-      </div>
+      )}
     </div>
   )
 }

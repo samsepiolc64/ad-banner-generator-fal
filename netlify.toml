@@ -23,6 +23,9 @@
 [functions."remove-bg"]
   timeout = 30
 
+[functions."list-clients"]
+  timeout = 10
+
 [[headers]]
   for = "/*"
   [headers.values]
