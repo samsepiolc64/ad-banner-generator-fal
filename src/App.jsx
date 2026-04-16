@@ -343,9 +343,6 @@ export default function App() {
               })}
             </div>
 
-            <p className="mt-6 text-[11px] text-gray-300 dark:text-gray-600">
-              Banner Generator · Verseo · Powered by fal.ai Nano Banana
-            </p>
           </div>
         </div>
 
