@@ -16,7 +16,7 @@ function ColorDot({ hex }) {
   if (!hex) return null
   return (
     <span
-      className="inline-block w-4 h-4 rounded-full border border-gray-200 flex-shrink-0"
+      className="inline-block w-4 h-4 rounded-full border border-gray-200 dark:border-gray-700 flex-shrink-0"
       style={{ backgroundColor: hex }}
       title={hex}
     />
@@ -24,7 +24,7 @@ function ColorDot({ hex }) {
 }
 
 function BrandPanel({ brand }) {
-  if (!brand) return <div className="text-sm text-gray-400 italic">Brak danych marki</div>
+  if (!brand) return <div className="text-sm text-gray-400 dark:text-gray-500 italic">Brak danych marki</div>
 
   return (
     <div className="space-y-3 text-sm">
@@ -32,20 +32,20 @@ function BrandPanel({ brand }) {
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         {brand.name && (
           <div>
-            <span className="text-gray-400 text-xs uppercase tracking-wide">Marka</span>
-            <div className="font-medium text-gray-900">{brand.name}</div>
+            <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Marka</span>
+            <div className="font-medium text-gray-900 dark:text-white">{brand.name}</div>
           </div>
         )}
         {brand.industry && (
           <div>
-            <span className="text-gray-400 text-xs uppercase tracking-wide">Branża</span>
-            <div className="text-gray-700">{brand.industry}</div>
+            <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Branża</span>
+            <div className="text-gray-700 dark:text-gray-300">{brand.industry}</div>
           </div>
         )}
         {brand.productType && (
           <div>
-            <span className="text-gray-400 text-xs uppercase tracking-wide">Co sprzedają</span>
-            <div className="text-gray-700">{brand.productType}</div>
+            <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Co sprzedają</span>
+            <div className="text-gray-700 dark:text-gray-300">{brand.productType}</div>
           </div>
         )}
       </div>
@@ -53,24 +53,24 @@ function BrandPanel({ brand }) {
       {/* Kolory */}
       {brand.colors && (brand.colors.primary || brand.colors.secondary || brand.colors.accent) && (
         <div>
-          <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Kolory</div>
+          <div className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide mb-1">Kolory</div>
           <div className="flex items-center gap-2">
             {brand.colors.primary && (
               <div className="flex items-center gap-1.5">
                 <ColorDot hex={brand.colors.primary} />
-                <span className="text-xs text-gray-500">Primary</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Primary</span>
               </div>
             )}
             {brand.colors.secondary && (
               <div className="flex items-center gap-1.5">
                 <ColorDot hex={brand.colors.secondary} />
-                <span className="text-xs text-gray-500">Secondary</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Secondary</span>
               </div>
             )}
             {brand.colors.accent && (
               <div className="flex items-center gap-1.5">
                 <ColorDot hex={brand.colors.accent} />
-                <span className="text-xs text-gray-500">Accent</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Accent</span>
               </div>
             )}
           </div>
@@ -81,14 +81,14 @@ function BrandPanel({ brand }) {
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         {brand.visualStyle && (
           <div className="max-w-sm">
-            <span className="text-gray-400 text-xs uppercase tracking-wide">Styl wizualny</span>
-            <div className="text-gray-700">{brand.visualStyle}</div>
+            <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Styl wizualny</span>
+            <div className="text-gray-700 dark:text-gray-300">{brand.visualStyle}</div>
           </div>
         )}
         {brand.tone && (
           <div>
-            <span className="text-gray-400 text-xs uppercase tracking-wide">Ton komunikacji</span>
-            <div className="text-gray-700">{brand.tone}</div>
+            <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Ton komunikacji</span>
+            <div className="text-gray-700 dark:text-gray-300">{brand.tone}</div>
           </div>
         )}
       </div>
@@ -96,10 +96,10 @@ function BrandPanel({ brand }) {
       {/* Konkurenci */}
       {brand.competitors && brand.competitors.length > 0 && (
         <div>
-          <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Konkurenci</div>
+          <div className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide mb-1">Konkurenci</div>
           <div className="flex flex-wrap gap-1.5">
             {brand.competitors.map((c, i) => (
-              <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+              <span key={i} className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
                 {c.name || c.domain}
               </span>
             ))}
@@ -110,10 +110,10 @@ function BrandPanel({ brand }) {
       {/* Taglines */}
       {brand.exampleTaglines && brand.exampleTaglines.length > 0 && (
         <div>
-          <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Przykładowe hasła</div>
+          <div className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide mb-1">Przykładowe hasła</div>
           <ul className="space-y-0.5">
             {brand.exampleTaglines.slice(0, 3).map((t, i) => (
-              <li key={i} className="text-gray-600 text-xs">„{t}"</li>
+              <li key={i} className="text-gray-600 dark:text-gray-400 text-xs">„{t}"</li>
             ))}
           </ul>
         </div>
@@ -128,14 +128,14 @@ function ClientRow({ client, onStartFlow }) {
 
   return (
     <div>
-      <div className="flex items-center gap-4 py-4 px-6 md:px-10 lg:px-16 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
+      <div className="flex items-center gap-4 py-4 px-6 md:px-10 lg:px-16 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors group">
         {/* Favicon placeholder + domena */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-400">
+          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-400 dark:text-gray-500">
             {domain[0].toUpperCase()}
           </div>
           <div className="min-w-0">
-            <div className="font-medium text-gray-900 truncate">{domain}</div>
+            <div className="font-medium text-gray-900 dark:text-white truncate">{domain}</div>
           </div>
         </div>
 
@@ -146,15 +146,15 @@ function ClientRow({ client, onStartFlow }) {
             onClick={() => setOpen((v) => !v)}
             className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors
               ${open
-                ? 'bg-gray-100 border-gray-200 text-gray-700'
-                : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'}`}
+                ? 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
+                : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}`}
           >
             Brand {open ? '▲' : '▾'}
           </button>
           <button
             type="button"
             onClick={() => onStartFlow(domain)}
-            className="text-xs px-4 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-gray-700 transition-colors font-semibold"
+            className="text-xs px-4 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-gray-700 transition-colors font-semibold dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
           >
             Twórz banery →
           </button>
@@ -163,7 +163,7 @@ function ClientRow({ client, onStartFlow }) {
 
       {/* Brand panel inline */}
       {open && (
-        <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 border-b border-gray-100">
+        <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
           <BrandPanel brand={client.brand_data} />
         </div>
       )}
@@ -194,11 +194,11 @@ export default function ClientList({ onNew, onStartFlow }) {
   if (clients.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <p className="text-sm text-gray-400">Brak klientów. Dodaj pierwszego klienta.</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500">Brak klientów. Dodaj pierwszego klienta.</p>
         <button
           type="button"
           onClick={onNew}
-          className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
+          className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
         >
           <span className="text-base leading-none">＋</span>
           Nowy klient
@@ -210,8 +210,8 @@ export default function ClientList({ onNew, onStartFlow }) {
   return (
     <div>
       {/* Header sekcji */}
-      <div className="px-6 md:px-10 lg:px-16 py-4 flex items-center justify-between border-b border-gray-100">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+      <div className="px-6 md:px-10 lg:px-16 py-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
           Klienci · {clients.length}
         </span>
       </div>
