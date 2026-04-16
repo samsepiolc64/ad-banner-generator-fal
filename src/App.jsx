@@ -192,7 +192,6 @@ export default function App() {
         <div className="px-6 md:px-10 lg:px-16 py-4 flex justify-between items-center">
           <div className="flex items-baseline gap-2.5">
             <h1 className="text-lg font-bold tracking-tight text-gray-900">Banner Generator</h1>
-            <span className="text-xs text-gray-300">fal.ai · Nano Banana · v2.0</span>
           </div>
 
           {!panelOpen ? (
