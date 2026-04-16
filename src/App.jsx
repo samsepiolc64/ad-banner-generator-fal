@@ -240,27 +240,22 @@ export default function App() {
         <div className={`overflow-hidden transition-all duration-500 ease-in-out ${panelOpen ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-6 md:px-10 lg:px-16 py-8 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
 
-            {/* Flow accordion */}
-            <div className="space-y-3">
+            {/* Flow — flat rows z dividerami, jak "Brand" w liście klientów */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {FLOW_STEPS.map(({ id, label, sub }) => {
                 const isActive = step === id
                 const isDone   = step > id
                 const isLocked = step < id
 
                 return (
-                  <div
-                    key={id}
-                    className={`rounded-2xl border transition-all duration-200
-                      ${isActive  ? 'border-gray-200 dark:border-gray-700 shadow-md dark:shadow-none' : 'border-gray-100 dark:border-gray-800'}
-                      ${isLocked  ? 'opacity-40' : ''}
-                      bg-white dark:bg-gray-900/40`}
-                  >
+                  <div key={id} className={isLocked ? 'opacity-40' : ''}>
+
                     {/* Nagłówek kroku */}
                     <button
                       type="button"
                       onClick={() => isDone && setStep(id)}
-                      className={`w-full flex items-center justify-between px-5 py-4 text-left
-                        ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded-2xl' : 'cursor-default'}`}
+                      className={`w-full flex items-center justify-between py-4 text-left transition-colors
+                        ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 -mx-1 px-1 rounded-xl' : 'cursor-default'}`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
@@ -281,9 +276,9 @@ export default function App() {
 
                         <div className="min-w-0">
                           <div className={`font-bold
-                            ${isActive  ? 'text-gray-900 dark:text-white'
-                            : isDone    ? 'text-gray-600 dark:text-gray-300'
-                            :             'text-gray-400 dark:text-gray-600'}`}
+                            ${isActive ? 'text-gray-900 dark:text-white'
+                            : isDone   ? 'text-gray-600 dark:text-gray-300'
+                            :            'text-gray-400 dark:text-gray-600'}`}
                           >
                             {label}
                             <span className={`ml-2 font-normal text-sm
@@ -305,7 +300,7 @@ export default function App() {
 
                     {/* Zawartość kroku */}
                     {isActive && (
-                      <div className="px-5 pb-5">
+                      <div className="pb-6">
                         {id === STEPS.CAMPAIGN && (
                           <CampaignForm
                             onSubmit={handleCampaignSubmit}

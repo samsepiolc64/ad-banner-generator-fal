@@ -413,10 +413,26 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
       <button
         type="submit"
         disabled={!brand.name || isLoading}
-        className="w-full bg-gray-900 text-white rounded-xl py-3.5 text-base font-bold
-                   hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
+                   hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+                   transition-colors flex items-center justify-center gap-2"
       >
-        {isLoading ? 'Generuję prompty...' : 'Dalej — generuj prompty'}
+        {isLoading ? (
+          <>
+            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+            </svg>
+            Chwila…
+          </>
+        ) : (
+          <>
+            Dalej
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <path d="M6 12l4-4-4-4"/>
+            </svg>
+          </>
+        )}
       </button>
     </form>
   )
