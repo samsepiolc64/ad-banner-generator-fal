@@ -116,7 +116,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
           <div
             key={section.id}
             className={`rounded-2xl border transition-all duration-200
-              ${isActive ? 'border-gray-100 bg-white shadow-md' : 'border-gray-100 bg-white'}
+              ${isActive ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-md dark:shadow-none' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900/40'}
               ${isLocked ? 'opacity-40' : ''}
             `}
           >
@@ -124,12 +124,12 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
             <button
               type="button"
               onClick={() => isDone && setActiveSection(idx)}
-              className={`w-full flex items-center justify-between px-5 py-4 text-left
-                ${isDone ? 'cursor-pointer hover:bg-gray-50 rounded-2xl' : 'cursor-default'}`}
+              className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors
+                ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-2xl' : 'cursor-default'}`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-                  ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-300'}`}>
+                  ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}>
                   {isDone ? (
                     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
                       <path d="M2 6l3 3 5-5"/>
@@ -137,18 +137,18 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
                   ) : idx + 1}
                 </span>
                 <div className="min-w-0">
-                  <div className={`font-bold ${isActive ? 'text-gray-900' : isDone ? 'text-gray-600' : 'text-gray-400'}`}>
+                  <div className={`font-bold ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-600'}`}>
                     {section.title}
-                    <span className={`ml-2 font-normal text-sm ${isActive ? 'text-gray-400' : 'text-gray-300'}`}>
+                    <span className={`ml-2 font-normal text-sm ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
                       {section.subtitle}
                     </span>
                   </div>
                   {isDone && (
-                    <div className="text-xs text-gray-400 truncate mt-0.5">{section.summary(form)}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{section.summary(form)}</div>
                   )}
                 </div>
               </div>
-              {isDone && <span className="text-xs text-gray-400 flex-shrink-0 ml-2">zmień</span>}
+              {isDone && <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>}
             </button>
 
             {/* Zawartość sekcji */}
@@ -170,7 +170,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
                     onClick={advanceSection}
                     disabled={!canAdvance}
                     className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                               hover:bg-gray-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+                               hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
                                transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     Dalej
@@ -183,7 +183,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
                     type="submit"
                     disabled={!isValid || isLoading}
                     className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                               hover:bg-gray-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+                               hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
                                transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     Dalej
@@ -226,7 +226,7 @@ function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
       <FieldInput field={field} form={form} update={update}
         toggleArray={toggleArray} toggleChannel={toggleChannel} domainRef={domainRef} />
     </div>
@@ -266,7 +266,7 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
         <div className="space-y-3">
           {Object.entries(FORMAT_GROUPS).map(([key, group]) => (
             <div key={key}>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-gray-400 mb-1.5">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
                 {group.label}
               </div>
               <div className="flex flex-wrap gap-1.5">
