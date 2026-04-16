@@ -41,7 +41,7 @@ const DEFAULT_CTAS = {
 }
 
 export default function App() {
-  const [view, setView] = useState('home') // 'home' | 'flow'
+  const [panelOpen, setPanelOpen] = useState(false)
   const [step, setStep] = useState(STEPS.CAMPAIGN)
   const [initialDomain, setInitialDomain] = useState('')
   const [campaignData, setCampaignData] = useState(null)
@@ -52,7 +52,7 @@ export default function App() {
   const [copyGenStatus, setCopyGenStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'fallback'
 
   const goHome = () => {
-    setView('home')
+    setPanelOpen(false)
     setStep(STEPS.CAMPAIGN)
     setInitialDomain('')
     setCampaignData(null)
@@ -60,6 +60,18 @@ export default function App() {
     setLogoDataUrl(null)
     setGeneratorFormats([])
     setCopyGenStatus('idle')
+  }
+
+  const onNew = () => {
+    setInitialDomain('')
+    setPanelOpen(true)
+    setStep(STEPS.CAMPAIGN)
+  }
+
+  const onStartFlow = (domain) => {
+    setInitialDomain(domain)
+    setPanelOpen(true)
+    setStep(STEPS.CAMPAIGN)
   }
 
   const handleCampaignSubmit = (data) => {
@@ -79,10 +91,8 @@ export default function App() {
     let cta
 
     if (campaignData.headlineType === 'custom' && campaignData.headline) {
-      // User typed their own headline — use it for every variant
       headlines = Array(variantCount).fill(campaignData.headline)
     } else {
-      // AUTO mode — ask Claude to generate per-variant headlines
       setCopyGenStatus('generating')
       try {
         const res = await fetch('/.netlify/functions/generate-copy', {
@@ -99,11 +109,9 @@ export default function App() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
 
-        // Sort by variantIndex just in case, then extract strings
         const sorted = [...data.headlines].sort((a, b) => a.variantIndex - b.variantIndex)
         headlines = sorted.map((h) => h.headline)
 
-        // CTA from Claude if not custom
         if (campaignData.ctaType !== 'custom' && data.cta) {
           cta = data.cta
         }
@@ -111,20 +119,18 @@ export default function App() {
         setCopyGenStatus('done')
       } catch (err) {
         console.error('generate-copy failed, using fallback:', err)
-        // Fallback to static templates
         headlines = (DEFAULT_HEADLINES[campaignData.goal] || DEFAULT_HEADLINES['Conversion (Sprzedaż)']).slice(0, variantCount)
         setCopyGenStatus('fallback')
       }
     }
 
-    // CTA: custom input OR Claude-generated (above) OR static fallback
     if (campaignData.ctaType === 'custom' && campaignData.cta) {
       cta = campaignData.cta
     } else if (!cta) {
       cta = DEFAULT_CTAS[campaignData.goal] || 'Sprawdź ofertę'
     }
 
-    // --- STEP 2: Build competitor context (compInsight) ---
+    // --- STEP 2: Build competitor context ---
     let compInsight = null
     if (brand.competitorInsight || brand.differentiationDirective) {
       const parts = []
@@ -180,81 +186,76 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 md:px-8 lg:px-12">
-      {/* Header bar — full width */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="text-xl font-bold tracking-tight">Banner Generator</h1>
-          <span className="text-xs text-gray-400">fal.ai · Nano Banana · v2.0</span>
-        </div>
-
-        {/* Wróć do listy — tylko w widoku flow */}
-        {view === 'flow' && (
-          <button
-            type="button"
-            onClick={goHome}
-            className="text-sm text-gray-400 hover:text-gray-700 flex items-center gap-1 transition-colors"
-          >
-            ← Wróć do listy
-          </button>
-        )}
-      </div>
-
-      {/* Widok: home */}
-      {view === 'home' && (
-        <ClientList
-          onNew={() => {
-            setInitialDomain('')
-            setView('flow')
-          }}
-          onStartFlow={(domain) => {
-            setInitialDomain(domain)
-            setView('flow')
-          }}
-        />
-      )}
-
-      {/* Widok: flow */}
-      {view === 'flow' && (
-        <div className="max-w-2xl mx-auto">
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mb-6">
-            {['Kampania', 'Marka', 'Generowanie'].map((label, i) => (
-              <div key={i} className="flex items-center">
-                <div className={`flex items-center gap-1.5 text-xs font-semibold
-                  ${i === step ? 'text-brand-navy' : i < step ? 'text-brand-green' : 'text-gray-300'}`}>
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
-                    ${i === step ? 'bg-brand-navy text-white' : i < step ? 'bg-brand-green text-white' : 'bg-gray-200 text-gray-400'}`}>
-                    {i < step ? (
-                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
-                        <path d="M2 6l3 3 5-5"/>
-                      </svg>
-                    ) : (
-                      <span className="text-[10px] font-bold">{i + 1}</span>
-                    )}
-                  </span>
-                  {label}
-                </div>
-                {i < 2 && <div className="flex-1 mx-2 h-px bg-gray-200 min-w-[20px]" />}
-              </div>
-            ))}
+    <div className="min-h-screen bg-white">
+      {/* Header — sticky, full width */}
+      <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="px-6 md:px-10 lg:px-16 py-4 flex justify-between items-center">
+          <div className="flex items-baseline gap-2.5">
+            <h1 className="text-lg font-bold tracking-tight text-gray-900">Banner Generator</h1>
+            <span className="text-xs text-gray-300">fal.ai · Nano Banana · v2.0</span>
           </div>
 
-          {/* Back button within flow */}
-          {step > 0 && step < STEPS.GENERATE && (
+          {!panelOpen ? (
             <button
-              onClick={goBack}
-              className="text-sm text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1 cursor-pointer transition-colors"
+              type="button"
+              onClick={onNew}
+              className="bg-gray-900 text-white rounded-xl px-4 py-2 text-sm font-semibold hover:bg-gray-700 transition-colors"
             >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                <path d="M10 12L6 8l4-4"/>
-              </svg>
-              Wróć
+              ＋ Nowy klient
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={goHome}
+              className="text-gray-400 hover:text-gray-700 text-sm transition-colors"
+            >
+              ✕ Anuluj
             </button>
           )}
+        </div>
+      </header>
 
-          {/* Step content */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      {/* Slide-down panel */}
+      <div className={`overflow-hidden transition-all duration-500 ease-in-out ${panelOpen ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="px-6 md:px-10 lg:px-16 py-8 border-b border-gray-100 bg-white">
+          <div className="max-w-2xl">
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mb-6">
+              {['Kampania', 'Marka', 'Generowanie'].map((label, i) => (
+                <div key={i} className="flex items-center">
+                  <div className={`flex items-center gap-1.5 text-xs font-semibold
+                    ${i === step ? 'text-gray-900' : i < step ? 'text-green-500' : 'text-gray-300'}`}>
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
+                      ${i === step ? 'bg-gray-900 text-white' : i < step ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-300'}`}>
+                      {i < step ? (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
+                          <path d="M2 6l3 3 5-5"/>
+                        </svg>
+                      ) : (
+                        <span className="text-[10px] font-bold">{i + 1}</span>
+                      )}
+                    </span>
+                    {label}
+                  </div>
+                  {i < 2 && <div className="flex-1 mx-2 h-px bg-gray-100 min-w-[20px]" />}
+                </div>
+              ))}
+            </div>
+
+            {/* Back button within flow */}
+            {step > 0 && step < STEPS.GENERATE && (
+              <button
+                onClick={goBack}
+                className="text-sm text-gray-400 hover:text-gray-600 mb-3 flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                  <path d="M10 12L6 8l4-4"/>
+                </svg>
+                Wróć
+              </button>
+            )}
+
+            {/* Step content */}
             {step === STEPS.CAMPAIGN && (
               <CampaignForm
                 onSubmit={handleCampaignSubmit}
@@ -290,13 +291,16 @@ export default function App() {
                 />
               </>
             )}
-          </div>
 
-          <p className="text-center mt-4 text-[11px] text-gray-300">
-            Banner Generator · Verseo · Powered by fal.ai Nano Banana
-          </p>
+            <p className="mt-6 text-[11px] text-gray-300">
+              Banner Generator · Verseo · Powered by fal.ai Nano Banana
+            </p>
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Client list — always visible */}
+      <ClientList onNew={onNew} onStartFlow={onStartFlow} />
     </div>
   )
 }

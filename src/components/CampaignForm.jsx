@@ -116,7 +116,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
           <div
             key={section.id}
             className={`rounded-2xl border transition-all duration-200
-              ${isActive ? 'border-gray-900 bg-white shadow-sm' : 'border-gray-200 bg-white'}
+              ${isActive ? 'border-gray-100 bg-white shadow-md' : 'border-gray-100 bg-white'}
               ${isLocked ? 'opacity-40' : ''}
             `}
           >
@@ -129,7 +129,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-                  ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                  ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-300'}`}>
                   {isDone ? (
                     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
                       <path d="M2 6l3 3 5-5"/>
@@ -169,8 +169,8 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
                     type="button"
                     onClick={advanceSection}
                     disabled={!canAdvance}
-                    className="w-full bg-brand-navy text-white rounded-xl py-3 text-sm font-bold
-                               hover:bg-brand-navy-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+                    className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
+                               hover:bg-gray-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
                                transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     Dalej
@@ -182,8 +182,8 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
                   <button
                     type="submit"
                     disabled={!isValid || isLoading}
-                    className="w-full bg-brand-blue text-white rounded-xl py-3.5 text-base font-bold
-                               hover:bg-brand-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed
+                    className="w-full bg-gray-900 text-white rounded-xl py-4 font-bold
+                               hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed
                                transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isLoading ? (

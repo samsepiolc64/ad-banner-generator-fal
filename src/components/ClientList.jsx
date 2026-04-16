@@ -27,7 +27,7 @@ function BrandPanel({ brand }) {
   if (!brand) return <div className="text-sm text-gray-400 italic">Brak danych marki</div>
 
   return (
-    <div className="py-3 px-4 space-y-3 text-sm">
+    <div className="space-y-3 text-sm">
       {/* Podstawowe info */}
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         {brand.name && (
@@ -124,44 +124,45 @@ function BrandPanel({ brand }) {
 
 function ClientRow({ client, onStartFlow }) {
   const [open, setOpen] = useState(false)
+  const domain = client.domain
 
   return (
-    <div className="border-b border-gray-100 last:border-0">
-      <div className="flex items-center gap-4 py-3 px-1 hover:bg-gray-50 transition-colors rounded-lg">
-        {/* Domena */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="text-gray-300 text-sm">🌐</span>
-          <span className="font-medium text-gray-900 truncate">{client.domain}</span>
+    <div>
+      <div className="flex items-center gap-4 py-4 px-6 md:px-10 lg:px-16 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
+        {/* Favicon placeholder + domena */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-400">
+            {domain[0].toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-gray-900 truncate">{domain}</div>
+            <div className="text-xs text-gray-400">{timeAgo(client.updated_at)}</div>
+          </div>
         </div>
 
-        {/* Data */}
-        <div className="text-sm text-gray-400 flex-shrink-0 w-24 text-right">
-          {timeAgo(client.updated_at)}
+        {/* Przyciski */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors
+              ${open ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}
+          >
+            Brand {open ? '▲' : '▾'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onStartFlow(domain)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors font-medium"
+          >
+            Twórz banery →
+          </button>
         </div>
-
-        {/* Brand toggle */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex-shrink-0 text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors"
-        >
-          <span>Brand</span>
-          <span className="text-xs">{open ? '▲' : '▾'}</span>
-        </button>
-
-        {/* CTA */}
-        <button
-          type="button"
-          onClick={() => onStartFlow(client.domain)}
-          className="flex-shrink-0 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap"
-        >
-          Twórz banery →
-        </button>
       </div>
 
-      {/* Inline brand panel */}
+      {/* Brand panel inline */}
       {open && (
-        <div className="mx-1 mb-2 bg-gray-50 rounded-xl border border-gray-100">
+        <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 border-b border-gray-100">
           <BrandPanel brand={client.brand_data} />
         </div>
       )}
@@ -184,20 +185,21 @@ export default function ClientList({ onNew, onStartFlow }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-600" />
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-100 border-t-gray-400" />
       </div>
     )
   }
 
   if (clients.length === 0) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <p className="text-sm text-gray-400">Brak klientów. Dodaj pierwszego klienta.</p>
         <button
           type="button"
           onClick={onNew}
-          className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl text-base font-bold hover:bg-gray-800 transition-colors"
+          className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
         >
-          <span className="text-lg leading-none">＋</span>
+          <span className="text-base leading-none">＋</span>
           Nowy klient
         </button>
       </div>
@@ -206,32 +208,15 @@ export default function ClientList({ onNew, onStartFlow }) {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Klienci</h2>
-          <p className="text-sm text-gray-400 mt-0.5">{clients.length} {clients.length === 1 ? 'klient' : 'klientów'}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onNew}
-          className="flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
-        >
-          <span className="text-base leading-none">＋</span>
-          Nowy
-        </button>
+      {/* Header sekcji */}
+      <div className="px-6 md:px-10 lg:px-16 py-4 flex items-center justify-between border-b border-gray-100">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          Klienci · {clients.length}
+        </span>
       </div>
 
       {/* Lista */}
       <div>
-        {/* Nagłówek kolumn */}
-        <div className="flex items-center gap-4 px-1 pb-2 border-b border-gray-200 mb-1">
-          <div className="flex-1 text-xs font-medium uppercase tracking-wider text-gray-400">Domena</div>
-          <div className="w-24 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Zaktualizowano</div>
-          <div className="w-16 text-xs font-medium uppercase tracking-wider text-gray-400">Brand</div>
-          <div className="w-28 text-xs font-medium uppercase tracking-wider text-gray-400">Akcja</div>
-        </div>
-
         {clients.map((client) => (
           <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} />
         ))}
