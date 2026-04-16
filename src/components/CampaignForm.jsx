@@ -105,98 +105,94 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
   const isValid = form.domain && form.goal && form.channels.length > 0 && form.formats.length > 0
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      {SECTIONS.map((section, idx) => {
-        const isActive = idx === activeSection
-        const isDone = idx < activeSection
-        const isLocked = idx > activeSection
-        const canAdvance = section.isComplete(form)
+    <form onSubmit={handleSubmit}>
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        {SECTIONS.map((section, idx) => {
+          const isActive = idx === activeSection
+          const isDone = idx < activeSection
+          const isLocked = idx > activeSection
+          const canAdvance = section.isComplete(form)
 
-        return (
-          <div
-            key={section.id}
-            className={`rounded-2xl border transition-all duration-200
-              ${isActive ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-md dark:shadow-none' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900/40'}
-              ${isLocked ? 'opacity-40' : ''}
-            `}
-          >
-            {/* Nagłówek sekcji */}
-            <button
-              type="button"
-              onClick={() => isDone && setActiveSection(idx)}
-              className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors
-                ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-2xl' : 'cursor-default'}`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-                  ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}>
-                  {isDone ? (
-                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                      <path d="M2 6l3 3 5-5"/>
-                    </svg>
-                  ) : idx + 1}
-                </span>
-                <div className="min-w-0">
-                  <div className={`font-bold ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-600'}`}>
-                    {section.title}
-                    <span className={`ml-2 font-normal text-sm ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
-                      {section.subtitle}
-                    </span>
+          return (
+            <div key={section.id} className={isLocked ? 'opacity-40' : ''}>
+              {/* Nagłówek sekcji */}
+              <button
+                type="button"
+                onClick={() => isDone && setActiveSection(idx)}
+                className={`w-full flex items-center justify-between py-4 text-left transition-colors
+                  ${isDone ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 -mx-1 px-1 rounded-xl' : 'cursor-default'}`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
+                    ${isDone ? 'bg-green-500 text-white' : isActive ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}>
+                    {isDone ? (
+                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                        <path d="M2 6l3 3 5-5"/>
+                      </svg>
+                    ) : idx + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <div className={`font-bold ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-600'}`}>
+                      {section.title}
+                      <span className={`ml-2 font-normal text-sm ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
+                        {section.subtitle}
+                      </span>
+                    </div>
+                    {isDone && (
+                      <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{section.summary(form)}</div>
+                    )}
                   </div>
-                  {isDone && (
-                    <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{section.summary(form)}</div>
+                </div>
+                {isDone && <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>}
+              </button>
+
+              {/* Zawartość sekcji */}
+              {isActive && (
+                <div className="pb-6 space-y-5">
+                  <SectionFields
+                    section={section}
+                    form={form}
+                    update={update}
+                    toggleArray={toggleArray}
+                    toggleChannel={toggleChannel}
+                    domainRef={domainRef}
+                  />
+
+                  {/* Przycisk przejścia / submit */}
+                  {idx < SECTIONS.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={advanceSection}
+                      disabled={!canAdvance}
+                      className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
+                                 hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
+                                 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      Dalej
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M6 12l4-4-4-4"/>
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!isValid || isLoading}
+                      className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
+                                 hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
+                                 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      Dalej
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M6 12l4-4-4-4"/>
+                      </svg>
+                    </button>
                   )}
                 </div>
-              </div>
-              {isDone && <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>}
-            </button>
-
-            {/* Zawartość sekcji */}
-            {isActive && (
-              <div className="px-5 pb-5 space-y-5">
-                <SectionFields
-                  section={section}
-                  form={form}
-                  update={update}
-                  toggleArray={toggleArray}
-                  toggleChannel={toggleChannel}
-                  domainRef={domainRef}
-                />
-
-                {/* Przycisk przejścia / submit */}
-                {idx < SECTIONS.length - 1 ? (
-                  <button
-                    type="button"
-                    onClick={advanceSection}
-                    disabled={!canAdvance}
-                    className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                               hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
-                               transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    Dalej
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <path d="M6 12l4-4-4-4"/>
-                    </svg>
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={!isValid || isLoading}
-                    className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                               hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
-                               transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    Dalej
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <path d="M6 12l4-4-4-4"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
+              )}
+            </div>
+          )
+        })}
+      </div>
     </form>
   )
 }

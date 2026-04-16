@@ -181,8 +181,8 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
   if (researchState === 'checking-cache') {
     return (
       <div className="py-10 text-center">
-        <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-gray-200 border-t-gray-900 mb-3"></div>
-        <div className="text-sm text-gray-500">Sprawdzam cache...</div>
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white mb-3"></div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">Sprawdzam cache...</div>
       </div>
     )
   }
@@ -191,10 +191,10 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
   if (researchState === 'researching') {
     return (
       <div className="py-10 text-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-gray-900 mb-4"></div>
-        <div className="text-sm font-semibold text-gray-900">Analizuję markę {domain}...</div>
-        <div className="text-xs text-gray-400 mt-1">Claude czyta stronę i wyciąga dane brandowe</div>
-        <div className="text-[10px] text-gray-300 mt-2">To może potrwać 15-40 sekund</div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white mb-4"></div>
+        <div className="text-sm font-semibold text-gray-900 dark:text-white">Analizuję markę {domain}...</div>
+        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Claude czyta stronę i wyciąga dane brandowe</div>
+        <div className="text-[10px] text-gray-300 dark:text-gray-600 mt-2">To może potrwać 15-40 sekund</div>
       </div>
     )
   }
@@ -204,14 +204,14 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     if (researchState === 'cached') {
       // L1 hit — local browser cache
       return (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm text-indigo-900 mb-4">
+        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 text-sm text-indigo-900 dark:text-indigo-200 mb-4">
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">💾</span>
             <div className="flex-1">
               <div className="font-semibold mb-0.5">
                 Dane z cache lokalnego — {formatAge(cachedTimestamp)}
               </div>
-              <div className="text-xs text-indigo-700 mb-2">
+              <div className="text-xs text-indigo-700 dark:text-indigo-400 mb-2">
                 Już kiedyś analizowałeś <strong>{domain}</strong> w tej przeglądarce. Dane zostały załadowane automatycznie. Jeśli strona klienta się zmieniła — odśwież.
               </div>
               <button
@@ -230,14 +230,14 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
     if (researchState === 'done' && cacheSource === 'shared') {
       // L2 hit — Supabase shared cache (someone else already researched this domain)
       return (
-        <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm text-teal-900 mb-4">
+        <div className="bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-lg p-3 text-sm text-teal-900 dark:text-teal-200 mb-4">
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">☁️</span>
             <div className="flex-1">
               <div className="font-semibold mb-0.5">
                 Dane z cache współdzielonego — {formatAge(cachedTimestamp)}
               </div>
-              <div className="text-xs text-teal-700 mb-2">
+              <div className="text-xs text-teal-700 dark:text-teal-400 mb-2">
                 Ktoś już wcześniej analizował <strong>{domain}</strong> — dane przyszły z bazy Supabase (zero kosztu Claude API). Jeśli chcesz świeży research — odśwież.
               </div>
               <button
@@ -255,7 +255,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
 
     if (researchState === 'done' && fetchedSite) {
       return (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-4">
+        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm text-green-800 dark:text-green-300 mb-4">
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">✅</span>
             <div className="flex-1">
@@ -265,7 +265,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
               {renderDeepBrandDetails()}
               <button
                 onClick={handleRefresh}
-                className="mt-2 text-xs text-green-700 hover:text-green-900 underline"
+                className="mt-2 text-xs text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-200 underline"
               >
                 🔄 Odśwież research
               </button>
@@ -277,7 +277,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
 
     if (researchState === 'done' && !fetchedSite) {
       return (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800 mb-4">
+        <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-lg p-3 text-sm text-orange-800 dark:text-orange-300 mb-4">
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">🔶</span>
             <div className="flex-1">
@@ -288,7 +288,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
               </div>
               <button
                 onClick={handleRefresh}
-                className="mt-2 text-xs text-orange-700 hover:text-orange-900 underline"
+                className="mt-2 text-xs text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 underline"
               >
                 🔄 Spróbuj ponownie
               </button>
@@ -300,7 +300,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
 
     if (researchState === 'failed') {
       return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 mb-4">
+        <div className="bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-300 mb-4">
           <div className="flex items-start gap-2.5">
             <span className="text-lg leading-none mt-0.5">⚠️</span>
             <div className="flex-1">
@@ -414,7 +414,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
         type="submit"
         disabled={!brand.name || isLoading}
         className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                   hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+                   hover:bg-gray-800 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
                    transition-colors flex items-center justify-center gap-2"
       >
         {isLoading ? (
@@ -441,7 +441,7 @@ export default function BrandForm({ domain, onSubmit, isLoading }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
       {children}
     </div>
   )

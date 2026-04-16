@@ -222,13 +222,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   return (
     <div>
       {/* Header */}
-      <h2 className="text-xl font-bold mb-0.5">Banner Generator — {brandName}</h2>
-      <p className="text-sm text-gray-400 mb-3">
+      <h2 className="text-xl font-bold mb-0.5 text-gray-900 dark:text-white">Banner Generator — {brandName}</h2>
+      <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">
         {domain} · Nano Banana (fal.ai) · {totalFormats} grafik · ~${totalCost}
       </p>
 
       {/* Progress bar */}
-      <div className="h-1 bg-gray-200 rounded-full mb-4">
+      <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full mb-4">
         <div
           className="h-1 bg-brand-orange rounded-full transition-all duration-400"
           style={{ width: `${progress}%` }}
@@ -236,16 +236,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       </div>
 
       {/* Folder picker */}
-      <div className="bg-white rounded-xl p-3.5 mb-3 flex items-center gap-3.5">
+      <div className="bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl p-3.5 mb-3 flex items-center gap-3.5">
         <button
           onClick={pickFolder}
           className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap hover:bg-gray-800 transition-colors"
         >
           📁 Wybierz folder
         </button>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           {folderName ? (
-            <>→ <strong>{folderName}</strong> <span className="text-xs text-gray-300">({doneCount} zapisanych)</span></>
+            <>→ <strong className="text-gray-900 dark:text-white">{folderName}</strong> <span className="text-xs text-gray-300 dark:text-gray-600">({doneCount} zapisanych)</span></>
           ) : (
             fsaOk ? 'Wybierz folder docelowy' : '→ pliki trafią do Downloads'
           )}
@@ -262,13 +262,14 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           return (
             <div
               key={fmt.id}
-              className={`bg-white rounded-xl p-3 flex items-center gap-3.5 transition-colors
-                ${st.status === 'done' ? 'bg-brand-green-light' : ''}
-                ${st.status === 'error' ? 'bg-brand-red-light' : ''}
-                ${st.status === 'generating' ? 'bg-orange-50' : ''}`}
+              className={`rounded-xl p-3 flex items-center gap-3.5 transition-colors
+                ${st.status === 'done' ? 'bg-brand-green-light dark:bg-green-950/30' : ''}
+                ${st.status === 'error' ? 'bg-brand-red-light dark:bg-red-950/30' : ''}
+                ${st.status === 'generating' ? 'bg-orange-50 dark:bg-orange-950/30' : ''}
+                ${st.status === 'idle' ? 'bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800' : ''}`}
             >
               {/* Thumbnail */}
-              <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center text-xl text-gray-300">
+              <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl text-gray-300 dark:text-gray-600">
                 {preview ? (
                   <img src={preview} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -278,8 +279,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate">{fmt.label}</div>
-                <div className="text-xs text-gray-400 mt-0.5">
+                <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   {fmt.width}×{fmt.height}px · {model.type === 'nb2' ? 'NB2 $0.08' : 'NB Pro $0.15'}
                   {model.needsResize ? ` (${model.ar}→resize)` : ''}
                 </div>
@@ -303,7 +304,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                   </div>
                 )}
                 {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap">⚡ generowanie...</span>}
-                {st.status === 'idle' && <span className="text-gray-300 whitespace-nowrap">⏳ oczekuje</span>}
+                {st.status === 'idle' && <span className="text-gray-300 dark:text-gray-600 whitespace-nowrap">⏳ oczekuje</span>}
               </div>
             </div>
           )
@@ -330,7 +331,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 ? 'bg-red-600 text-white hover:bg-red-700'
                 : allDone
                 ? 'bg-green-600 text-white cursor-default'
-                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed'
+                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed'
               }`}
           >
             {btnLabel}
@@ -338,7 +339,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         )
       })()}
 
-      <p className="text-center mt-3 text-xs text-gray-300">
+      <p className="text-center mt-3 text-xs text-gray-300 dark:text-gray-600">
         NB2 native AR → $0.08/img · NB Pro non-native AR → $0.15/img
       </p>
     </div>
