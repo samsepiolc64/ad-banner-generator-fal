@@ -165,35 +165,6 @@ function ClientRow({ client, onStartFlow, onRefreshed }) {
 
         {/* Przyciski */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Odśwież brand */}
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            title="Odśwież dane marki"
-            className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-colors
-              ${refreshDone
-                ? 'border-green-300 dark:border-green-700 text-green-500'
-                : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300'}
-              disabled:cursor-not-allowed`}
-          >
-            {refreshing ? (
-              <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-              </svg>
-            ) : refreshDone ? (
-              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                <path d="M2 6l3 3 5-5"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                <path d="M13.5 8A5.5 5.5 0 1 1 10 3.07"/>
-                <path d="M10 1v3.5H13.5"/>
-              </svg>
-            )}
-          </button>
-
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -218,6 +189,31 @@ function ClientRow({ client, onStartFlow, onRefreshed }) {
       {open && (
         <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
           <BrandPanel brand={client.brand_data} />
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 text-xs border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-xl px-3 py-1.5 font-medium hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed"
+            >
+              {refreshing ? (
+                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                </svg>
+              ) : refreshDone ? (
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-green-500">
+                  <path d="M2 6l3 3 5-5"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                  <path d="M12 7A5 5 0 1 1 9 2.6"/>
+                  <path d="M9 1v3h3"/>
+                </svg>
+              )}
+              {refreshDone ? 'Zaktualizowano' : refreshing ? 'Odświeżam…' : 'Odśwież dane marki'}
+            </button>
+          </div>
         </div>
       )}
     </div>
