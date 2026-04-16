@@ -122,11 +122,30 @@ function BrandPanel({ brand }) {
   )
 }
 
-function ClientRow({ client, onStartFlow, onRefreshed }) {
+function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const [open, setOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshDone, setRefreshDone] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const domain = client.domain
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch('/.netlify/functions/delete-client', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      onDeleted(domain)
+    } catch (err) {
+      console.error('Delete failed:', err)
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
 
   const handleRefresh = async (e) => {
     e.stopPropagation()
@@ -189,7 +208,8 @@ function ClientRow({ client, onStartFlow, onRefreshed }) {
       {open && (
         <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
           <BrandPanel brand={client.brand_data} />
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
+            {/* Odśwież */}
             <button
               type="button"
               onClick={handleRefresh}
@@ -213,6 +233,40 @@ function ClientRow({ client, onStartFlow, onRefreshed }) {
               )}
               {refreshDone ? 'Zaktualizowano' : refreshing ? 'Odświeżam…' : 'Odśwież dane marki'}
             </button>
+
+            {/* Usuń — inline confirmation */}
+            {!confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-1.5 text-xs text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-400 transition-colors"
+              >
+                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                  <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M3.5 3.5l.5 8h6l.5-8"/>
+                  <path d="M6 6v4M8 6v4"/>
+                </svg>
+                Usuń klienta
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Usunąć <strong className="text-gray-700 dark:text-gray-300">{domain}</strong>?</span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Usuwam…' : 'Usuń'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -236,6 +290,10 @@ export default function ClientList({ onNew, onStartFlow }) {
     setClients((prev) =>
       prev.map((c) => c.domain === domain ? { ...c, brand_data: newBrandData } : c)
     )
+  }
+
+  const handleDeleted = (domain) => {
+    setClients((prev) => prev.filter((c) => c.domain !== domain))
   }
 
   if (loading) {
@@ -274,7 +332,7 @@ export default function ClientList({ onNew, onStartFlow }) {
       {/* Lista */}
       <div>
         {clients.map((client) => (
-          <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} />
+          <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} onDeleted={handleDeleted} />
         ))}
       </div>
     </div>
