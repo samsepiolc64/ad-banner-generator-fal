@@ -1,8 +1,12 @@
 export default async (req, context) => {
+  const url = new URL(req.url)
+
+  // Allow Netlify Functions to be called freely from frontend JS (no browser Auth header on fetch)
+  if (url.pathname.startsWith('/.netlify/')) return context.next()
+
   const user = Deno.env.get('APP_USER')
   const pass = Deno.env.get('APP_PASSWORD')
 
-  // If credentials not configured, allow access (so dev env works without setup)
   if (!user || !pass) return context.next()
 
   const authHeader = req.headers.get('Authorization') || ''
