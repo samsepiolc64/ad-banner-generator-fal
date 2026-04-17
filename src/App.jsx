@@ -68,6 +68,8 @@ export default function App() {
     localStorage.setItem('theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
+  const [falMode, setFalMode] = useState('test')
+
   const [panelOpen, setPanelOpen] = useState(false)
   const [flowKey, setFlowKey] = useState(0)
   const [step, setStep] = useState(STEPS.CAMPAIGN)
@@ -314,6 +316,8 @@ export default function App() {
                             onSubmit={handleCampaignSubmit}
                             isLoading={isLoading}
                             initialDomain={initialDomain}
+                            falMode={falMode}
+                            onFalModeChange={setFalMode}
                           />
                         )}
 
@@ -343,6 +347,7 @@ export default function App() {
                               brandName={brandData?.name}
                               domain={campaignData?.domain}
                               notes={campaignData?.notes}
+                              falMode={falMode}
                             />
                           </>
                         )}

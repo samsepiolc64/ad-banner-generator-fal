@@ -43,7 +43,7 @@ function extractUrl(text) {
   return m ? m[0] : null
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, falMode = 'test' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -149,6 +149,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           modelType: model.type,
           useLogo: hasRef,
           logoDataUrl: imageUrls.length > 0 ? imageUrls : undefined,
+          falMode,
         }),
         signal,
       })

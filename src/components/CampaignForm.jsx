@@ -49,7 +49,7 @@ const SECTIONS = [
   },
 ]
 
-export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }) {
+export default function CampaignForm({ onSubmit, isLoading, initialDomain = '', falMode = 'test', onFalModeChange }) {
   const [form, setForm] = useState(() => ({
     domain: initialDomain,
     goal: '',
@@ -116,39 +116,56 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '' }
           return (
             <div key={section.id} className={isLocked ? 'opacity-40' : ''}>
               {/* Nagłówek sekcji */}
-              <button
-                type="button"
-                onClick={() => isDone && setActiveSection(idx)}
-                className={`w-full flex items-center justify-between py-3.5 text-left transition-colors
-                  ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {/* Mały wskaźnik — bez numeru */}
-                  <span className="flex-shrink-0 flex items-center justify-center w-4 h-4">
-                    {isDone ? (
-                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-green-500">
-                        <path d="M2 6l3 3 5-5"/>
-                      </svg>
-                    ) : isActive ? (
-                      <span className="w-2 h-2 rounded-full bg-gray-900 dark:bg-white block"/>
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 block"/>
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className={`font-semibold text-sm ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-600'}`}>
-                      {section.title}
-                      <span className={`ml-1.5 font-normal ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
-                        {section.subtitle}
-                      </span>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => isDone && setActiveSection(idx)}
+                  className={`flex-1 flex items-center justify-between py-3.5 text-left transition-colors
+                    ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Mały wskaźnik — bez numeru */}
+                    <span className="flex-shrink-0 flex items-center justify-center w-4 h-4">
+                      {isDone ? (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-green-500">
+                          <path d="M2 6l3 3 5-5"/>
+                        </svg>
+                      ) : isActive ? (
+                        <span className="w-2 h-2 rounded-full bg-gray-900 dark:bg-white block"/>
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 block"/>
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <div className={`font-semibold text-sm ${isActive ? 'text-gray-900 dark:text-white' : isDone ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-600'}`}>
+                        {section.title}
+                        <span className={`ml-1.5 font-normal ${isActive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'}`}>
+                          {section.subtitle}
+                        </span>
+                      </div>
+                      {isDone && (
+                        <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{section.summary(form)}</div>
+                      )}
                     </div>
-                    {isDone && (
-                      <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{section.summary(form)}</div>
-                    )}
                   </div>
-                </div>
-                {isDone && <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>}
-              </button>
+                  {isDone && section.id !== 'placement' && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>
+                  )}
+                </button>
+                {section.id === 'placement' && onFalModeChange && (
+                  <button
+                    type="button"
+                    onClick={() => onFalModeChange(falMode === 'test' ? 'prod' : 'test')}
+                    className={`flex-shrink-0 ml-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors
+                      ${falMode === 'prod'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-200 text-gray-500 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${falMode === 'prod' ? 'bg-white' : 'bg-gray-400 dark:bg-gray-500'}`} />
+                    {falMode === 'prod' ? 'Klient' : 'Test'}
+                  </button>
+                )}
+              </div>
 
               {/* Zawartość sekcji */}
               {isActive && (
