@@ -1,4 +1,3 @@
-const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
 const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
@@ -88,40 +87,33 @@ export default async (req) => {
     // Ensure session subfolder exists under domain
     const sessionFolderId = await getOrCreateFolder(token, sessionFolder, domainFolderId)
 
-    // Upload file
-    const imageBuffer = Buffer.from(imageBase64, 'base64')
-    const boundary = '-------banner_upload_boundary'
-    const metadata = JSON.stringify({ name: filename, parents: [sessionFolderId] })
-
-    const body = [
-      `--${boundary}`,
-      'Content-Type: application/json; charset=UTF-8',
-      '',
-      metadata,
-      `--${boundary}`,
-      'Content-Type: image/jpeg',
-      '',
-      '',
-    ].join('\r\n')
-
-    const bodyBuffer = Buffer.concat([
-      Buffer.from(body, 'utf8'),
-      imageBuffer,
-      Buffer.from(`\r\n--${boundary}--`, 'utf8'),
-    ])
-
-    const upload = await fetch(DRIVE_UPLOAD_URL, {
+    // Step 1: Create file metadata (no content yet)
+    const createRes = await fetch(DRIVE_FILES_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-        'Content-Length': bodyBuffer.length,
+        'Content-Type': 'application/json',
       },
-      body: bodyBuffer,
+      body: JSON.stringify({ name: filename, parents: [sessionFolderId] }),
     })
+    const created = await createRes.json()
+    if (!created.id) throw new Error(`File create failed: ${JSON.stringify(created)}`)
 
-    const result = await upload.json()
-    if (!result.id) throw new Error(`Upload failed: ${JSON.stringify(result)}`)
+    // Step 2: Upload binary content
+    const imageBuffer = Buffer.from(imageBase64, 'base64')
+    const uploadRes = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${created.id}?uploadType=media`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'image/jpeg',
+        },
+        body: imageBuffer,
+      }
+    )
+    const result = await uploadRes.json()
+    if (!result.id) throw new Error(`Content upload failed: ${JSON.stringify(result)}`)
 
     return new Response(JSON.stringify({ fileId: result.id }), { status: 200 })
   } catch (err) {
