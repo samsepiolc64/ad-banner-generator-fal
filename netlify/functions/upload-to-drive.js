@@ -92,44 +92,40 @@ export default async (req) => {
     const imageBuffer = Buffer.from(imageBase64, 'base64')
     console.log('[drive] imageBuffer size:', imageBuffer.length)
 
-    // Step 1: Initiate resumable upload session
-    const initiateRes = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
+    // Multipart/related upload — single request with metadata + binary
+    const boundary = '----BannerBoundary' + Date.now()
+    const metadata = JSON.stringify({ name: filename, parents: [sessionFolderId] })
+    const preamble =
+      `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${metadata}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: image/jpeg\r\n\r\n`
+    const epilogue = `\r\n--${boundary}--`
+
+    const body = Buffer.concat([
+      Buffer.from(preamble, 'utf8'),
+      imageBuffer,
+      Buffer.from(epilogue, 'utf8'),
+    ])
+
+    const uploadRes = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
       {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-Upload-Content-Type': 'image/jpeg',
-          'X-Upload-Content-Length': String(imageBuffer.length),
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+          'Content-Length': String(body.length),
         },
-        body: JSON.stringify({ name: filename, parents: [sessionFolderId] }),
+        body: new Uint8Array(body),
       }
     )
-    console.log('[drive] initiate status:', initiateRes.status)
-    if (!initiateRes.ok) {
-      const errText = await initiateRes.text().catch(() => '')
-      throw new Error(`Initiate upload failed: HTTP ${initiateRes.status} — ${errText.slice(0, 300)}`)
-    }
-    const uploadUri = initiateRes.headers.get('location')
-    console.log('[drive] uploadUri host:', uploadUri ? new URL(uploadUri).hostname : 'MISSING')
-    if (!uploadUri) throw new Error('No upload URI returned from Drive API')
-
-    // Step 2: Upload binary content
-    const uploadRes = await fetch(uploadUri, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'image/jpeg',
-        'Content-Length': String(imageBuffer.length),
-        'Content-Range': `bytes 0-${imageBuffer.length - 1}/${imageBuffer.length}`,
-      },
-      body: new Uint8Array(imageBuffer),
-    })
     console.log('[drive] upload status:', uploadRes.status)
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => '')
-      throw new Error(`Content upload failed: HTTP ${uploadRes.status} — ${errText.slice(0, 300)}`)
+      console.log('[drive] upload error body:', errText.slice(0, 500))
+      throw new Error(`Upload failed: HTTP ${uploadRes.status} — ${errText.slice(0, 300)}`)
     }
     const result = await uploadRes.json()
     console.log('[drive] result id:', result.id)
