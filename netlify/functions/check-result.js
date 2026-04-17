@@ -11,16 +11,19 @@ export default async (req) => {
     })
   }
 
-  const FAL_API_KEY = process.env.FAL_API_KEY
-  if (!FAL_API_KEY) {
-    return new Response(
-      JSON.stringify({ error: 'FAL_API_KEY not configured.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
-  }
-
   try {
-    const { status_url, response_url } = await req.json()
+    const { status_url, response_url, falMode } = await req.json()
+
+    const FAL_API_KEY = falMode === 'prod'
+      ? (process.env.FAL_PROD_API_KEY || process.env.FAL_API_KEY)
+      : process.env.FAL_API_KEY
+
+    if (!FAL_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'FAL_API_KEY not configured.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (!status_url || !response_url) {
       return new Response(

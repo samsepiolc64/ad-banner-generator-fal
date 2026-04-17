@@ -106,7 +106,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const res = await fetch('/.netlify/functions/check-result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status_url: statusUrl, response_url: responseUrl }),
+        body: JSON.stringify({ status_url: statusUrl, response_url: responseUrl, falMode }),
         signal,
       })
 
