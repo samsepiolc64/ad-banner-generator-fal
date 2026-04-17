@@ -49,24 +49,33 @@ const VARIANT_MATRIX = [
 
 const CHANNEL_REQUIREMENTS = {
   gdn: `-- Google Display Ads --
-- All key elements (headline, product, CTA) should have generous breathing room from the edges — do not push content against the canvas borders
-- Static image, no animation
-- CTA button visible and clearly readable
-- No phone or OS interface elements
-- No central QR codes`,
-  meta: `-- Meta Ads --
-- All key elements should have generous breathing room from every edge
-- Text should occupy a modest portion of the composition — imagery dominates
-- No Facebook or Instagram interface elements
-- CTA button placed in the lower third of the composition`,
-  'meta-stories': `-- Meta Ads | 9:16 (Stories/Reels) --
-- NO CTA button in the image at all — none
-- Keep the top band and bottom band of the image empty (they will be hidden by platform UI)
-- Place the headline in the middle-upper portion, centered horizontally`,
-  programmatic: `-- Programmatic --
-- Content should have clear margin from every edge
-- Readability at small sizes is priority
-- CTA button clear, action obvious`,
+- Keep all key elements (headline, product, CTA) well within the canvas — generous breathing room from every edge, no content touching borders
+- Static image, no animation, no implied interactivity
+- CTA button clearly visible and readable
+- No phone, browser, or OS interface elements
+- No QR codes
+- TEXT COVERAGE HARD LIMIT (Google policy): all text elements combined — headline, CTA, any body copy — must cover no more than one fifth of the total image surface; imagery and visuals must dominate`,
+  meta: `-- Meta Ads (Feed) --
+- SAFE ZONES: the top strip (roughly one seventh of image height) and the bottom strip (roughly one fifth of image height) must be free of all text, logos, and key visuals — Meta platform UI overlaps these areas on mobile
+- All remaining key elements should have generous breathing room from every edge
+- Keep text minimal — fewer words, larger type; imagery must dominate; ads with heavy text are penalized in delivery
+- No Facebook, Instagram, or any social platform interface elements
+- CTA button placed in the lower portion of the composition, clearly above the bottom safe zone`,
+  'meta-stories': `-- Meta Ads | Stories / Reels (9:16) --
+- NO CTA button anywhere in the image — none whatsoever
+- SAFE ZONES (platform UI covers these — leave completely empty, no visuals, no text, no product):
+  · Top strip: roughly the top seventh of the image height (platform header and profile info)
+  · Bottom strip: roughly the bottom third of the image height (swipe-up UI, controls, and interactive elements)
+  · Left and right narrow strips: a thin margin on each side
+- Place ALL content — headline, visuals, product — in the central vertical portion of the image between the top and bottom safe zones
+- Headline: centered horizontally, placed in the upper part of the central safe area
+- Design for immediate impact — the message must be understood within one second`,
+  programmatic: `-- Programmatic Display --
+- Keep all content well within the canvas with clear margins from every edge — ads appear at many sizes and cropping must never cut content
+- Legibility at small display sizes is the top priority: use large, bold text; avoid thin strokes, fine details, or small decorative elements that disappear when scaled down
+- High contrast between all text and background is mandatory
+- CTA button must be clearly visible and the action immediately obvious
+- Avoid overly complex compositions — simple, bold visuals perform best across placements`,
 }
 
 /**
@@ -98,17 +107,19 @@ function computeSafeZone(targetW, targetH, nativeAR) {
  * Build a single prompt for a format + variant combination.
  */
 export function buildPrompt({
-  format,       // { width, height, ar, channel }
-  variantIndex, // 0-based
-  brand,        // { name, domain, colors: { primary, secondary, accent }, style, photoStyle, typography, audience, usp }
-  headline,     // string
-  cta,          // string
-  compInsight,  // string or null
-  notes,        // string or null
-  modelInfo,    // { type, ar, needsResize } from resolveModel()
+  format,           // { width, height, ar, channel }
+  variantIndex,     // 0-based
+  brand,            // { name, domain, colors: { primary, secondary, accent }, style, photoStyle, typography, audience, usp }
+  headline,         // string
+  cta,              // string
+  compInsight,      // string or null
+  notes,            // string or null
+  modelInfo,        // { type, ar, needsResize } from resolveModel()
+  campaignChannels, // string[] — selected channels from campaign form
 }) {
   const variant = VARIANT_MATRIX[variantIndex % VARIANT_MATRIX.length]
-  const isStories = format.channel === 'meta' && format.ar === '9:16'
+  const hasGdn = (campaignChannels || []).some((c) => c.includes('Google'))
+  const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
 
   let channelReqs = ''
   if (format.channel === 'meta' && isStories) {
@@ -190,12 +201,13 @@ TYPOGRAPHY REQUIREMENTS:
 - Headline: substantial, bold, prominent — dominant text element in the composition
 - High contrast between text and background for accessibility
 - Font style: ${brand.typography || 'modern sans-serif'}
+- Keep text concise and surrounded by visual breathing room — imagery should dominate the composition${format.channel === 'gdn' ? '\n- HARD LIMIT (Google policy): all text combined must cover no more than 20% of the total image surface area' : ''}
 
 CHANNEL-SPECIFIC REQUIREMENTS:
 ${channelReqs}
 
 NEGATIVE PROMPT (do NOT render any of these):
-blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, "min." labels, "max." labels, "margin" text, "safe zone" text, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button in image, buy now text, any text in top portion, any text in bottom portion' : ''}`
+blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom third of the image, any content near the left or right edges' : ''}`
 
   return prompt
 }

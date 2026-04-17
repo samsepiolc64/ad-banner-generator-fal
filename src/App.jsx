@@ -184,6 +184,7 @@ export default function App() {
           compInsight,
           notes: campaignData.notes || null,
           modelInfo,
+          campaignChannels: campaignData.channels,
         })
         allFormats.push({
           id: `${fmt.id}-v${v + 1}`,
