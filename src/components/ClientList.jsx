@@ -128,7 +128,34 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const [refreshDone, setRefreshDone] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [driveLoading, setDriveLoading] = useState(false)
+  const [driveMissing, setDriveMissing] = useState(false)
   const domain = client.domain
+
+  const handleOpenDrive = async () => {
+    setDriveLoading(true)
+    setDriveMissing(false)
+    try {
+      const res = await fetch('/.netlify/functions/get-drive-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain }),
+      })
+      const data = await res.json()
+      if (data.found && data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer')
+      } else {
+        setDriveMissing(true)
+        setTimeout(() => setDriveMissing(false), 3000)
+      }
+    } catch (err) {
+      console.error('Drive lookup failed:', err)
+      setDriveMissing(true)
+      setTimeout(() => setDriveMissing(false), 3000)
+    } finally {
+      setDriveLoading(false)
+    }
+  }
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -193,6 +220,25 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
                 : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}`}
           >
             Brand {open ? '▲' : '▾'}
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenDrive}
+            disabled={driveLoading}
+            title="Otwórz folder z banerkami na Google Drive"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:text-gray-800 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed"
+          >
+            {driveLoading ? (
+              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H11a1 1 0 0 1 1 1V11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5Z"/>
+              </svg>
+            )}
+            {driveMissing ? 'Brak folderu' : 'Drive'}
           </button>
           <button
             type="button"
