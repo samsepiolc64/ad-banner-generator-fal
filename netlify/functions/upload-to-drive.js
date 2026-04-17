@@ -87,34 +87,44 @@ export default async (req) => {
     // Ensure session subfolder exists under domain
     const sessionFolderId = await getOrCreateFolder(token, sessionFolder, domainFolderId)
 
-    // Step 1: Create file metadata (no content yet)
-    const createRes = await fetch(DRIVE_FILES_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name: filename, parents: [sessionFolderId] }),
-    })
-    const created = await createRes.json()
-    if (!created.id) throw new Error(`File create failed: ${JSON.stringify(created)}`)
+    const imageBuffer = Buffer.from(imageBase64, 'base64')
 
-    // Step 2: Upload binary content
-    const imageBlob = new Blob([Buffer.from(imageBase64, 'base64')], { type: 'image/jpeg' })
-    const uploadRes = await fetch(
-      `https://www.googleapis.com/upload/drive/v3/files/${created.id}?uploadType=media`,
+    // Step 1: Initiate resumable upload session
+    const initiateRes = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
       {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-        body: imageBlob,
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-Upload-Content-Type': 'image/jpeg',
+          'X-Upload-Content-Length': String(imageBuffer.length),
+        },
+        body: JSON.stringify({ name: filename, parents: [sessionFolderId] }),
       }
     )
+    if (!initiateRes.ok) {
+      const errText = await initiateRes.text().catch(() => '')
+      throw new Error(`Initiate upload failed: HTTP ${initiateRes.status} — ${errText.slice(0, 300)}`)
+    }
+    const uploadUri = initiateRes.headers.get('location')
+    if (!uploadUri) throw new Error('No upload URI returned from Drive API')
+
+    // Step 2: Upload binary content to the session URI
+    const uploadRes = await fetch(uploadUri, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': String(imageBuffer.length),
+      },
+      body: new Uint8Array(imageBuffer),
+    })
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => '')
       throw new Error(`Content upload failed: HTTP ${uploadRes.status} — ${errText.slice(0, 300)}`)
     }
     const result = await uploadRes.json()
-    if (!result.id) throw new Error(`Content upload no ID: ${JSON.stringify(result)}`)
+    if (!result.id) throw new Error(`Upload no ID: ${JSON.stringify(result)}`)
 
     return new Response(JSON.stringify({ fileId: result.id }), { status: 200 })
   } catch (err) {
