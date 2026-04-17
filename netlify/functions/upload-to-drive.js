@@ -1,0 +1,134 @@
+const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
+const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files'
+const TOKEN_URL = 'https://oauth2.googleapis.com/token'
+
+async function getAccessToken() {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY
+
+  if (!email || !rawKey) throw new Error('Google credentials not configured')
+
+  const privateKey = rawKey.replace(/\\n/g, '\n')
+
+  const now = Math.floor(Date.now() / 1000)
+  const payload = {
+    iss: email,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    aud: TOKEN_URL,
+    iat: now,
+    exp: now + 3600,
+  }
+
+  const header = { alg: 'RS256', typ: 'JWT' }
+  const encode = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url')
+  const signingInput = `${encode(header)}.${encode(payload)}`
+
+  const { createSign } = await import('node:crypto')
+  const sign = createSign('RSA-SHA256')
+  sign.update(signingInput)
+  const signature = sign.sign(privateKey, 'base64url')
+  const jwt = `${signingInput}.${signature}`
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  })
+
+  const data = await res.json()
+  if (!data.access_token) throw new Error(`Token error: ${JSON.stringify(data)}`)
+  return data.access_token
+}
+
+async function getOrCreateFolder(token, name, parentId) {
+  const query = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  const search = await fetch(`${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const { files } = await search.json()
+  if (files?.length > 0) return files[0].id
+
+  const create = await fetch(DRIVE_FILES_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentId],
+    }),
+  })
+  const folder = await create.json()
+  return folder.id
+}
+
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
+  }
+
+  const rootFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID
+  if (!rootFolderId) {
+    return new Response(JSON.stringify({ error: 'GOOGLE_DRIVE_FOLDER_ID not configured' }), { status: 500 })
+  }
+
+  try {
+    const { filename, imageBase64, domain, sessionFolder } = await req.json()
+
+    if (!filename || !imageBase64 || !domain || !sessionFolder) {
+      return new Response(JSON.stringify({ error: 'Missing fields' }), { status: 400 })
+    }
+
+    const token = await getAccessToken()
+
+    // Ensure domain subfolder exists under root
+    const domainFolderId = await getOrCreateFolder(token, domain, rootFolderId)
+    // Ensure session subfolder exists under domain
+    const sessionFolderId = await getOrCreateFolder(token, sessionFolder, domainFolderId)
+
+    // Upload file
+    const imageBuffer = Buffer.from(imageBase64, 'base64')
+    const boundary = '-------banner_upload_boundary'
+    const metadata = JSON.stringify({ name: filename, parents: [sessionFolderId] })
+
+    const body = [
+      `--${boundary}`,
+      'Content-Type: application/json; charset=UTF-8',
+      '',
+      metadata,
+      `--${boundary}`,
+      'Content-Type: image/jpeg',
+      '',
+      '',
+    ].join('\r\n')
+
+    const bodyBuffer = Buffer.concat([
+      Buffer.from(body, 'utf8'),
+      imageBuffer,
+      Buffer.from(`\r\n--${boundary}--`, 'utf8'),
+    ])
+
+    const upload = await fetch(DRIVE_UPLOAD_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+        'Content-Length': bodyBuffer.length,
+      },
+      body: bodyBuffer,
+    })
+
+    const result = await upload.json()
+    if (!result.id) throw new Error(`Upload failed: ${JSON.stringify(result)}`)
+
+    return new Response(JSON.stringify({ fileId: result.id }), { status: 200 })
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+  }
+}
+
+export const config = {
+  path: '/.netlify/functions/upload-to-drive',
+}

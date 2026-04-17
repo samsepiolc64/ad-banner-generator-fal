@@ -43,6 +43,25 @@ function extractUrl(text) {
   return m ? m[0] : null
 }
 
+const SESSION_FOLDER = (() => {
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
+})()
+
+async function uploadToDrive(blob, filename, domain, sessionFolder) {
+  const base64 = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result.split(',')[1])
+    reader.readAsDataURL(blob)
+  })
+  await fetch('/.netlify/functions/upload-to-drive', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, imageBase64: base64, domain, sessionFolder }),
+  })
+}
+
 export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, falMode = 'test' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
@@ -203,6 +222,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         a.download = filename
         a.click()
       }
+
+      // Upload to Google Drive in background — does not block or affect local save
+      const safeDomainForDrive = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+      uploadToDrive(blob, filename, safeDomainForDrive, SESSION_FOLDER).catch(() => {})
 
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)

@@ -27,6 +27,9 @@
 [functions."list-clients"]
   timeout = 10
 
+[functions."upload-to-drive"]
+  timeout = 30
+
 [[headers]]
   for = "/*"
   [headers.values]
