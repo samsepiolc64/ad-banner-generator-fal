@@ -44,13 +44,14 @@ async function getAccessToken() {
 
 async function getOrCreateFolder(token, name, parentId) {
   const query = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  const search = await fetch(`${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
+  const searchUrl = `${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`
+  const search = await fetch(searchUrl, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const { files } = await search.json()
   if (files?.length > 0) return files[0].id
 
-  const create = await fetch(DRIVE_FILES_URL, {
+  const create = await fetch(`${DRIVE_FILES_URL}?supportsAllDrives=true`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -110,7 +111,7 @@ export default async (req) => {
     ])
 
     const uploadRes = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
       {
         method: 'POST',
         headers: {
