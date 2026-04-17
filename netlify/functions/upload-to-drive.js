@@ -81,13 +81,16 @@ export default async (req) => {
     }
 
     const token = await getAccessToken()
+    console.log('[drive] token ok')
 
-    // Ensure domain subfolder exists under root
     const domainFolderId = await getOrCreateFolder(token, domain, rootFolderId)
-    // Ensure session subfolder exists under domain
+    console.log('[drive] domainFolder:', domainFolderId)
+
     const sessionFolderId = await getOrCreateFolder(token, sessionFolder, domainFolderId)
+    console.log('[drive] sessionFolder:', sessionFolderId)
 
     const imageBuffer = Buffer.from(imageBase64, 'base64')
+    console.log('[drive] imageBuffer size:', imageBuffer.length)
 
     // Step 1: Initiate resumable upload session
     const initiateRes = await fetch(
@@ -103,27 +106,28 @@ export default async (req) => {
         body: JSON.stringify({ name: filename, parents: [sessionFolderId] }),
       }
     )
+    console.log('[drive] initiate status:', initiateRes.status)
     if (!initiateRes.ok) {
       const errText = await initiateRes.text().catch(() => '')
       throw new Error(`Initiate upload failed: HTTP ${initiateRes.status} — ${errText.slice(0, 300)}`)
     }
     const uploadUri = initiateRes.headers.get('location')
+    console.log('[drive] uploadUri:', uploadUri ? 'ok' : 'MISSING')
     if (!uploadUri) throw new Error('No upload URI returned from Drive API')
 
-    // Step 2: Upload binary content to the session URI
+    // Step 2: Upload binary content — no manual Content-Length (Node.js 18 fetch sets it automatically)
     const uploadRes = await fetch(uploadUri, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'image/jpeg',
-        'Content-Length': String(imageBuffer.length),
-      },
+      headers: { 'Content-Type': 'image/jpeg' },
       body: new Uint8Array(imageBuffer),
     })
+    console.log('[drive] upload status:', uploadRes.status)
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => '')
       throw new Error(`Content upload failed: HTTP ${uploadRes.status} — ${errText.slice(0, 300)}`)
     }
     const result = await uploadRes.json()
+    console.log('[drive] result id:', result.id)
     if (!result.id) throw new Error(`Upload no ID: ${JSON.stringify(result)}`)
 
     return new Response(JSON.stringify({ fileId: result.id }), { status: 200 })
