@@ -122,12 +122,12 @@ export function buildPrompt({
   const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
 
   let channelReqs = ''
-  if (format.channel === 'meta' && isStories) {
+  if (isStories) {
     channelReqs = CHANNEL_REQUIREMENTS['meta-stories']
+  } else if (hasGdn) {
+    channelReqs = CHANNEL_REQUIREMENTS.gdn
   } else if (format.channel === 'meta') {
     channelReqs = CHANNEL_REQUIREMENTS.meta
-  } else if (format.channel === 'gdn') {
-    channelReqs = CHANNEL_REQUIREMENTS.gdn
   } else {
     channelReqs = CHANNEL_REQUIREMENTS.programmatic
   }
