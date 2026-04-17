@@ -119,6 +119,7 @@ export default async (req) => {
     const uploadRes = await fetch(uploadUri, {
       method: 'PUT',
       headers: {
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'image/jpeg',
         'Content-Length': String(imageBuffer.length),
         'Content-Range': `bytes 0-${imageBuffer.length - 1}/${imageBuffer.length}`,
