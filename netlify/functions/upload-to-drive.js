@@ -115,10 +115,14 @@ export default async (req) => {
     console.log('[drive] uploadUri:', uploadUri ? 'ok' : 'MISSING')
     if (!uploadUri) throw new Error('No upload URI returned from Drive API')
 
-    // Step 2: Upload binary content — no manual Content-Length (Node.js 18 fetch sets it automatically)
+    // Step 2: Upload binary content
     const uploadRes = await fetch(uploadUri, {
       method: 'PUT',
-      headers: { 'Content-Type': 'image/jpeg' },
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': String(imageBuffer.length),
+        'Content-Range': `bytes 0-${imageBuffer.length - 1}/${imageBuffer.length}`,
+      },
       body: new Uint8Array(imageBuffer),
     })
     console.log('[drive] upload status:', uploadRes.status)
