@@ -100,20 +100,21 @@ export default async (req) => {
     if (!created.id) throw new Error(`File create failed: ${JSON.stringify(created)}`)
 
     // Step 2: Upload binary content
-    const imageBuffer = Buffer.from(imageBase64, 'base64')
+    const imageBlob = new Blob([Buffer.from(imageBase64, 'base64')], { type: 'image/jpeg' })
     const uploadRes = await fetch(
       `https://www.googleapis.com/upload/drive/v3/files/${created.id}?uploadType=media`,
       {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'image/jpeg',
-        },
-        body: imageBuffer,
+        headers: { Authorization: `Bearer ${token}` },
+        body: imageBlob,
       }
     )
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text().catch(() => '')
+      throw new Error(`Content upload failed: HTTP ${uploadRes.status} — ${errText.slice(0, 300)}`)
+    }
     const result = await uploadRes.json()
-    if (!result.id) throw new Error(`Content upload failed: ${JSON.stringify(result)}`)
+    if (!result.id) throw new Error(`Content upload no ID: ${JSON.stringify(result)}`)
 
     return new Response(JSON.stringify({ fileId: result.id }), { status: 200 })
   } catch (err) {
