@@ -12,7 +12,7 @@ async function getAccessToken() {
   const now = Math.floor(Date.now() / 1000)
   const payload = {
     iss: email,
-    scope: 'https://www.googleapis.com/auth/drive.file',
+    scope: 'https://www.googleapis.com/auth/drive',
     aud: TOKEN_URL,
     iat: now,
     exp: now + 3600,
@@ -112,7 +112,7 @@ export default async (req) => {
       throw new Error(`Initiate upload failed: HTTP ${initiateRes.status} — ${errText.slice(0, 300)}`)
     }
     const uploadUri = initiateRes.headers.get('location')
-    console.log('[drive] uploadUri:', uploadUri ? 'ok' : 'MISSING')
+    console.log('[drive] uploadUri host:', uploadUri ? new URL(uploadUri).hostname : 'MISSING')
     if (!uploadUri) throw new Error('No upload URI returned from Drive API')
 
     // Step 2: Upload binary content
