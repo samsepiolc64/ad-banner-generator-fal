@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar'
 import { ALL_FORMATS } from './lib/formats'
 import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
 import { resolveModel } from './lib/modelRouting'
+import { normalizeDomain } from './lib/domain'
 
 const STEPS = { CAMPAIGN: 0, BRAND: 1, GENERATE: 2 }
 
@@ -81,6 +82,36 @@ export default function App() {
   const [generatorFormats, setGeneratorFormats] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [copyGenStatus, setCopyGenStatus] = useState('idle')
+  const [clients, setClients] = useState([])
+  const [clientsLoading, setClientsLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/.netlify/functions/list-clients')
+      .then((r) => r.json())
+      .then((data) => setClients(data.clients || []))
+      .catch(() => setClients([]))
+      .finally(() => setClientsLoading(false))
+  }, [])
+
+  const existingDomains = clients.map((c) => normalizeDomain(c.domain))
+  const isNewClientFlow = panelOpen && !initialDomain
+
+  const handleSwitchToExisting = (normalized) => {
+    const client = clients.find((c) => normalizeDomain(c.domain) === normalized)
+    if (!client) return
+    setInitialDomain(client.domain)
+    setInitialBrandData(client.brand_data || null)
+    setFlowKey((k) => k + 1)
+    setStep(STEPS.CAMPAIGN)
+  }
+
+  const handleClientRefreshed = (domain, newBrandData) => {
+    setClients((prev) => prev.map((c) => c.domain === domain ? { ...c, brand_data: newBrandData } : c))
+  }
+
+  const handleClientDeleted = (domain) => {
+    setClients((prev) => prev.filter((c) => c.domain !== domain))
+  }
 
   const goHome = () => {
     setPanelOpen(false)
@@ -120,6 +151,18 @@ export default function App() {
   const handleBrandSubmit = async (brand) => {
     setIsLoading(true)
     setBrandData(brand)
+
+    setClients((prev) => {
+      const normalized = normalizeDomain(campaignData.domain)
+      const existingIdx = prev.findIndex((c) => normalizeDomain(c.domain) === normalized)
+      const entry = { domain: campaignData.domain, brand_data: brand, updated_at: new Date().toISOString() }
+      if (existingIdx >= 0) {
+        const next = [...prev]
+        next[existingIdx] = { ...next[existingIdx], ...entry }
+        return next
+      }
+      return [...prev, entry]
+    })
 
     const selectedFormats = ALL_FORMATS.filter((f) => campaignData.formats.includes(f.id))
     const variantCount = campaignData.variants || 2
@@ -319,6 +362,9 @@ export default function App() {
                             initialDomain={initialDomain}
                             falMode={falMode}
                             onFalModeChange={setFalMode}
+                            existingDomains={existingDomains}
+                            isNewClient={isNewClientFlow}
+                            onSwitchToExisting={handleSwitchToExisting}
                           />
                         )}
 
@@ -363,7 +409,14 @@ export default function App() {
         </div>
 
         {/* Client list */}
-        <ClientList onNew={onNew} onStartFlow={onStartFlow} />
+        <ClientList
+          clients={clients}
+          loading={clientsLoading}
+          onNew={onNew}
+          onStartFlow={onStartFlow}
+          onRefreshed={handleClientRefreshed}
+          onDeleted={handleClientDeleted}
+        />
       </div>
     </div>
   )

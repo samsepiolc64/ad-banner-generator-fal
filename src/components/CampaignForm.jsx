@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { FORMAT_GROUPS, ALL_FORMATS } from '../lib/formats'
+import { normalizeDomain } from '../lib/domain'
 
 const GOALS = ['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Retargeting']
 const CHANNELS = ['Google Display Ads', 'Meta Ads (Facebook / Instagram)', 'Programmatic']
@@ -49,7 +50,16 @@ const SECTIONS = [
   },
 ]
 
-export default function CampaignForm({ onSubmit, isLoading, initialDomain = '', falMode = 'test', onFalModeChange }) {
+export default function CampaignForm({
+  onSubmit,
+  isLoading,
+  initialDomain = '',
+  falMode = 'test',
+  onFalModeChange,
+  existingDomains = [],
+  isNewClient = false,
+  onSwitchToExisting,
+}) {
   const [form, setForm] = useState(() => ({
     domain: initialDomain,
     goal: '',
@@ -96,13 +106,25 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '', 
 
   const advanceSection = () => setActiveSection((s) => Math.min(s + 1, SECTIONS.length - 1))
 
+  const normalizedInput = useMemo(() => normalizeDomain(form.domain), [form.domain])
+  const isDuplicate =
+    isNewClient &&
+    normalizedInput.length >= 3 &&
+    existingDomains.includes(normalizedInput)
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!form.domain || !form.goal || form.channels.length === 0 || form.formats.length === 0) return
+    if (isDuplicate) return
     onSubmit(form)
   }
 
-  const isValid = form.domain && form.goal && form.channels.length > 0 && form.formats.length > 0
+  const isValid =
+    form.domain &&
+    form.goal &&
+    form.channels.length > 0 &&
+    form.formats.length > 0 &&
+    !isDuplicate
 
   return (
     <form onSubmit={handleSubmit}>
@@ -111,7 +133,7 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '', 
           const isActive = idx === activeSection
           const isDone = idx < activeSection
           const isLocked = idx > activeSection
-          const canAdvance = section.isComplete(form)
+          const canAdvance = section.isComplete(form) && !(section.id === 'placement' && isDuplicate)
 
           return (
             <div key={section.id} className={isLocked ? 'opacity-40' : ''}>
@@ -178,6 +200,23 @@ export default function CampaignForm({ onSubmit, isLoading, initialDomain = '', 
                     toggleChannel={toggleChannel}
                     domainRef={domainRef}
                   />
+
+                  {section.id === 'placement' && isDuplicate && (
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex items-center justify-between gap-3">
+                      <span>
+                        Klient <strong>{normalizedInput}</strong> już istnieje na liście.
+                      </span>
+                      {onSwitchToExisting && (
+                        <button
+                          type="button"
+                          onClick={() => onSwitchToExisting(normalizedInput)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors flex-shrink-0"
+                        >
+                          Otwórz tego klienta →
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Przycisk przejścia / submit */}
                   {idx < SECTIONS.length - 1 ? (

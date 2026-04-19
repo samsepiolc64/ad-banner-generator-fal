@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
+import { normalizeDomain, firstLetter } from '../lib/domain'
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—'
@@ -320,26 +321,42 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   )
 }
 
-export default function ClientList({ onNew, onStartFlow }) {
-  const [clients, setClients] = useState([])
-  const [loading, setLoading] = useState(true)
+export default function ClientList({ clients = [], loading = false, onNew, onStartFlow, onRefreshed, onDeleted }) {
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    fetch('/.netlify/functions/list-clients')
-      .then((r) => r.json())
-      .then((data) => setClients(data.clients || []))
-      .catch(() => setClients([]))
-      .finally(() => setLoading(false))
-  }, [])
+  const { groups, totalFiltered } = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const filtered = q
+      ? clients.filter((c) => normalizeDomain(c.domain).includes(q) || (c.brand_data?.name || '').toLowerCase().includes(q))
+      : clients
+
+    const sorted = [...filtered].sort((a, b) => normalizeDomain(a.domain).localeCompare(normalizeDomain(b.domain)))
+
+    const grouped = new Map()
+    for (const c of sorted) {
+      const letter = firstLetter(c.domain)
+      if (!grouped.has(letter)) grouped.set(letter, [])
+      grouped.get(letter).push(c)
+    }
+
+    const orderedKeys = [...grouped.keys()].sort((a, b) => {
+      if (a === '#') return 1
+      if (b === '#') return -1
+      return a.localeCompare(b)
+    })
+
+    return {
+      groups: orderedKeys.map((k) => ({ letter: k, clients: grouped.get(k) })),
+      totalFiltered: filtered.length,
+    }
+  }, [clients, search])
 
   const handleRefreshed = (domain, newBrandData) => {
-    setClients((prev) =>
-      prev.map((c) => c.domain === domain ? { ...c, brand_data: newBrandData } : c)
-    )
+    onRefreshed?.(domain, newBrandData)
   }
 
   const handleDeleted = (domain) => {
-    setClients((prev) => prev.filter((c) => c.domain !== domain))
+    onDeleted?.(domain)
   }
 
   if (loading) {
@@ -368,18 +385,54 @@ export default function ClientList({ onNew, onStartFlow }) {
 
   return (
     <div>
-      {/* Header sekcji */}
-      <div className="px-6 md:px-10 lg:px-16 py-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-          Klienci · {clients.length}
+      {/* Header sekcji z wyszukiwarką */}
+      <div className="px-6 md:px-10 lg:px-16 py-4 flex items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex-shrink-0">
+          Klienci · {search ? `${totalFiltered} / ${clients.length}` : clients.length}
         </span>
+        <div className="relative max-w-xs w-full">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2">
+            <circle cx="7" cy="7" r="5"/>
+            <path d="M14 14l-3-3"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Szukaj klienta..."
+            className="w-full text-sm pl-9 pr-8 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-sm"
+              aria-label="Wyczyść"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Lista */}
+      {/* Lista pogrupowana po pierwszej literze */}
       <div>
-        {clients.map((client) => (
-          <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} onDeleted={handleDeleted} />
-        ))}
+        {totalFiltered === 0 ? (
+          <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+            Brak wyników dla „{search}"
+          </div>
+        ) : (
+          groups.map(({ letter, clients: group }) => (
+            <div key={letter}>
+              <div className="sticky top-[65px] z-[5] px-6 md:px-10 lg:px-16 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                {letter}
+              </div>
+              {group.map((client) => (
+                <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} onDeleted={handleDeleted} />
+              ))}
+            </div>
+          ))
+        )}
       </div>
     </div>
   )
