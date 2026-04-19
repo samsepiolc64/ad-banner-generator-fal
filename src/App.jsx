@@ -296,7 +296,7 @@ export default function App() {
         <header className="sticky top-0 z-10 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800">
           <div className="px-6 md:px-10 lg:px-16 py-4 flex justify-between items-center">
             <h1 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">
-              Generator banerów
+              Generator reklam
             </h1>
 
             {!panelOpen ? (
