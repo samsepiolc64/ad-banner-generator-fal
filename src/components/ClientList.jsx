@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
+import { CLIENT_MODULES } from '../lib/clientModules'
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—'
@@ -241,13 +242,24 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
             )}
             {driveMissing ? 'Brak folderu' : 'Drive'}
           </button>
-          <button
-            type="button"
-            onClick={() => onStartFlow(domain, client.brand_data)}
-            className="text-xs px-4 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-gray-700 transition-colors font-semibold dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
-          >
-            Twórz banery →
-          </button>
+          {CLIENT_MODULES.map((mod, idx) => (
+            <button
+              key={mod.id}
+              type="button"
+              onClick={() => mod.available && onStartFlow(domain, client.brand_data, mod.id)}
+              disabled={!mod.available}
+              title={mod.available ? mod.description : `${mod.label} — wkrótce`}
+              className={`text-xs px-4 py-1.5 rounded-xl font-semibold transition-colors ${
+                !mod.available
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                  : idx === 0
+                    ? 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'
+                    : 'border border-gray-200 text-gray-700 hover:border-gray-400 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500'
+              }`}
+            >
+              {mod.label} {mod.available && idx === 0 ? '→' : ''}
+            </button>
+          ))}
         </div>
       </div>
 

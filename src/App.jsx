@@ -5,6 +5,8 @@ import LogoUpload from './components/LogoUpload'
 import GeneratorPanel from './components/GeneratorPanel'
 import ClientList from './components/ClientList'
 import Sidebar from './components/Sidebar'
+import ModulePicker from './components/ModulePicker'
+import { getModule } from './lib/clientModules'
 import { ALL_FORMATS } from './lib/formats'
 import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
 import { resolveModel } from './lib/modelRouting'
@@ -84,6 +86,7 @@ export default function App() {
   const [copyGenStatus, setCopyGenStatus] = useState('idle')
   const [clients, setClients] = useState([])
   const [clientsLoading, setClientsLoading] = useState(true)
+  const [selectedModule, setSelectedModule] = useState(null)
 
   useEffect(() => {
     fetch('/.netlify/functions/list-clients')
@@ -123,22 +126,41 @@ export default function App() {
     setLogoDataUrl(null)
     setGeneratorFormats([])
     setCopyGenStatus('idle')
+    setSelectedModule(null)
   }
 
   const onNew = () => {
     setInitialDomain('')
     setInitialBrandData(null)
+    setSelectedModule(null)
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
   }
 
-  const onStartFlow = (domain, brandData = null) => {
+  const onStartFlow = (domain, brandData = null, moduleId = null) => {
     setInitialDomain(domain)
     setInitialBrandData(brandData)
+    setSelectedModule(moduleId)
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
+  }
+
+  const handlePickModule = (moduleId) => {
+    setSelectedModule(moduleId)
+    setFlowKey((k) => k + 1)
+    setStep(STEPS.CAMPAIGN)
+  }
+
+  const handleBackToPicker = () => {
+    setSelectedModule(null)
+    setStep(STEPS.CAMPAIGN)
+    setCampaignData(null)
+    setBrandData(null)
+    setLogoDataUrl(null)
+    setGeneratorFormats([])
+    setCopyGenStatus('idle')
   }
 
   const handleCampaignSubmit = (data) => {
@@ -293,7 +315,39 @@ export default function App() {
         <div className={`overflow-hidden transition-all duration-500 ease-in-out ${panelOpen ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-6 md:px-10 lg:px-16 py-8 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950">
 
+            {/* Module picker — pokazuje się przed wyborem modułu */}
+            {!selectedModule && (
+              <ModulePicker onPick={handlePickModule} initialDomain={initialDomain} />
+            )}
+
+            {selectedModule && (
+              <div className="mb-5 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={handleBackToPicker}
+                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex items-center gap-1"
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <path d="M10 4l-4 4 4 4"/>
+                    </svg>
+                    Zmień typ
+                  </button>
+                  <span className="text-gray-300 dark:text-gray-700">·</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{getModule(selectedModule)?.label}</span>
+                </div>
+              </div>
+            )}
+
+            {selectedModule === 'products' && (
+              <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
+                <div className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">Grafiki produktowe — wkrótce</div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Flow dla tego modułu jest w budowie. Wróć za moment.</p>
+              </div>
+            )}
+
             {/* Flow — flat rows z dividerami, jak "Brand" w liście klientów */}
+            {selectedModule === 'banners' && (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {FLOW_STEPS.map(({ id, label, sub }) => {
                 const isActive = step === id
@@ -404,6 +458,7 @@ export default function App() {
                 )
               })}
             </div>
+            )}
 
           </div>
         </div>
