@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
 
@@ -127,7 +127,16 @@ function BrandPanel({ brand }) {
 function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const [open, setOpen] = useState(false)
   const [faviconOk, setFaviconOk] = useState(true)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef(null)
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    if (!moreOpen) return
+    const handler = (e) => { if (!moreRef.current?.contains(e.target)) setMoreOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [moreOpen])
   const [refreshDone, setRefreshDone] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -217,10 +226,12 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
 
         {/* Przyciski */}
         <div className="flex items-center gap-2 flex-shrink-0">
+
+          {/* Brand + Drive — widoczne na sm+, na mniejszych w "···" */}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors
+            className={`hidden sm:inline-flex text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors
               ${open
                 ? 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
                 : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}`}
@@ -231,8 +242,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
             type="button"
             onClick={handleOpenDrive}
             disabled={driveLoading}
-            title="Otwórz folder z banerkami na Google Drive"
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:text-gray-800 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed"
+            title="Otwórz folder na Google Drive"
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:text-gray-800 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed"
           >
             {driveLoading ? (
               <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
@@ -246,6 +257,38 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
             )}
             {driveMissing ? 'Brak folderu' : 'Drive'}
           </button>
+
+          {/* ··· dropdown — tylko na małych ekranach */}
+          <div className="relative sm:hidden" ref={moreRef}>
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              className="text-xs px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:text-gray-700 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors font-bold tracking-wider"
+            >
+              ···
+            </button>
+            {moreOpen && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 min-w-[130px]">
+                <button
+                  type="button"
+                  onClick={() => { setOpen((v) => !v); setMoreOpen(false) }}
+                  className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Brand {open ? '▲' : '▾'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { handleOpenDrive(); setMoreOpen(false) }}
+                  disabled={driveLoading}
+                  className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                >
+                  {driveMissing ? 'Brak folderu' : 'Drive'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Przyciski modułów — zawsze widoczne, krótsze etykiety na xs */}
           {CLIENT_MODULES.map((mod, idx) => (
             <button
               key={mod.id}
@@ -253,7 +296,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
               onClick={() => mod.available && onStartFlow(domain, client.brand_data, mod.id)}
               disabled={!mod.available}
               title={mod.available ? mod.description : `${mod.label} — wkrótce`}
-              className={`text-xs px-4 py-1.5 rounded-xl font-semibold transition-colors ${
+              className={`text-xs px-3 sm:px-4 py-1.5 rounded-xl font-semibold transition-colors whitespace-nowrap ${
                 !mod.available
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
                   : idx === 0
@@ -261,7 +304,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
                     : 'border border-gray-200 text-gray-700 hover:border-gray-400 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500'
               }`}
             >
-              {mod.label} {mod.available && idx === 0 ? '→' : ''}
+              <span className="sm:hidden">{mod.label.split(' ')[0]} {mod.available ? '→' : ''}</span>
+              <span className="hidden sm:inline">{mod.label} {mod.available && idx === 0 ? '→' : ''}</span>
             </button>
           ))}
         </div>
