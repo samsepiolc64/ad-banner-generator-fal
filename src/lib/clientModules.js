@@ -12,7 +12,7 @@ export const CLIENT_MODULES = [
     label: 'Grafiki produktowe',
     description: 'Zdjęcia produktów w scenach lifestyle na social media',
     driveFolder: 'Grafiki produktowe',
-    available: false,
+    available: true,
     accent: 'from-rose-500 to-orange-500',
   },
 ]

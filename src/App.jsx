@@ -6,7 +6,15 @@ import GeneratorPanel from './components/GeneratorPanel'
 import ClientList from './components/ClientList'
 import Sidebar from './components/Sidebar'
 import ModulePicker from './components/ModulePicker'
+import ProductFlow from './modules/products/ProductFlow'
 import { getModule } from './lib/clientModules'
+
+function makeSessionFolder(moduleLabel) {
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
+  return moduleLabel ? `${stamp} — ${moduleLabel}` : stamp
+}
 import { ALL_FORMATS } from './lib/formats'
 import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
 import { resolveModel } from './lib/modelRouting'
@@ -340,10 +348,25 @@ export default function App() {
             )}
 
             {selectedModule === 'products' && (
-              <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
-                <div className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">Grafiki produktowe — wkrótce</div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Flow dla tego modułu jest w budowie. Wróć za moment.</p>
-              </div>
+              <ProductFlow
+                key={flowKey}
+                domain={initialDomain}
+                initialBrandData={initialBrandData}
+                falMode={falMode}
+                onFalModeChange={setFalMode}
+                sessionFolder={makeSessionFolder('Grafiki produktowe')}
+                existingDomains={existingDomains}
+                isNewClient={isNewClientFlow}
+                onClientResearched={(d, b) => {
+                  setClients((prev) => {
+                    const normalized = normalizeDomain(d)
+                    const idx = prev.findIndex((c) => normalizeDomain(c.domain) === normalized)
+                    const entry = { domain: d, brand_data: b, updated_at: new Date().toISOString() }
+                    if (idx >= 0) { const next = [...prev]; next[idx] = { ...next[idx], ...entry }; return next }
+                    return [...prev, entry]
+                  })
+                }}
+              />
             )}
 
             {/* Flow — flat rows z dividerami, jak "Brand" w liście klientów */}
