@@ -126,6 +126,7 @@ function BrandPanel({ brand }) {
 
 function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const [open, setOpen] = useState(false)
+  const [faviconOk, setFaviconOk] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshDone, setRefreshDone] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -203,8 +204,11 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
       <div className="flex items-center gap-4 py-4 px-6 md:px-10 lg:px-16 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors group">
         {/* Favicon placeholder + domena */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-400 dark:text-gray-500">
-            {domain[0].toUpperCase()}
+          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden text-xs font-bold text-gray-400 dark:text-gray-500">
+            {faviconOk
+              ? <img src={`https://www.google.com/s2/favicons?sz=32&domain=${domain}`} alt="" className="w-5 h-5 object-contain" onError={() => setFaviconOk(false)} />
+              : domain[0].toUpperCase()
+            }
           </div>
           <div className="min-w-0">
             <div className="font-medium text-gray-900 dark:text-white truncate">{domain}</div>
@@ -388,7 +392,9 @@ export default function ClientList({ clients = [], loading = false, onNew, onSta
           onClick={onNew}
           className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
         >
-          <span className="text-base leading-none">＋</span>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="w-4 h-4 flex-shrink-0">
+            <path d="M8 2v12M2 8h12"/>
+          </svg>
           Nowy klient
         </button>
       </div>
