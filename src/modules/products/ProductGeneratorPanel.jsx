@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { resolveModel, costPerImage } from '../../lib/modelRouting'
 import { cropToAspect, compressToJpeg } from '../../lib/imageUtils'
 
-async function uploadToDrive(blob, filename, domain, sessionFolder) {
+async function uploadToDrive(blob, filename, sessionFolderId) {
   const base64 = await new Promise((resolve) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result.split(',')[1])
@@ -11,7 +11,7 @@ async function uploadToDrive(blob, filename, domain, sessionFolder) {
   await fetch('/.netlify/functions/upload-to-drive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename, imageBase64: base64, domain, sessionFolder }),
+    body: JSON.stringify({ filename, imageBase64: base64, sessionFolderId }),
   })
 }
 
@@ -27,6 +27,7 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
   const folderHandleRef = useRef(null)
   const [folderName, setFolderName] = useState(null)
   const abortRef = useRef(null)
+  const driveFolderRef = useRef(null)
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
   const totalFormats = formats.length
@@ -108,7 +109,8 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
         a.click()
       }
 
-      uploadToDrive(blob, filename, safeDomain, sessionFolder).catch(() => {})
+      const sessionFolderId = driveFolderRef.current?.sessionFolderId
+      if (sessionFolderId) uploadToDrive(blob, filename, sessionFolderId).catch(() => {})
 
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)
@@ -132,6 +134,20 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
     setRunning(true)
     const controller = new AbortController()
     abortRef.current = controller
+
+    // Pre-flight: utwórz foldery Drive raz przed równoległymi uploadami
+    if (!driveFolderRef.current) {
+      try {
+        const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+        const res = await fetch('/.netlify/functions/ensure-drive-folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain: safeDomain, sessionFolder }),
+        })
+        if (res.ok) driveFolderRef.current = await res.json()
+      } catch {}
+    }
+
     const pending = formats.filter((f) => statuses[f.id]?.status !== 'done')
     await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
     setRunning(false)
