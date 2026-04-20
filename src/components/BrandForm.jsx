@@ -66,6 +66,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [cachedTimestamp, setCachedTimestamp] = useState(null)
   // 'local' (from this browser's localStorage), 'shared' (from Supabase), 'fresh' (just researched)
   const [cacheSource, setCacheSource] = useState(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   /** Apply a brand data object (from API or cache) to the form + deep brand state */
   const applyBrandData = useCallback((b, fromCache = false) => {
@@ -382,28 +383,51 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
 
   /** Reusable block showing the deep research details */
   const renderDeepBrandDetails = () => {
-    const rows = [
-      deepBrand.industry        && { label: 'Branża',               val: deepBrand.industry },
-      deepBrand.productType     && { label: 'Sprzedaje',            val: deepBrand.productType },
-      deepBrand.visualMotifs    && { label: 'Motywy wizualne',      val: deepBrand.visualMotifs },
-      deepBrand.tone            && { label: 'Ton',                  val: deepBrand.tone },
-      deepBrand.brandPersonality && { label: 'Osobowość',           val: deepBrand.brandPersonality },
-      deepBrand.exampleTaglines?.length && { label: 'Hasła',        val: deepBrand.exampleTaglines.map((t) => `"${t}"`).join(', ') },
-      deepBrand.competitors?.length     && { label: 'Konkurenci',   val: deepBrand.competitors.map((c) => c.name).join(', ') },
-      deepBrand.competitorInsight       && { label: 'Krajobraz',    val: deepBrand.competitorInsight },
-      deepBrand.differentiationDirective && { label: 'Odróżnienie', val: deepBrand.differentiationDirective },
+    const primary = [
+      deepBrand.industry && { label: 'BRANŻA', val: deepBrand.industry },
+      deepBrand.tone && { label: 'TON', val: deepBrand.tone },
+      deepBrand.competitors?.length && {
+        label: 'KONKURENCI',
+        val: deepBrand.competitors.map(c => c.name || c.domain).join(', '),
+      },
     ].filter(Boolean)
 
-    if (!rows.length) return null
+    const secondary = [
+      deepBrand.productType && { label: 'SPRZEDAJE', val: deepBrand.productType },
+      deepBrand.visualMotifs && { label: 'MOTYWY', val: deepBrand.visualMotifs },
+      deepBrand.brandPersonality && { label: 'OSOBOWOŚĆ', val: deepBrand.brandPersonality },
+      deepBrand.exampleTaglines?.length && {
+        label: 'HASŁA',
+        val: deepBrand.exampleTaglines.map(t => `"${t}"`).join(', '),
+      },
+      deepBrand.competitorInsight && { label: 'KRAJOBRAZ', val: deepBrand.competitorInsight },
+      deepBrand.differentiationDirective && { label: 'ODRÓŻNIENIE', val: deepBrand.differentiationDirective },
+    ].filter(Boolean)
+
+    if (!primary.length && !secondary.length) return null
+
+    const Row = ({ label, val }) => (
+      <div className="text-xs leading-relaxed">
+        <span className="text-gray-400 dark:text-gray-500 uppercase tracking-wide text-[10px] font-semibold mr-1.5">{label}</span>
+        <span className="text-gray-600 dark:text-gray-400 line-clamp-2">{val}</span>
+      </div>
+    )
 
     return (
-      <div className="mt-2 space-y-1">
-        {rows.map(({ label, val }) => (
-          <div key={label} className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-            <span className="text-gray-400 dark:text-gray-500 uppercase tracking-wide text-[10px] font-medium mr-1.5">{label}</span>
-            {val}
-          </div>
-        ))}
+      <div className="mt-2 space-y-1.5">
+        {primary.map(r => <Row key={r.label} {...r} />)}
+        {secondary.length > 0 && (
+          <>
+            {detailsOpen && secondary.map(r => <Row key={r.label} {...r} />)}
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(v => !v)}
+              className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-0.5"
+            >
+              {detailsOpen ? '▲ Zwiń szczegóły' : `▾ Pokaż szczegóły (${secondary.length})`}
+            </button>
+          </>
+        )}
       </div>
     )
   }
@@ -468,7 +492,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         type="submit"
         disabled={!brand.name || isLoading}
         className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                   hover:bg-gray-800 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
+                   hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
                    transition-colors flex items-center justify-center gap-2"
       >
         {isLoading ? (

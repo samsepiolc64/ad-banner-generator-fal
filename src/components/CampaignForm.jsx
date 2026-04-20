@@ -233,7 +233,7 @@ export default function CampaignForm({
                       onClick={advanceSection}
                       disabled={!canAdvance}
                       className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                                 hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
+                                 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
                                  transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                       Dalej
@@ -246,7 +246,7 @@ export default function CampaignForm({
                       type="submit"
                       disabled={!isValid || isLoading}
                       className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                                 hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
+                                 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
                                  transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                       Dalej

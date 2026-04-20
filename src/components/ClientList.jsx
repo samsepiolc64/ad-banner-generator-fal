@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
+import { getCost, formatCost } from '../lib/clientCosts'
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—'
@@ -143,6 +144,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const [driveLoading, setDriveLoading] = useState(false)
   const [driveMissing, setDriveMissing] = useState(false)
   const domain = client.domain
+  const costData = getCost(domain)
 
   const handleOpenDrive = async () => {
     setDriveLoading(true)
@@ -223,6 +225,12 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
             <div className="font-medium text-gray-900 dark:text-white truncate">{domain}</div>
           </div>
         </div>
+
+        {costData?.total > 0 && (
+          <div className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 tabular-nums">
+            {formatCost(costData.total)}
+          </div>
+        )}
 
         {/* Przyciski */}
         <div className="flex items-center gap-2 flex-shrink-0">

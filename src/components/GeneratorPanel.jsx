@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
+import { addCost } from '../lib/clientCosts'
 
 // Used when a real logo WILL be composited after generation — reserve a clean corner
 const LOGO_BLOCK_WITH_LOGO = `LOGO RULES — CRITICAL, read carefully:
@@ -78,7 +79,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
   const totalFormats = formats.length
-  const totalCost = formats.reduce((s, f) => s + costPerImage(resolveModel(f).type), 0).toFixed(2)
   const progress = totalFormats > 0 ? Math.round((doneCount / totalFormats) * 100) : 0
 
   const pickFolder = async () => {
@@ -203,6 +203,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       }
 
       const blob = await compressToJpeg(srcBlob)
+      addCost(domain, costPerImage(model.type))
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
@@ -271,7 +272,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       {/* Header */}
       <h2 className="text-xl font-bold mb-0.5 text-gray-900 dark:text-white">Banery reklamowe — {brandName}</h2>
       <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">
-        {domain} · Nano Banana (fal.ai) · {totalFormats} grafik · ~${totalCost}
+        {domain} · {totalFormats} grafik
       </p>
 
       {/* Progress bar */}
@@ -328,7 +329,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  {fmt.width}×{fmt.height}px · {model.type === 'nb2' ? 'NB2 $0.08' : 'NB Pro $0.15'}
+                  {fmt.width}×{fmt.height}px
                   {model.needsResize ? ` (${model.ar}→resize)` : ''}
                 </div>
               </div>
@@ -386,9 +387,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         )
       })()}
 
-      <p className="text-center mt-3 text-xs text-gray-300 dark:text-gray-600">
-        NB2 native AR → $0.08/img · NB Pro non-native AR → $0.15/img
-      </p>
     </div>
   )
 }

@@ -71,7 +71,7 @@ function stepSummary(id, campaignData, brandData) {
 }
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light')
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
