@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { resolveModel, costPerImage } from '../../lib/modelRouting'
 import { cropToAspect, compressToJpeg } from '../../lib/imageUtils'
+import { addCost } from '../../lib/clientCosts'
 
 async function uploadToDrive(blob, filename, sessionFolderId) {
   const base64 = await new Promise((resolve) => {
@@ -90,6 +91,7 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
       let srcBlob = await (await fetch(imgUrl)).blob()
       if (model.needsResize) srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       const blob = await compressToJpeg(srcBlob)
+      addCost(domain, costPerImage(model.type))
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
