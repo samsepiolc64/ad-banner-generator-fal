@@ -212,7 +212,7 @@ export default function CampaignForm({
 
               {/* Zawartość sekcji — grid-rows animuje wysokość w obu kierunkach */}
               {idx <= maxSection && (
-                <div className={`grid transition-all duration-400 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className={`grid transition-all duration-600 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                 <div className="overflow-hidden min-h-0">
                 <div className="pb-5 space-y-5">
                   <SectionFields

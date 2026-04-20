@@ -454,7 +454,7 @@ export default function App() {
 
                     {/* Zawartość kroku — grid-rows animuje wysokość w obu kierunkach */}
                     {id <= maxStep && (
-                      <div className={`grid transition-all duration-400 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                      <div className={`grid transition-all duration-600 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                       <div className="overflow-hidden min-h-0">
                       <div className="pb-6">
                         {id === STEPS.CAMPAIGN && (
