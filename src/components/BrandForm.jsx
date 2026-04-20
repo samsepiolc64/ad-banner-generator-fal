@@ -67,6 +67,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   // 'local' (from this browser's localStorage), 'shared' (from Supabase), 'fresh' (just researched)
   const [cacheSource, setCacheSource] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [visualOpen, setVisualOpen] = useState(false)
 
   /** Apply a brand data object (from API or cache) to the form + deep brand state */
   const applyBrandData = useCallback((b, fromCache = false) => {
@@ -468,17 +469,35 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         </Field>
       </div>
 
-      <Field label="Styl wizualny">
-        <input type="text" value={brand.style} onChange={(e) => update('style', e.target.value)} placeholder="np. minimalist, premium, corporate" className="input" />
-      </Field>
-
-      <Field label="Styl fotografii">
-        <input type="text" value={brand.photoStyle} onChange={(e) => update('photoStyle', e.target.value)} placeholder="np. lifestyle, product on white, flat" className="input" />
-      </Field>
-
-      <Field label="Typografia">
-        <input type="text" value={brand.typography} onChange={(e) => update('typography', e.target.value)} placeholder="np. modern geometric sans-serif" className="input" />
-      </Field>
+      {/* Dane wizualne — zwinięte domyślnie */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setVisualOpen(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        >
+          <span className="font-medium">Dane wizualne</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+            {visualOpen ? 'Zwiń' : 'Edytuj'}
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`w-3 h-3 transition-transform ${visualOpen ? 'rotate-180' : ''}`}>
+              <path d="M2 4l4 4 4-4"/>
+            </svg>
+          </span>
+        </button>
+        {visualOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-4 border-t border-gray-100 dark:border-gray-700/50">
+            <Field label="Styl wizualny">
+              <input type="text" value={brand.style} onChange={(e) => update('style', e.target.value)} placeholder="np. minimalist, premium, corporate" className="input" />
+            </Field>
+            <Field label="Styl fotografii">
+              <input type="text" value={brand.photoStyle} onChange={(e) => update('photoStyle', e.target.value)} placeholder="np. lifestyle, product on white, flat" className="input" />
+            </Field>
+            <Field label="Typografia">
+              <input type="text" value={brand.typography} onChange={(e) => update('typography', e.target.value)} placeholder="np. modern geometric sans-serif" className="input" />
+            </Field>
+          </div>
+        )}
+      </div>
 
       <Field label="Grupa docelowa (opcjonalnie)">
         <input type="text" value={brand.audience} onChange={(e) => update('audience', e.target.value)} placeholder="np. kobiety 25-45, premium segment" className="input" />
