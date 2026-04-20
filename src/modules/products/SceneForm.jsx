@@ -215,9 +215,7 @@ export default function SceneForm({
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                   hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
-                   transition-colors flex items-center justify-center gap-2"
+        className="btn-primary"
       >
         Generuj
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">

@@ -232,9 +232,7 @@ export default function CampaignForm({
                       type="button"
                       onClick={advanceSection}
                       disabled={!canAdvance}
-                      className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                                 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
-                                 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      className="btn-primary cursor-pointer"
                     >
                       Dalej
                       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
@@ -245,9 +243,7 @@ export default function CampaignForm({
                     <button
                       type="submit"
                       disabled={!isValid || isLoading}
-                      className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                                 hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
-                                 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      className="btn-primary cursor-pointer"
                     >
                       Dalej
                       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">

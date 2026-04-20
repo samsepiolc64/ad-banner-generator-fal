@@ -42,53 +42,20 @@ async function getAccessToken() {
   return data.access_token
 }
 
-async function getOrCreateFolder(token, name, parentId) {
-  const query = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  const searchUrl = `${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`
-  const search = await fetch(searchUrl, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  const { files } = await search.json()
-  if (files?.length > 0) return files[0].id
-
-  const create = await fetch(`${DRIVE_FILES_URL}?supportsAllDrives=true`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    }),
-  })
-  const folder = await create.json()
-  return folder.id
-}
-
 export default async (req) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   }
 
-  const rootFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID
-  if (!rootFolderId) {
-    return new Response(JSON.stringify({ error: 'GOOGLE_DRIVE_FOLDER_ID not configured' }), { status: 500 })
-  }
-
   try {
-    const { filename, imageBase64, domain, sessionFolder } = await req.json()
+    const { filename, imageBase64, sessionFolderId } = await req.json()
 
-    if (!filename || !imageBase64 || !domain || !sessionFolder) {
-      return new Response(JSON.stringify({ error: 'Missing fields' }), { status: 400 })
+    if (!filename || !imageBase64 || !sessionFolderId) {
+      return new Response(JSON.stringify({ error: 'Missing fields: filename, imageBase64, sessionFolderId' }), { status: 400 })
     }
 
     const token = await getAccessToken()
-    console.log('[drive] token ok')
-
-    const domainFolderId = await getOrCreateFolder(token, domain, rootFolderId)
-    console.log('[drive] domainFolder:', domainFolderId)
-
-    const sessionFolderId = await getOrCreateFolder(token, sessionFolder, domainFolderId)
-    console.log('[drive] sessionFolder:', sessionFolderId)
+    console.log('[drive] token ok, uploading to sessionFolder:', sessionFolderId)
 
     const imageBuffer = Buffer.from(imageBase64, 'base64')
     console.log('[drive] imageBuffer size:', imageBuffer.length)

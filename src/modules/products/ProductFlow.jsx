@@ -18,7 +18,7 @@ const FLOW_STEPS = [
 
 function stepSummary(id, { brand, product, scene, formats }) {
   if (id === 0 && brand) return [brand.name, brand.industry].filter(Boolean).join(' · ') || 'Dane marki'
-  if (id === 1 && product?.image) return `${product.name || 'Produkt'}${product.type ? ' · ' + product.type : ''}`
+  if (id === 1 && product?.image) return product.type ? `Produkt · ${product.type}` : 'Zdjęcie wgrane'
   if (id === 2 && scene) {
     const bits = [scene.style]
     if (scene.includeModel && scene.model) {
@@ -171,7 +171,7 @@ export default function ProductFlow({
                         type="button"
                         onClick={confirmDomain}
                         disabled={!domainDraft.trim()}
-                        className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                        className="btn-primary"
                       >
                         Dalej
                       </button>

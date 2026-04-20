@@ -30,4 +30,14 @@ body {
     @apply bg-gray-900 text-white border-gray-900 hover:bg-gray-800 hover:border-gray-800
            dark:bg-white dark:text-gray-900 dark:border-white dark:hover:bg-gray-100 dark:hover:border-gray-100;
   }
+
+  /* Główny przycisk akcji (Dalej, Generuj itp.) — używaj wszędzie zamiast powtarzać klasy */
+  .btn-primary {
+    @apply w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
+           hover:bg-gray-800
+           dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100
+           disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed
+           dark:disabled:bg-gray-700 dark:disabled:text-gray-500
+           transition-colors flex items-center justify-center gap-2;
+  }
 }

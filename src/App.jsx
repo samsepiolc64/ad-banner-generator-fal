@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import CampaignForm from './components/CampaignForm'
 import BrandForm from './components/BrandForm'
 import LogoUpload from './components/LogoUpload'
@@ -281,6 +281,17 @@ export default function App() {
     setLogoDataUrl(dataUrl)
   }, [])
 
+  // Refs do kroków — używane do auto-scroll po zmianie aktywnego kroku
+  const stepRefs = useRef([])
+  useEffect(() => {
+    if (!panelOpen) return
+    const el = stepRefs.current[step]
+    if (!el) return
+    // Krótkie opóźnienie — czekamy aż DOM się zaktualizuje przed scrollem
+    const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+    return () => clearTimeout(t)
+  }, [step, panelOpen])
+
   return (
     <div className="flex min-h-screen bg-white dark:bg-gray-950">
       <Sidebar
@@ -382,7 +393,7 @@ export default function App() {
                 const isLocked = step < id
 
                 return (
-                  <div key={id} className={isLocked ? 'opacity-40' : ''}>
+                  <div key={id} ref={el => stepRefs.current[id] = el} className={isLocked ? 'opacity-40' : ''}>
 
                     {/* Nagłówek kroku */}
                     <button
@@ -434,7 +445,7 @@ export default function App() {
 
                     {/* Zawartość kroku */}
                     {isActive && (
-                      <div className="pb-6">
+                      <div className="pb-6 animate-step-in">
                         {id === STEPS.CAMPAIGN && (
                           <CampaignForm
                             key={flowKey}

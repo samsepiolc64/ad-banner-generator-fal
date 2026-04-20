@@ -69,7 +69,7 @@ export function buildProductPrompt({
   format,
   brand,
 }) {
-  const { productName, productType } = product || {}
+  const { type: productType } = product || {}
   const {
     style = 'lifestyle',
     includeModel = true,
@@ -92,11 +92,9 @@ export function buildProductPrompt({
         .join(' ')
     : ''
 
-  const productLine = productName
-    ? `The product is ${productName}${productType ? ` (${productType})` : ''}.`
-    : productType
-      ? `The product is a ${productType}.`
-      : 'The product in the reference image.'
+  const productLine = productType
+    ? `The product is a ${productType}.`
+    : 'The product shown in the reference image.'
 
   const sceneParts = [
     setting && `Scene/environment: ${setting}.`,

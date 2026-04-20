@@ -495,24 +495,20 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
             <Field label="Typografia">
               <input type="text" value={brand.typography} onChange={(e) => update('typography', e.target.value)} placeholder="np. modern geometric sans-serif" className="input" />
             </Field>
+            <Field label="Grupa docelowa">
+              <input type="text" value={brand.audience} onChange={(e) => update('audience', e.target.value)} placeholder="np. kobiety 25-45, premium segment" className="input" />
+            </Field>
+            <Field label="USP / wyróżniki">
+              <input type="text" value={brand.usp} onChange={(e) => update('usp', e.target.value)} placeholder="np. naturalne składniki, polska produkcja" className="input" />
+            </Field>
           </div>
         )}
       </div>
 
-      <Field label="Grupa docelowa (opcjonalnie)">
-        <input type="text" value={brand.audience} onChange={(e) => update('audience', e.target.value)} placeholder="np. kobiety 25-45, premium segment" className="input" />
-      </Field>
-
-      <Field label="USP / wyróżniki (opcjonalnie)">
-        <input type="text" value={brand.usp} onChange={(e) => update('usp', e.target.value)} placeholder="np. naturalne składniki, polska produkcja" className="input" />
-      </Field>
-
       <button
         type="submit"
         disabled={!brand.name || isLoading}
-        className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold
-                   hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed
-                   transition-colors flex items-center justify-center gap-2"
+        className="btn-primary"
       >
         {isLoading ? (
           <>

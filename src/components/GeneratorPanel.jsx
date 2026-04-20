@@ -50,7 +50,7 @@ const SESSION_FOLDER = (() => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
 })()
 
-async function uploadToDrive(blob, filename, domain, sessionFolder) {
+async function uploadToDrive(blob, filename, sessionFolderId) {
   const base64 = await new Promise((resolve) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result.split(',')[1])
@@ -59,7 +59,7 @@ async function uploadToDrive(blob, filename, domain, sessionFolder) {
   await fetch('/.netlify/functions/upload-to-drive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename, imageBase64: base64, domain, sessionFolder }),
+    body: JSON.stringify({ filename, imageBase64: base64, sessionFolderId }),
   })
 }
 
@@ -75,6 +75,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const folderHandleRef = useRef(null)
   const [folderName, setFolderName] = useState(null)
   const abortRef = useRef(null)
+  // Pre-flight Drive folder IDs — created once before parallel uploads start
+  const driveFolderRef = useRef(null)
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -225,8 +227,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       }
 
       // Upload to Google Drive in background — does not block or affect local save
-      const safeDomainForDrive = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-      uploadToDrive(blob, filename, safeDomainForDrive, SESSION_FOLDER).catch(() => {})
+      // sessionFolderId was pre-created once in generateAll() to avoid race conditions
+      const sessionFolderId = driveFolderRef.current?.sessionFolderId
+      if (sessionFolderId) {
+        uploadToDrive(blob, filename, sessionFolderId).catch(() => {})
+      }
 
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)
@@ -254,6 +259,26 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     abortRef.current = controller
 
     const pending = formats.filter((f) => statuses[f.id]?.status !== 'done')
+
+    // Pre-flight: create Drive folders ONCE before parallel uploads.
+    // This prevents the TOCTOU race condition that caused duplicate domain folders.
+    if (!driveFolderRef.current) {
+      try {
+        const res = await fetch('/.netlify/functions/ensure-drive-folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            domain: domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, ''),
+            sessionFolder: SESSION_FOLDER,
+          }),
+        })
+        if (res.ok) {
+          driveFolderRef.current = await res.json()
+        }
+      } catch {
+        // Drive pre-flight failure is non-fatal — uploads will simply be skipped
+      }
+    }
 
     // Fire all submissions simultaneously — fal.ai queue handles concurrency on their end.
     // Each generateOne independently polls its own request_id, so they truly run in parallel.
