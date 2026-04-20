@@ -47,6 +47,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   )
   const [researchError, setResearchError] = useState(null)
   const [logoUrl, setLogoUrl] = useState(() => initialBrand?.logoUrl || null)
+  const [logoDataUrl, setLogoDataUrl] = useState(() => initialBrand?.logoDataUrl || null)
   const [fetchedSite, setFetchedSite] = useState(false)
   const [deepBrand, setDeepBrand] = useState(() => {
     if (!initialBrand?.name) return {}
@@ -95,6 +96,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       differentiationDirective: b.differentiationDirective || '',
     })
     setLogoUrl(b.logoUrl || null)
+    setLogoDataUrl(b.logoDataUrl || null)
   }, [])
 
   /**
@@ -194,6 +196,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       differentiationDirective: initialBrand.differentiationDirective || '',
     })
     if (initialBrand.logoUrl) setLogoUrl(initialBrand.logoUrl)
+    if (initialBrand.logoDataUrl) setLogoDataUrl(initialBrand.logoDataUrl)
     setResearchState('prefilled')
   }, [initialBrand])
 
@@ -242,6 +245,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       ...deepBrand,
       domain,
       logoUrl,
+      logoDataUrl,
       colors: { primary: brand.primary, secondary: brand.secondary, accent: brand.accent },
     })
   }
@@ -363,7 +367,14 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         <div className="flex items-start gap-2.5">
           {c.icon}
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-0.5">{c.title}</div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{c.title}</div>
+              {logoDataUrl && (
+                <div className="flex-shrink-0 w-7 h-7 rounded bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-0.5 overflow-hidden" title="Logo pobrane ze strony">
+                  <img src={logoDataUrl} alt="logo" className="max-w-full max-h-full object-contain" />
+                </div>
+              )}
+            </div>
             {c.body && <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{c.body}</div>}
             {c.showDetails && renderDeepBrandDetails()}
             <button

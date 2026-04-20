@@ -186,6 +186,8 @@ export default function App() {
   const handleBrandSubmit = async (brand) => {
     setIsLoading(true)
     setBrandData(brand)
+    // Auto-select brand logo if research fetched one
+    if (brand.logoDataUrl) setLogoDataUrl(brand.logoDataUrl)
 
     setClients((prev) => {
       const normalized = normalizeDomain(campaignData.domain)
@@ -490,7 +492,7 @@ export default function App() {
 
                         {id === STEPS.GENERATE && (
                           <>
-                            <LogoUpload onLogoChange={handleLogoChange} />
+                            <LogoUpload onLogoChange={handleLogoChange} brandLogoDataUrl={brandData?.logoDataUrl} />
                             <GeneratorPanel
                               formats={generatorFormats}
                               logoDataUrl={logoDataUrl}

@@ -87,6 +87,73 @@ async function writeSharedCache(supabase, normalizedDomain, brand, fetched) {
   }
 }
 
+/**
+ * Extract the best logo URL from fetched HTML.
+ * Priority: apple-touch-icon → SVG icon → largest PNG icon → skip
+ */
+function extractLogoFromHtml(html, baseUrl) {
+  if (!html || !baseUrl) return null
+
+  function resolve(href) {
+    if (!href) return null
+    href = href.trim()
+    if (/^https?:\/\//.test(href)) return href
+    if (href.startsWith('//')) return 'https:' + href
+    try { return new URL(href, baseUrl).href } catch { return null }
+  }
+
+  // apple-touch-icon
+  const atiMatches = html.match(/<link[^>]+>/gi) || []
+  for (const tag of atiMatches) {
+    if (/rel=["'][^"']*apple-touch-icon[^"']*["']/i.test(tag)) {
+      const h = tag.match(/href=["']([^"']+)["']/i)
+      if (h) return resolve(h[1])
+    }
+  }
+
+  // SVG icon
+  for (const tag of atiMatches) {
+    if (/type=["']image\/svg\+xml["']/i.test(tag) && /rel=["'][^"']*icon[^"']*["']/i.test(tag)) {
+      const h = tag.match(/href=["']([^"']+)["']/i)
+      if (h) return resolve(h[1])
+    }
+  }
+
+  // Largest PNG/icon by sizes attribute
+  let bestHref = null, bestSize = 0
+  for (const tag of atiMatches) {
+    if (!/rel=["'][^"']*icon[^"']*["']/i.test(tag)) continue
+    const sm = tag.match(/sizes=["'](\d+)x\d+["']/i)
+    const hm = tag.match(/href=["']([^"']+)["']/i)
+    if (sm && hm) {
+      const sz = parseInt(sm[1], 10)
+      if (sz >= 64 && sz > bestSize) { bestSize = sz; bestHref = hm[1] }
+    }
+  }
+  if (bestHref) return resolve(bestHref)
+
+  return null
+}
+
+/**
+ * Fetch a logo URL server-side and convert to a base64 data URL.
+ * Returns null if fetch fails, URL is unreachable, or file is too large.
+ */
+async function fetchLogoAsDataUrl(logoUrl) {
+  if (!logoUrl) return null
+  try {
+    const res = await fetchWithTimeout(logoUrl, 5000)
+    if (!res.ok) return null
+    const buf = await res.arrayBuffer()
+    if (buf.byteLength > 600 * 1024) return null // skip logos > 600 KB
+    const ct = (res.headers.get('content-type') || 'image/png').split(';')[0].trim()
+    const b64 = Buffer.from(buf).toString('base64')
+    return `data:${ct};base64,${b64}`
+  } catch {
+    return null
+  }
+}
+
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -291,6 +358,21 @@ ${SCHEMA_INSTRUCTIONS}`
         JSON.stringify({ error: 'Invalid JSON from Claude: ' + parseErr.message, fallback: 'manual' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+
+    // ---- FETCH LOGO SERVER-SIDE (avoids CORS on client canvas) ----
+    // 1. Try Claude's extracted logoUrl first
+    // 2. Fall back to HTML icon parsing if Claude returned null
+    let logoSourceUrl = brandData.logoUrl || null
+    if (!logoSourceUrl && html && fetchResult?.finalUrl) {
+      logoSourceUrl = extractLogoFromHtml(html, fetchResult.finalUrl)
+      if (logoSourceUrl) brandData.logoUrl = logoSourceUrl
+    }
+    if (logoSourceUrl) {
+      const logoDataUrl = await fetchLogoAsDataUrl(logoSourceUrl)
+      if (logoDataUrl) {
+        brandData.logoDataUrl = logoDataUrl
+      }
     }
 
     // ---- WRITE TO L2 CACHE (best-effort, non-blocking failure) ----
