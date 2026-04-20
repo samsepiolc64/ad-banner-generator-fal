@@ -3,12 +3,20 @@ import { FORMAT_GROUPS, ALL_FORMATS } from '../lib/formats'
 import { normalizeDomain } from '../lib/domain'
 
 const GOALS = ['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Retargeting']
-const CHANNELS = ['Google Display Ads', 'Meta Ads (Facebook / Instagram)', 'Programmatic']
+const CHANNELS = [
+  'Google Display Ads',
+  'Meta Ads (Facebook / Instagram)',
+  'LinkedIn Ads',
+  'TikTok Ads',
+  'Programmatic',
+]
 const VARIANT_COUNTS = [1, 2, 3, 4, 5]
 
 const CHANNEL_DEFAULT_FORMATS = {
   'Google Display Ads': ['meta-1200x628', 'meta-1080x1920', 'meta-1200x1200', 'meta-960x1200'],
   'Meta Ads (Facebook / Instagram)': ['meta-1080x1350', 'meta-1080x1920', 'meta-1080x1080'],
+  'LinkedIn Ads': ['li-1200x627', 'li-1200x1200'],
+  'TikTok Ads': ['tt-1080x1920', 'tt-1080x1080'],
   'Programmatic': ['gdn-300x250', 'gdn-728x90', 'gdn-160x600', 'gdn-300x600'],
 }
 
@@ -308,7 +316,7 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
     case 'channels':
       return (
         <div className="flex flex-wrap gap-1.5">
-          {['Google Display Ads', 'Meta Ads (Facebook / Instagram)', 'Programmatic'].map((opt) => (
+          {CHANNELS.map((opt) => (
             <button key={opt} type="button" onClick={() => toggleChannel(opt)}
               className={`pill ${form.channels.includes(opt) ? 'pill-active' : ''}`}>
               {opt}

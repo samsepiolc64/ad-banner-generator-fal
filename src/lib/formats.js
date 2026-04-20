@@ -27,11 +27,29 @@ export const FORMAT_GROUPS = {
       { id: 'gdn-320x50', label: '320×50', width: 320, height: 50, ar: '32:5', channel: 'gdn' },
     ],
   },
+  linkedin: {
+    label: 'LinkedIn Ads',
+    formats: [
+      { id: 'li-1200x627',  label: '1200×627',  width: 1200, height: 627,  ar: '1.91:1', channel: 'linkedin' },
+      { id: 'li-1200x1200', label: '1200×1200', width: 1200, height: 1200, ar: '1:1',    channel: 'linkedin' },
+      { id: 'li-1080x1080', label: '1080×1080', width: 1080, height: 1080, ar: '1:1',    channel: 'linkedin' },
+    ],
+  },
+  tiktok: {
+    label: 'TikTok Ads',
+    formats: [
+      { id: 'tt-1080x1920', label: '1080×1920', width: 1080, height: 1920, ar: '9:16', channel: 'tiktok' },
+      { id: 'tt-1080x1080', label: '1080×1080', width: 1080, height: 1080, ar: '1:1',  channel: 'tiktok' },
+      { id: 'tt-1280x720',  label: '1280×720',  width: 1280, height: 720,  ar: '16:9', channel: 'tiktok' },
+    ],
+  },
 }
 
 export const ALL_FORMATS = [
   ...FORMAT_GROUPS.social.formats,
   ...FORMAT_GROUPS.display.formats,
+  ...FORMAT_GROUPS.linkedin.formats,
+  ...FORMAT_GROUPS.tiktok.formats,
 ]
 
 /** Compute the simplified AR string for display */

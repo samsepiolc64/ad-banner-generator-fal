@@ -76,6 +76,26 @@ const CHANNEL_REQUIREMENTS = {
 - High contrast between all text and background is mandatory
 - CTA button must be clearly visible and the action immediately obvious
 - Avoid overly complex compositions — simple, bold visuals perform best across placements`,
+  linkedin: `-- LinkedIn Ads --
+- Professional, business-oriented visual tone — this is a B2B platform; avoid overly casual, playful, or consumer-lifestyle aesthetics
+- SAFE ZONES: leave a thin margin on all four edges; LinkedIn feed UI overlaps side margins on mobile
+- The message must be immediately clear to a professional scrolling their feed — lead with the value proposition
+- Text is more acceptable on LinkedIn than on Meta — a concise headline + short descriptor is appropriate, but keep it clean and readable
+- No personal social platform UI (no LinkedIn interface elements, no profile picture mocks, no connection count mockups)
+- CTA button placed in the lower third, clearly readable, professional color
+- Typography: clean, professional sans-serif; avoid decorative or script fonts
+- Overall feel: credible, premium, business-ready`,
+  tiktok: `-- TikTok Ads (Static Image) --
+- SAFE ZONES — TikTok UI is very aggressive; these areas MUST be completely empty:
+  · Bottom strip: roughly the bottom 35% of the image is covered by TikTok controls (like/comment/share buttons, sound icon, caption)
+  · Top strip: roughly the top 10% of the image is covered by the top bar
+  · Right strip: roughly the right 15% of the image is covered by action buttons column
+- Place ALL content — headline, product, CTA — in the LEFT-CENTER area of the image, between the top and bottom safe zones, away from the right edge
+- Visual style: bold, energetic, high-contrast, youth-oriented; design for immediate thumb-stopping impact
+- Large, bold headline — designed to be read in under 1 second
+- NO CTA button text in the image — TikTok overlays its own CTA
+- Authentic, dynamic aesthetic — avoid overly polished "corporate" look; prefer vivid colors and energy
+- Design for mobile-first, full-screen viewing`,
 }
 
 /**
@@ -120,14 +140,21 @@ export function buildPrompt({
   const variant = VARIANT_MATRIX[variantIndex % VARIANT_MATRIX.length]
   const hasGdn = (campaignChannels || []).some((c) => c.includes('Google'))
   const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
+  const isTikTokVertical = format.channel === 'tiktok' && format.ar === '9:16'
 
   let channelReqs = ''
   if (isStories) {
     channelReqs = CHANNEL_REQUIREMENTS['meta-stories']
+  } else if (isTikTokVertical) {
+    channelReqs = CHANNEL_REQUIREMENTS.tiktok
   } else if (hasGdn) {
     channelReqs = CHANNEL_REQUIREMENTS.gdn
   } else if (format.channel === 'meta') {
     channelReqs = CHANNEL_REQUIREMENTS.meta
+  } else if (format.channel === 'linkedin') {
+    channelReqs = CHANNEL_REQUIREMENTS.linkedin
+  } else if (format.channel === 'tiktok') {
+    channelReqs = CHANNEL_REQUIREMENTS.tiktok
   } else {
     channelReqs = CHANNEL_REQUIREMENTS.programmatic
   }
@@ -164,7 +191,7 @@ ${sz.instruction}\n`
 - A finished, production-ready advertising image
 - Aspect ratio: ${format.ar}
 - High resolution, sharp, print-quality
-- Ad channel: ${format.channel === 'meta' ? 'Meta Ads' : format.channel === 'gdn' ? 'Google Display Ads' : 'Programmatic'}
+- Ad channel: ${format.channel === 'meta' ? 'Meta Ads' : format.channel === 'gdn' ? 'Google Display Ads' : format.channel === 'linkedin' ? 'LinkedIn Ads' : format.channel === 'tiktok' ? 'TikTok Ads' : 'Programmatic'}
 
 ⚠️ CRITICAL — THE IMAGE MUST LOOK LIKE A FINISHED PUBLISHED AD:
 - Do NOT draw any measurement labels, size indicators, or numeric annotations anywhere in the image
@@ -193,7 +220,7 @@ CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
 - Mood/atmosphere: ${variant.mood}
 
 AD COPY PLACEMENT:
-- Headline: "${headline}" — position: center, size: large, weight: bold${isStories ? '' : `
+- Headline: "${headline}" — position: center, size: large, weight: bold${(isStories || isTikTokVertical) ? '' : `
 - CTA button: "${cta}" — prominent button, rounded corners, accent color background, white text`}
 
 TYPOGRAPHY REQUIREMENTS:
@@ -207,7 +234,7 @@ CHANNEL-SPECIFIC REQUIREMENTS:
 ${channelReqs}
 
 NEGATIVE PROMPT (do NOT render any of these):
-blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom third of the image, any content near the left or right edges' : ''}`
+blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom third of the image, any content near the left or right edges' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
 
   return prompt
 }
