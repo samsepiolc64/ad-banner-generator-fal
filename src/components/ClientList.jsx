@@ -144,7 +144,11 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const [driveLoading, setDriveLoading] = useState(false)
   const [driveMissing, setDriveMissing] = useState(false)
   const domain = client.domain
-  const costData = getCost(domain)
+  // Koszt z Supabase (cross-browser) lub localStorage (bieżąca sesja — natychmiastowy)
+  const localCost = getCost(domain)
+  const costTotal = client.cost_usd > 0
+    ? Math.max(client.cost_usd, localCost?.total || 0)
+    : (localCost?.total || 0)
 
   const handleOpenDrive = async () => {
     setDriveLoading(true)
@@ -226,9 +230,9 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
           </div>
         </div>
 
-        {costData?.total > 0 && (
+        {costTotal > 0 && (
           <div className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 tabular-nums">
-            {formatCost(costData.total)}
+            {formatCost(costTotal)}
           </div>
         )}
 

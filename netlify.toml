@@ -24,6 +24,9 @@
 [functions."remove-bg"]
   timeout = 30
 
+[functions."add-cost"]
+  timeout = 10
+
 [functions."list-clients"]
   timeout = 10
 

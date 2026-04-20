@@ -1,23 +1,41 @@
 /**
- * Per-client cost tracking via localStorage.
- * Key: `banner_cost_${domain}` → { total: number, count: number, lastAt: ISO string }
+ * Per-client cost tracking.
+ *
+ * addCost: zapisuje do Supabase (przez add-cost function) ORAZ do localStorage
+ *          (dla natychmiastowego odczytu w bieżącej sesji bez reload).
+ *
+ * getCost: czyta z localStorage — używane jako fallback gdy Supabase dane
+ *          jeszcze nie dotarły do klienta (np. zaraz po generowaniu).
  */
 
 const KEY = (domain) => `banner_cost_${domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '')}`
 
-export function addCost(domain, amountUsd) {
+/** Dodaj koszt — zapisuje do Supabase (persist) + localStorage (natychmiastowy odczyt) */
+export async function addCost(domain, amountUsd) {
   if (!domain || !amountUsd) return
+
+  // 1. Lokalne localStorage — natychmiastowe pojawienie się w UI tej sesji
   try {
     const existing = JSON.parse(localStorage.getItem(KEY(domain)) || '{"total":0,"count":0}')
     const updated = {
-      total: (existing.total || 0) + amountUsd,
+      total: parseFloat(((existing.total || 0) + amountUsd).toFixed(4)),
       count: (existing.count || 0) + 1,
       lastAt: new Date().toISOString(),
     }
     localStorage.setItem(KEY(domain), JSON.stringify(updated))
   } catch {}
+
+  // 2. Supabase — persistent, widoczne na wszystkich urządzeniach
+  try {
+    fetch('/.netlify/functions/add-cost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, amountUsd }),
+    }).catch(() => {}) // fire-and-forget, never throw
+  } catch {}
 }
 
+/** Odczytaj koszt z localStorage (bieżąca sesja) */
 export function getCost(domain) {
   if (!domain) return null
   try {
@@ -28,5 +46,5 @@ export function getCost(domain) {
 
 export function formatCost(usd) {
   if (!usd && usd !== 0) return null
-  return `$${usd.toFixed(2)}`
+  return `$${Number(usd).toFixed(2)}`
 }

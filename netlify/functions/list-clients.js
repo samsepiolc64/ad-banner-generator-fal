@@ -45,7 +45,7 @@ export default async (req) => {
 
     const { data, error } = await supabase
       .from('brand_research')
-      .select('domain, brand_data, updated_at, fetched')
+      .select('domain, brand_data, updated_at, fetched, cost_usd, cost_count, cost_last_at')
       .order('updated_at', { ascending: false })
 
     if (error) {
