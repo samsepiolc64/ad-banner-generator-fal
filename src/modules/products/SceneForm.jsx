@@ -9,13 +9,15 @@ const STYLES = [
 ]
 
 const HAIR = [
-  { id: 'any',       label: 'Dowolny' },
-  { id: 'blonde',    label: 'Blondynka' },
-  { id: 'brunette',  label: 'Brunetka' },
-  { id: 'red',       label: 'Ruda' },
-  { id: 'black',     label: 'Czarne' },
-  { id: 'gray',      label: 'Siwe' },
+  { id: 'any',      female: 'Dowolne',    male: 'Dowolne',  any: 'Dowolne'  },
+  { id: 'blonde',   female: 'Blondynka',  male: 'Blondyn',  any: 'Jasne'    },
+  { id: 'brunette', female: 'Brunetka',   male: 'Brunet',   any: 'Ciemne'   },
+  { id: 'red',      female: 'Ruda',       male: 'Rudy',     any: 'Rude'     },
+  { id: 'black',    female: 'Czarne',     male: 'Czarne',   any: 'Czarne'   },
+  { id: 'gray',     female: 'Siwe',       male: 'Siwe',     any: 'Siwe'     },
 ]
+
+const hairLabel = (hair, gender) => hair[gender] ?? hair.any
 
 const SKIN = [
   { id: 'any',    label: 'Dowolna' },
@@ -117,7 +119,9 @@ export default function SceneForm({
             className={`text-xs px-3 py-1 rounded-full font-medium transition-colors
               ${includeModel ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}
           >
-            {includeModel ? 'Z osobą' : 'Bez osoby'}
+            {includeModel
+              ? (model.gender === 'male' ? 'Z mężczyzną' : model.gender === 'female' ? 'Z kobietą' : 'Z osobą')
+              : 'Bez osoby'}
           </button>
         </div>
 
@@ -138,7 +142,7 @@ export default function SceneForm({
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Włosy</div>
               <div className="flex flex-wrap gap-1.5">
-                {HAIR.map((h) => <Pill key={h.id} active={model.hairColor === h.id} onClick={() => setModel({ ...model, hairColor: h.id })}>{h.label}</Pill>)}
+                {HAIR.map((h) => <Pill key={h.id} active={model.hairColor === h.id} onClick={() => setModel({ ...model, hairColor: h.id })}>{hairLabel(h, model.gender)}</Pill>)}
               </div>
             </div>
             <div>
