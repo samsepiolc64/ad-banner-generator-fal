@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import BrandForm from '../../components/BrandForm'
 import ProductForm from './ProductForm'
 import SceneForm from './SceneForm'
@@ -45,6 +45,19 @@ export default function ProductFlow({
   const [domainDraft, setDomainDraft] = useState(initialDomain || '')
   const [domainError, setDomainError] = useState('')
   const [step, setStep] = useState(STEPS.BRAND)
+  const [maxStep, setMaxStep] = useState(STEPS.BRAND)
+  const stepRefs = useRef([])
+
+  useEffect(() => {
+    setMaxStep((prev) => Math.max(prev, step))
+  }, [step])
+
+  useEffect(() => {
+    const el = stepRefs.current[step]
+    if (!el) return
+    const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
+    return () => clearTimeout(t)
+  }, [step])
   const [brand, setBrand] = useState(initialBrandData)
 
   const needsDomain = !domain
@@ -115,7 +128,7 @@ export default function ProductFlow({
         const isLocked = step < id
 
         return (
-          <div key={id} className={isLocked ? 'opacity-40' : ''}>
+          <div key={id} ref={el => stepRefs.current[id] = el} className={isLocked ? 'opacity-40' : ''}>
             <button
               type="button"
               onClick={() => isDone && setStep(id)}
@@ -151,7 +164,9 @@ export default function ProductFlow({
               {isDone && <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">zmień</span>}
             </button>
 
-            {isActive && (
+            {id <= maxStep && (
+              <div className={`grid transition-all duration-400 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div className="overflow-hidden min-h-0">
               <div className="pb-6">
                 {id === STEPS.BRAND && (
                   needsDomain ? (
@@ -210,6 +225,8 @@ export default function ProductFlow({
                     sessionFolder={sessionFolder}
                   />
                 )}
+              </div>
+              </div>
               </div>
             )}
           </div>

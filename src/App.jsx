@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import CampaignForm from './components/CampaignForm'
 import BrandForm from './components/BrandForm'
 import LogoUpload from './components/LogoUpload'
@@ -84,6 +84,9 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [flowKey, setFlowKey] = useState(0)
   const [step, setStep] = useState(STEPS.CAMPAIGN)
+  // maxStep — najwyższy krok jaki był aktywny; pozwala trzymać zawartość w DOM
+  // podczas animacji zwijania (grid-rows). Resetuje się razem z flowKey.
+  const [maxStep, setMaxStep] = useState(STEPS.CAMPAIGN)
   const [initialDomain, setInitialDomain] = useState('')
   const [initialBrandData, setInitialBrandData] = useState(null)
   const [campaignData, setCampaignData] = useState(null)
@@ -144,6 +147,7 @@ export default function App() {
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
+    setMaxStep(STEPS.CAMPAIGN)
   }
 
   const onStartFlow = (domain, brandData = null, moduleId = null) => {
@@ -153,6 +157,7 @@ export default function App() {
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
+    setMaxStep(STEPS.CAMPAIGN)
   }
 
   const handlePickModule = (moduleId) => {
@@ -281,14 +286,18 @@ export default function App() {
     setLogoDataUrl(dataUrl)
   }, [])
 
+  // Aktualizuj maxStep gdy step rośnie
+  useEffect(() => {
+    setMaxStep((prev) => Math.max(prev, step))
+  }, [step])
+
   // Refs do kroków — używane do auto-scroll po zmianie aktywnego kroku
   const stepRefs = useRef([])
   useEffect(() => {
     if (!panelOpen) return
     const el = stepRefs.current[step]
     if (!el) return
-    // Krótkie opóźnienie — czekamy aż DOM się zaktualizuje przed scrollem
-    const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+    const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
     return () => clearTimeout(t)
   }, [step, panelOpen])
 
@@ -443,9 +452,11 @@ export default function App() {
                       )}
                     </button>
 
-                    {/* Zawartość kroku */}
-                    {isActive && (
-                      <div className="pb-6 animate-step-in">
+                    {/* Zawartość kroku — grid-rows animuje wysokość w obu kierunkach */}
+                    {id <= maxStep && (
+                      <div className={`grid transition-all duration-400 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                      <div className="overflow-hidden min-h-0">
+                      <div className="pb-6">
                         {id === STEPS.CAMPAIGN && (
                           <CampaignForm
                             key={flowKey}
@@ -490,6 +501,8 @@ export default function App() {
                             />
                           </>
                         )}
+                      </div>
+                      </div>
                       </div>
                     )}
                   </div>
