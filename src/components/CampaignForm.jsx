@@ -81,9 +81,22 @@ export default function CampaignForm({
     notes: '',
   }))
   const [activeSection, setActiveSection] = useState(0)
+  const [maxSection, setMaxSection] = useState(0)
+  const sectionRefs = useRef([])
   const domainRef = useRef(null)
 
   useEffect(() => { domainRef.current?.focus() }, [])
+
+  useEffect(() => {
+    setMaxSection((prev) => Math.max(prev, activeSection))
+  }, [activeSection])
+
+  useEffect(() => {
+    const el = sectionRefs.current[activeSection]
+    if (!el) return
+    const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120)
+    return () => clearTimeout(t)
+  }, [activeSection])
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }))
 
@@ -144,7 +157,7 @@ export default function CampaignForm({
           const canAdvance = section.isComplete(form) && !(section.id === 'placement' && isDuplicate)
 
           return (
-            <div key={section.id} className={isLocked ? 'opacity-40' : ''}>
+            <div key={section.id} ref={el => sectionRefs.current[idx] = el} className={isLocked ? 'opacity-40' : ''}>
               {/* Nagłówek sekcji */}
               <div className="flex items-center">
                 <button
@@ -197,8 +210,10 @@ export default function CampaignForm({
                 )}
               </div>
 
-              {/* Zawartość sekcji */}
-              {isActive && (
+              {/* Zawartość sekcji — grid-rows animuje wysokość w obu kierunkach */}
+              {idx <= maxSection && (
+                <div className={`grid transition-all duration-400 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden min-h-0">
                 <div className="pb-5 space-y-5">
                   <SectionFields
                     section={section}
@@ -251,6 +266,8 @@ export default function CampaignForm({
                       </svg>
                     </button>
                   )}
+                </div>
+                </div>
                 </div>
               )}
             </div>
