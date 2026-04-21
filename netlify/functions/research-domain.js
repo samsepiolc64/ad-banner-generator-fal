@@ -88,6 +88,80 @@ async function writeSharedCache(supabase, normalizedDomain, brand, fetched) {
 }
 
 /**
+ * Pre-parse HTML for technical brand hints to guide Claude:
+ * Google Fonts names, CSS custom property colors, button/CTA background colors.
+ * Returns a plain-text block or null if nothing useful found.
+ */
+function extractTechnicalHints(html) {
+  if (!html) return null
+
+  const hints = []
+
+  // ---- 1. Google Fonts — exact family names ----
+  const fontNames = new Set()
+  const linkTagRegex = /<link[^>]+>/gi
+  let lt
+  while ((lt = linkTagRegex.exec(html)) !== null) {
+    const tag = lt[0]
+    if (!tag.includes('fonts.googleapis.com')) continue
+    const hrefMatch = tag.match(/href=["']([^"']+)["']/i)
+    if (!hrefMatch) continue
+    const href = hrefMatch[1]
+    // CSS2: multiple &family= params; CSS1: single family= with | separator
+    const fpRegex = /[?&]family=([^&"'\s>]+)/gi
+    let fp
+    while ((fp = fpRegex.exec(href)) !== null) {
+      // split by | or %7C for CSS1 multi-family
+      const parts = fp[1].split(/\|%7C/i)
+      for (const part of parts) {
+        const name = part.split(':')[0].split('@')[0]
+          .replace(/\+/g, ' ').replace(/%20/g, ' ').trim()
+        if (name && name.length > 1) fontNames.add(name)
+      }
+    }
+  }
+  if (fontNames.size > 0) {
+    hints.push(`Google Fonts in use: ${[...fontNames].join(', ')}`)
+  }
+
+  // ---- 2. Embedded CSS: brand color variables + button colors ----
+  const styleChunks = []
+  const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi
+  let sm
+  while ((sm = styleRegex.exec(html)) !== null) {
+    styleChunks.push(sm[1])
+  }
+  const css = styleChunks.join('\n').slice(0, 60000)
+
+  if (css) {
+    // CSS custom properties matching brand/primary/accent/cta patterns
+    const cssColors = []
+    const varRegex = /--(primary|brand|main|accent|secondary|cta|button|btn|color-primary|color-brand|color-accent|color-cta)(?:-color|-bg|-background|-default)?[^:;,\n]*\s*:\s*(#[0-9a-fA-F]{3,8})/gi
+    let vc
+    while ((vc = varRegex.exec(css)) !== null && cssColors.length < 8) {
+      const varName = vc[0].split(':')[0].trim()
+      cssColors.push(`${varName}: ${vc[2]}`)
+    }
+    if (cssColors.length > 0) {
+      hints.push(`CSS brand color variables: ${cssColors.join('; ')}`)
+    }
+
+    // Button/CTA background colors from CSS rules
+    const btnColors = []
+    const btnRegex = /\.(?:btn|button|cta|btn-primary|btn-secondary|button-primary|button-cta|cta-button)[^{,]*\s*\{[^}]{0,400}background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,8})/gi
+    let bc
+    while ((bc = btnRegex.exec(css)) !== null && btnColors.length < 4) {
+      btnColors.push(bc[1])
+    }
+    if (btnColors.length > 0) {
+      hints.push(`CTA/button background colors from CSS: ${[...new Set(btnColors)].join(', ')}`)
+    }
+  }
+
+  return hints.length > 0 ? hints.join('\n') : null
+}
+
+/**
  * Extract the best logo URL from fetched HTML.
  * Priority: apple-touch-icon → SVG icon → largest PNG icon → skip
  */
@@ -262,6 +336,10 @@ export default async (req) => {
     const fetchResult = await tryFetchVariants(domain)
     const html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
 
+    // Step 1b: Pre-parse HTML for technical hints (fonts, colors, buttons)
+    // These are passed to Claude as ground truth — much more reliable than visual inference
+    const technicalHints = html ? extractTechnicalHints(html) : null
+
     // Step 2: Build the Claude prompt — with HTML if available, or just domain name
     const SCHEMA_INSTRUCTIONS = `Return ONLY valid minified JSON (no markdown fences, no explanation) matching EXACTLY this schema:
 {
@@ -279,6 +357,10 @@ export default async (req) => {
   "usp": "concrete differentiators — what makes this brand different from competitors",
   "brandPersonality": "3-5 adjectives describing brand personality — e.g. 'bold, trustworthy, innovative, warm'",
   "logoUrl": "absolute URL to logo image found on the site, or null",
+  "ctaColor": "#hex — the exact background-color of the primary CTA button (e.g. 'Buy now', 'Kontakt', 'Sprawdź', 'Zamów'). If TECHNICAL HINTS list button colors, use the first one. Otherwise extract from inline CSS or make your best inference from visual context.",
+  "headingFont": "exact font-family name for headings/titles (e.g. 'Montserrat', 'Playfair Display', 'Oswald'). If TECHNICAL HINTS list Google Fonts, pick the one most likely used for headings. Otherwise infer from visual analysis.",
+  "bodyFont": "exact font-family name for body text (e.g. 'Inter', 'Open Sans', 'Lato'). If TECHNICAL HINTS list Google Fonts, pick the body font. Can be the same as headingFont.",
+  "colorUsagePattern": "concrete description of how brand colors are used: which is the page background, which for headings/text, which for CTA buttons, which for section backgrounds (e.g. 'white page bg, #1A2B4C dark navy for headings and text, #FF6B00 orange for ALL CTA buttons, #F8F8F8 light gray for alternating section backgrounds')",
   "competitors": [
     { "name": "competitor brand name", "domain": "competitor.com", "positioning": "how they position themselves in 1 short sentence" }
   ],
@@ -290,14 +372,20 @@ IMPORTANT:
 - Be SPECIFIC and CONCRETE. Avoid generic adjectives like "modern", "clean", "premium" unless paired with concrete visual evidence.
 - Base every field on actual evidence from the site (or domain name if no HTML).
 - If a field is truly unknowable, use a sensible inference, never leave empty.
+- "ctaColor": if TECHNICAL HINTS are provided above, use the button color from there directly — it is ground truth extracted from CSS. Otherwise infer from the site's visual style.
+- "headingFont" / "bodyFont": if TECHNICAL HINTS list Google Fonts, use those exact names. This is critical for brand-consistent ads.
+- "colorUsagePattern": always describe which specific hex is used where — this directly drives ad creative decisions.
 - "competitors": identify 3-5 real direct competitors in the SAME market (same country if local brand, same language if applicable). Use your training knowledge — DO NOT invent fake brands. If you don't know real ones, return an empty array [].
 - "competitorInsight" and "differentiationDirective" should always be filled — they guide creative contrast even when competitor list is empty.`
 
     const userContent = html
-      ? `You are a senior brand strategist. Extract deep brand DNA from this website.
+      ? `You are a senior brand strategist and front-end analyst. Extract deep brand DNA from this website for use in creating advertising creatives.
 
 Website: ${domain}
-
+${technicalHints ? `
+TECHNICAL HINTS PRE-EXTRACTED FROM HTML (treat these as ground truth — more reliable than visual inference):
+${technicalHints}
+` : ''}
 HTML (truncated):
 ${html}
 

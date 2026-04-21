@@ -208,22 +208,43 @@ ${sz.instruction}\n`
   }
 
   // Build BRAND DNA section — uses deeper research fields if available
-  const brandDna = `BRAND DNA — this is the client's actual brand. Do NOT generify. Every visual choice must feel like it belongs to THIS brand, not a generic ad:
-- Brand name: ${brand.name}{{BRAND_NAME_SUPPRESS}}
-- Website: ${brand.domain}${brand.industry ? `
-- Industry: ${brand.industry}` : ''}${brand.productType ? `
-- What they sell: ${brand.productType}` : ''}
-- Primary color: ${brand.colors.primary} — dominant brand color, use prominently
-- Secondary color: ${brand.colors.secondary}
-- Accent color: ${brand.colors.accent} — for CTA button and highlights
-- Visual identity: ${brand.visualStyle || brand.style || 'minimalist, premium feel'}${brand.visualMotifs ? `
-- Recurring visual motifs from the site: ${brand.visualMotifs} — incorporate at least one` : ''}
-- Photography character: ${brand.photoStyle || 'lifestyle photography, bright natural light'}
-- Typography feel: ${brand.typography || 'modern geometric sans-serif, bold headlines'}${brand.tone ? `
-- Tone of voice: ${brand.tone}` : ''}${brand.brandPersonality ? `
-- Brand personality: ${brand.brandPersonality}` : ''}${brand.exampleTaglines?.length ? `
-- Example brand headlines from site (match this voice): ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}
-- Background preference for THIS variant: ${variantIndex === 1 ? 'dark' : 'light'}`
+  const ctaHex = brand.ctaColor || brand.colors.accent || brand.colors.primary
+
+  // Typography: prefer exact font names from research, fall back to description
+  const hasExactFonts = brand.headingFont || brand.bodyFont
+  const typographyLine = hasExactFonts
+    ? [
+        brand.headingFont ? `headings: "${brand.headingFont}"` : null,
+        brand.bodyFont && brand.bodyFont !== brand.headingFont ? `body text: "${brand.bodyFont}"` : null,
+      ].filter(Boolean).join(' / ')
+    : null
+
+  const brandDna = `⚡ BRAND CONSISTENCY MANDATE: This ad must look like it was made by ${brand.name}'s own design team. Someone who knows the ${brand.domain} website must instantly recognize it. Do NOT use generic ad aesthetics — every color, font, and visual choice must match THIS brand exactly.
+
+BRAND: ${brand.name}{{BRAND_NAME_SUPPRESS}} | ${brand.domain}${brand.industry ? ` | ${brand.industry}` : ''}${brand.productType ? `
+WHAT THEY SELL: ${brand.productType}` : ''}
+
+COLOR SYSTEM — use these exact colors in the roles described:
+- ${brand.colors.primary} → primary brand color (dominant backgrounds, hero areas)
+- ${brand.colors.secondary} → secondary color (supporting sections, text areas)
+- ${brand.colors.accent} → accent / highlight color${brand.ctaColor && brand.ctaColor.toLowerCase() !== brand.colors.accent.toLowerCase() ? `
+- ⚡ ${brand.ctaColor} → CTA BUTTON COLOR — this is the ACTUAL button color extracted from the website. ALL call-to-action buttons MUST use exactly this color, no substitutions.` : `
+- ${ctaHex} → CTA button color — use for ALL call-to-action buttons`}${brand.colorUsagePattern ? `
+- Color usage: ${brand.colorUsagePattern}` : ''}
+
+TYPOGRAPHY:${hasExactFonts ? `
+- ⚡ EXACT FONTS from the website: ${typographyLine} — use these font names exactly, or the closest possible visual match if unavailable` : `
+- Font style: ${brand.typography || 'modern geometric sans-serif, bold headlines'}`}${brand.tone ? `
+- Brand tone: ${brand.tone}` : ''}${brand.brandPersonality ? `
+- Personality: ${brand.brandPersonality}` : ''}
+
+VISUAL IDENTITY:
+- Style: ${brand.visualStyle || brand.style || 'minimalist, premium feel'}${brand.visualMotifs ? `
+- Site motifs (incorporate at least one): ${brand.visualMotifs}` : ''}
+- Photography: ${brand.photoStyle || 'lifestyle photography, bright natural light'}${brand.exampleTaglines?.length ? `
+- Actual copy/headlines from the site — match this exact tone: ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}
+
+Background for THIS variant: ${variantIndex === 1 ? 'dark, rich — use the brand\'s deepest/darkest color' : 'light, airy — use white or the brand\'s lightest neutral'}`
 
   const prompt = `OUTPUT FORMAT:
 - A finished, production-ready advertising image
@@ -260,13 +281,13 @@ CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
 
 AD COPY PLACEMENT:
 - Headline: "${headline}" — position: center, size: large, weight: bold${(isStories || isTikTokVertical) ? '' : `
-- CTA button: "${cta}" — prominent button, rounded corners, accent color background, white text`}
+- CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}
 
 TYPOGRAPHY REQUIREMENTS:
 - All text must be crystal clear and highly legible at any display size
 - Headline: substantial, bold, prominent — dominant text element in the composition
 - High contrast between text and background for accessibility
-- Font style: ${brand.typography || 'modern sans-serif'}
+- ${hasExactFonts ? `Use these EXACT brand fonts: ${typographyLine}` : `Font style: ${brand.typography || 'modern sans-serif'}`}
 - Keep text concise and surrounded by visual breathing room — imagery should dominate the composition${format.channel === 'gdn' ? '\n- HARD LIMIT (Google policy): all text combined must cover no more than 20% of the total image surface area' : ''}
 
 CHANNEL-SPECIFIC REQUIREMENTS:
