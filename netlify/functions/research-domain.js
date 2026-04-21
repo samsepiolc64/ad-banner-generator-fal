@@ -626,6 +626,16 @@ ${SCHEMA_INSTRUCTIONS}`,
     }
 
     // Step 4: Send to Claude
+    // Screenshot-only mode uses Haiku — much faster (5–12s vs 30–60s for Sonnet)
+    // which fits within Netlify's ~26s synchronous function limit. Sonnet is used
+    // for HTML analysis where the larger context window and reasoning matter more.
+    const model = (source === 'user-screenshot')
+      ? 'claude-haiku-4-5'
+      : 'claude-sonnet-4-5'
+    // Haiku needs fewer tokens — visual schema response is typically 2-3k tokens.
+    // Sonnet gets 8192 because long HTML + Polish prose fields can hit 5-6k tokens.
+    const maxTokens = (source === 'user-screenshot') ? 4096 : 8192
+
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -634,11 +644,8 @@ ${SCHEMA_INSTRUCTIONS}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        // 8192 leaves comfortable headroom — the full schema with Polish prose
-        // fields + VISUAL EVIDENCE block + competitors routinely hits 5-6k tokens.
-        // At 4096 JSON was being truncated mid-object (seen in production logs).
-        max_tokens: 8192,
+        model,
+        max_tokens: maxTokens,
         messages: claudeMessages,
       }),
     })

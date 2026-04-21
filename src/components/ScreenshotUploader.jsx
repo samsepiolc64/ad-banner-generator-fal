@@ -90,24 +90,22 @@ export default function ScreenshotUploader({ onUpload, isUploading = false }) {
         <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <img src={preview} alt="Podgląd screenshotu" className="w-full max-h-64 object-contain" />
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isUploading}
-            className="btn-primary flex-1"
-          >
-            {isUploading ? 'Analizuję…' : 'Użyj tego screenshotu do researchu'}
-          </button>
-          <button
-            type="button"
-            onClick={reset}
-            disabled={isUploading}
-            className="btn-secondary"
-          >
-            Wybierz inny
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isUploading}
+          className="btn-primary"
+        >
+          {isUploading ? 'Analizuję…' : 'Użyj tego screenshotu do researchu'}
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          disabled={isUploading}
+          className="w-full text-xs text-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40 transition-colors"
+        >
+          Wybierz inny
+        </button>
       </div>
     )
   }
