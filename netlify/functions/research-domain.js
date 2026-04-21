@@ -364,6 +364,47 @@ async function fetchWithTimeout(url, timeoutMs = 8000) {
 }
 
 /**
+ * Take a screenshot via Screenshotone API and return a base64 data URL.
+ * Used as a visual fallback when live HTML fetch fails (e.g. Cloudflare sites).
+ * Returns null if API key missing, request fails, or response is suspiciously small.
+ */
+async function tryScreenshotone(domain, apiKey) {
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const params = new URLSearchParams({
+    url: `https://${clean}`,
+    access_key: apiKey,
+    format: 'jpg',
+    viewport_width: '1440',
+    viewport_height: '900',
+    block_ads: 'true',
+    block_cookie_banners: 'true',
+    // Don't wait for full JS render — just grab the initial paint (faster)
+    delay: '2',
+    timeout: '12',
+  })
+  const url = `https://api.screenshotone.com/take?${params}`
+  try {
+    console.log(`[screenshotone] fetching screenshot for ${clean}`)
+    const res = await fetchWithTimeout(url, 15000)
+    if (!res.ok) {
+      console.warn(`[screenshotone] HTTP ${res.status}`)
+      return null
+    }
+    const buf = await res.arrayBuffer()
+    if (buf.byteLength < 10000) {
+      console.warn(`[screenshotone] response too small (${buf.byteLength} bytes) — likely an error page`)
+      return null
+    }
+    const b64 = Buffer.from(buf).toString('base64')
+    console.log(`[screenshotone] got ${Math.round(buf.byteLength / 1024)} KB`)
+    return `data:image/jpeg;base64,${b64}`
+  } catch (e) {
+    console.warn('[screenshotone] exception:', e.message)
+    return null
+  }
+}
+
+/**
  * Try URL variants IN PARALLEL — whichever succeeds first wins.
  * Max wall time: ~8s (not 60s like sequential). If all fail quickly,
  * we skip HTML fetch and let Claude infer from domain name alone.
@@ -445,7 +486,7 @@ export default async (req) => {
     // ---- CACHE MISS (or forced refresh) → run actual research ----
     // source tracks WHAT data layer we used — reported back so UI can
     // show appropriate reliability warnings.
-    let source = 'fresh'           // 'fresh' | 'wayback' | 'user-screenshot' | 'domain-only'
+    let source = 'fresh'           // 'fresh' | 'screenshot' | 'wayback' | 'user-screenshot' | 'domain-only'
     let html = null
     let fetchResult = null
     let screenshotDataUrl = null
@@ -462,13 +503,27 @@ export default async (req) => {
       html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
       if (html) source = 'fresh'
 
-      // Step 2: If HTML fetch failed, try Wayback Machine.
-      // Screenshot services (Screenshotone, Thum.io) were removed — for
-      // Cloudflare-protected sites they just capture the WAF challenge page,
-      // so they were useless. If Wayback also fails, we fall back to
-      // domain-only mode and the UI surfaces the manual-upload panel.
+      // Step 2: If HTML fetch failed, try Screenshotone (visual fallback).
+      // This catches Cloudflare-protected sites where direct fetch returns a WAF
+      // challenge page. Screenshotone renders the real page in a headless browser.
       if (!html) {
-        console.log('[flow] HTML failed — trying Wayback Machine')
+        const ssKey = process.env.SCREENSHOTONE_API_KEY
+        if (ssKey) {
+          console.log('[flow] HTML failed — trying Screenshotone')
+          const ssDataUrl = await tryScreenshotone(normalizedDomain, ssKey).catch(() => null)
+          if (ssDataUrl) {
+            screenshotDataUrl = ssDataUrl
+            source = 'screenshot'
+            console.log('[flow] Screenshotone succeeded')
+          }
+        } else {
+          console.log('[flow] SCREENSHOTONE_API_KEY not set — skipping screenshot fallback')
+        }
+      }
+
+      // Step 3: If still no data, try Wayback Machine archived snapshot.
+      if (!html && !screenshotDataUrl) {
+        console.log('[flow] trying Wayback Machine')
         const waybackResult = await tryWaybackMachine(normalizedDomain).catch(() => null)
         if (waybackResult) {
           html = waybackResult.html.slice(0, 25000)
@@ -478,7 +533,7 @@ export default async (req) => {
         }
       }
 
-      if (!html) source = 'domain-only'
+      if (!html && !screenshotDataUrl) source = 'domain-only'
     }
 
     // Pre-parse HTML for technical hints (fonts, colors, buttons)
@@ -562,7 +617,9 @@ ${SCHEMA_INSTRUCTIONS}`,
       const approxBytes = Math.floor(base64Data.length * 0.75)
       console.log(`[vision] source=${source} media=${mediaType} size=${approxBytes} bytes (~${Math.round(approxBytes/1024)} KB)`)
 
-      const sourceNote = 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. This is the AUTHORITATIVE view — trust it over any other signal.'
+      const sourceNote = source === 'user-screenshot'
+        ? 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. This is the AUTHORITATIVE view — trust it over any other signal.'
+        : 'This screenshot was automatically captured via a headless browser (Screenshotone) because direct HTML fetch failed. This shows the REAL rendered page — trust it as the authoritative visual source.'
 
       claudeMessages = [{
         role: 'user',
@@ -626,15 +683,14 @@ ${SCHEMA_INSTRUCTIONS}`,
     }
 
     // Step 4: Send to Claude
-    // Screenshot-only mode uses Haiku — much faster (5–12s vs 30–60s for Sonnet)
+    // Screenshot-only modes use Haiku — much faster (5–12s vs 30–60s for Sonnet)
     // which fits within Netlify's ~26s synchronous function limit. Sonnet is used
     // for HTML analysis where the larger context window and reasoning matter more.
-    const model = (source === 'user-screenshot')
-      ? 'claude-haiku-4-5'
-      : 'claude-sonnet-4-5'
+    const isScreenshotMode = source === 'user-screenshot' || source === 'screenshot'
+    const model = isScreenshotMode ? 'claude-haiku-4-5' : 'claude-sonnet-4-5'
     // Haiku needs fewer tokens — visual schema response is typically 2-3k tokens.
     // Sonnet gets 8192 because long HTML + Polish prose fields can hit 5-6k tokens.
-    const maxTokens = (source === 'user-screenshot') ? 4096 : 8192
+    const maxTokens = isScreenshotMode ? 4096 : 8192
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
