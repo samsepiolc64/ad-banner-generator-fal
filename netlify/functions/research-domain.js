@@ -438,6 +438,8 @@ export default async (req) => {
   "differentiationDirective": "1 sentence — the single clearest way THIS brand should visually/verbally stand out against that landscape. Actionable for creative direction."
 }
 
+LANGUAGE: All descriptive text fields (industry, productType, visualStyle, visualMotifs, photoStyle, typography, tone, audience, usp, brandPersonality, colorUsagePattern, competitorInsight, differentiationDirective, competitor positioning) MUST be written in Polish. Font names, hex color codes, URLs, brand names, and exampleTaglines stay in their original form.
+
 IMPORTANT:
 - Be SPECIFIC and CONCRETE. Avoid generic adjectives like "modern", "clean", "premium" unless paired with concrete visual evidence.
 - Base every field on actual evidence from the site (or domain name if no HTML).
