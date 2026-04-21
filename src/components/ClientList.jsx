@@ -1,8 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
 import { getCost, formatCost } from '../lib/clientCosts'
 import { TEAM_MEMBERS_UNIQUE, CAMPAIGN_GOALS } from '../lib/teamMembers'
+import ScreenshotUploader from './ScreenshotUploader'
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—'
@@ -133,6 +134,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
   const moreRef = useRef(null)
   const [refreshing, setRefreshing] = useState(false)
   const [brandOpen, setBrandOpen] = useState(false)
+  const [screenshotOpen, setScreenshotOpen] = useState(false)
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
 
   // Inline editing state
   const [editingOpiekun, setEditingOpiekun] = useState(false)
@@ -235,6 +238,28 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
       setRefreshing(false)
     }
   }
+
+  const handleRefreshWithScreenshot = useCallback(async (dataUrl) => {
+    setUploadingScreenshot(true)
+    setRefreshDone(false)
+    try {
+      const res = await fetch('/.netlify/functions/research-domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, force: true, userScreenshot: dataUrl }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      onRefreshed(domain, data.brand)
+      setRefreshDone(true)
+      setScreenshotOpen(false)
+      setTimeout(() => setRefreshDone(false), 4000)
+    } catch (err) {
+      console.error('Screenshot refresh failed:', err)
+    } finally {
+      setUploadingScreenshot(false)
+    }
+  }, [domain, onRefreshed])
 
   return (
     <div>
@@ -438,11 +463,13 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
           </div>
 
           {/* === DOLNE PRZYCISKI === */}
-          <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || uploadingScreenshot}
               className="inline-flex items-center gap-1.5 text-xs border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-xl px-3 py-1.5 font-medium hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed"
             >
               {refreshing ? (
@@ -462,6 +489,24 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
               )}
               {refreshDone ? 'Zaktualizowano' : refreshing ? 'Odświeżam…' : 'Odśwież dane marki'}
             </button>
+            <button
+              type="button"
+              onClick={() => setScreenshotOpen((v) => !v)}
+              disabled={refreshing || uploadingScreenshot}
+              className={`inline-flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 font-medium transition-colors disabled:cursor-not-allowed
+                ${screenshotOpen
+                  ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                  : 'border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+              title="Odśwież dane marki na podstawie własnego screenshotu strony"
+            >
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                <rect x="1" y="2.5" width="12" height="9" rx="1.5"/>
+                <circle cx="7" cy="7" r="2"/>
+                <path d="M4.5 2.5V2a.75.75 0 0 1 .75-.75h3.5A.75.75 0 0 1 9.5 2v.5"/>
+              </svg>
+              Ze screenshotem
+            </button>
+            </div>
 
             {!confirmDelete ? (
               <button
@@ -484,6 +529,23 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Screenshot uploader — shows when "Ze screenshotem" is clicked */}
+          {screenshotOpen && (
+            <div className="border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/20 rounded-xl p-3">
+              <div className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">
+                Wgraj screenshot strony klienta
+              </div>
+              <div className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mb-3">
+                Claude przeanalizuje go wzrokowo i zaktualizuje dane marki. Możesz wkleić (Ctrl+V), przeciągnąć plik lub kliknąć poniżej.
+              </div>
+              <ScreenshotUploader
+                onUpload={handleRefreshWithScreenshot}
+                isUploading={uploadingScreenshot}
+              />
+            </div>
+          )}
           </div>
         </div>
       )}
