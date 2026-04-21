@@ -51,7 +51,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [logoDataUrl, setLogoDataUrl] = useState(() => initialBrand?.logoDataUrl || null)
   const [fetchedSite, setFetchedSite] = useState(false)
   const [screenshotUsed, setScreenshotUsed] = useState(false)
-  // source: null | 'fresh' | 'wayback' | 'screenshot' | 'user-screenshot' | 'domain-only' | 'shared-cache'
+  // source: null | 'fresh' | 'wayback' | 'user-screenshot' | 'domain-only' | 'shared-cache'
   const [source, setSource] = useState(null)
   const [archiveTimestamp, setArchiveTimestamp] = useState(null)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
@@ -269,7 +269,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   }
 
   // Show the screenshot uploader only when research came from unreliable source
-  const isUnreliableSource = ['wayback', 'screenshot', 'domain-only'].includes(source)
+  const isUnreliableSource = ['wayback', 'domain-only'].includes(source)
 
   const update = (key, val) => setBrand((p) => ({ ...p, [key]: val }))
 
@@ -305,7 +305,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white mb-4"></div>
         <div className="text-sm font-semibold text-gray-900 dark:text-white">Analizuję markę {domain}...</div>
         <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Claude czyta stronę i wyciąga dane brandowe</div>
-        <div className="text-[10px] text-gray-300 dark:text-gray-600 mt-2">To może potrwać 20-50 sekund (gdy strona blokuje HTML — robimy screenshot)</div>
+        <div className="text-[10px] text-gray-300 dark:text-gray-600 mt-2">To może potrwać 20-50 sekund (gdy strona blokuje HTML — sięgamy do archiwum Wayback Machine)</div>
       </div>
     )
   }
@@ -361,18 +361,6 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         btnLabel: 'Odśwież research',
         showDetails: true,
       },
-      done_screenshot: {
-        icon: (
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
-            <path d="M8 2L14 13H2L8 2z"/>
-            <path d="M8 7v3M8 11.5v.5"/>
-          </svg>
-        ),
-        title: `⚠ Research ze screenshotu — może być niedokładny`,
-        body: `Strona zablokowała pobieranie HTML (prawdopodobnie Cloudflare), więc Claude analizował automatyczny zrzut ekranu. Taki screenshot często pokazuje stronę weryfikacji, a nie prawdziwy content — sprawdź wyniki i w razie wątpliwości wgraj własny zrzut poniżej.`,
-        btnLabel: 'Spróbuj ponownie',
-        showDetails: true,
-      },
       done_wayback: {
         icon: (
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
@@ -408,7 +396,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
           </svg>
         ),
         title: 'Strona niedostępna',
-        body: `Nie udało się pobrać ${domain} ani zrobić screenshotu — Claude wygenerował dane na podstawie samej nazwy domeny. Sprawdź i popraw pola poniżej.`,
+        body: `Nie udało się pobrać ${domain} ani odnaleźć archiwalnej wersji — Claude wygenerował dane na podstawie samej nazwy domeny. Sprawdź i popraw pola poniżej, lub wgraj własny screenshot.`,
         btnLabel: 'Spróbuj ponownie',
         showDetails: false,
       },
@@ -432,10 +420,8 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     else if (researchState === 'done' && cacheSource === 'shared')       key = 'shared'
     else if (researchState === 'done' && source === 'user-screenshot')   key = 'done_user_screenshot'
     else if (researchState === 'done' && source === 'wayback')           key = 'done_wayback'
-    else if (researchState === 'done' && source === 'screenshot')        key = 'done_screenshot'
     else if (researchState === 'done' && source === 'domain-only')       key = 'done_nosite'
     else if (researchState === 'done' && fetchedSite)                    key = 'done_ok'
-    else if (researchState === 'done' && !fetchedSite && screenshotUsed) key = 'done_screenshot'
     else if (researchState === 'done' && !fetchedSite)                   key = 'done_nosite'
     else if (researchState === 'failed')                                 key = 'failed'
 
