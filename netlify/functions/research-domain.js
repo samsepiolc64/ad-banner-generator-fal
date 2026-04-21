@@ -98,23 +98,29 @@ async function fetchScreenshotAsDataUrl(domain) {
   const targetUrl = `https://${clean}`
 
   // Helper: fetch a screenshot URL and return base64 data URL, or null on failure
-  async function tryScreenshotUrl(screenshotUrl, timeoutMs) {
+  async function tryScreenshotUrl(label, screenshotUrl, timeoutMs) {
     try {
+      console.log(`[screenshot] trying ${label} for ${targetUrl}`)
       const res = await fetchWithTimeout(screenshotUrl, timeoutMs)
-      if (!res.ok) return null
-      const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
-      if (!ct.startsWith('image/')) return null
+      const ct = (res.headers.get('content-type') || '').split(';')[0].trim()
+      console.log(`[screenshot] ${label} → HTTP ${res.status}, content-type: ${ct}`)
+      if (!res.ok) { console.warn(`[screenshot] ${label} non-ok status`); return null }
+      if (!ct.startsWith('image/')) { console.warn(`[screenshot] ${label} not an image`); return null }
       const buf = await res.arrayBuffer()
-      if (buf.byteLength < 5000) return null      // too small → likely an error page
-      if (buf.byteLength > 4 * 1024 * 1024) return null // too large for Claude Vision
+      console.log(`[screenshot] ${label} → ${buf.byteLength} bytes`)
+      if (buf.byteLength < 5000) { console.warn(`[screenshot] ${label} too small`); return null }
+      if (buf.byteLength > 4 * 1024 * 1024) { console.warn(`[screenshot] ${label} too large`); return null }
       const b64 = Buffer.from(buf).toString('base64')
+      console.log(`[screenshot] ${label} success`)
       return `data:${ct};base64,${b64}`
-    } catch {
+    } catch (e) {
+      console.warn(`[screenshot] ${label} exception:`, e.message)
       return null
     }
   }
 
   const apiKey = process.env.SCREENSHOT_API_KEY
+  console.log(`[screenshot] SCREENSHOT_API_KEY set: ${!!apiKey}`)
 
   // 1. Try Screenshotone first (if API key configured)
   if (apiKey) {
@@ -130,13 +136,13 @@ async function fetchScreenshotAsDataUrl(domain) {
       block_cookie_banners: 'true',
       delay: '1',
     })
-    const result = await tryScreenshotUrl(`https://api.screenshotone.com/take?${params}`, 20000)
+    const result = await tryScreenshotUrl('Screenshotone', `https://api.screenshotone.com/take?${params}`, 20000)
     if (result) return result
-    console.warn('Screenshotone failed — falling back to Thum.io')
+    console.warn('[screenshot] Screenshotone failed — falling back to Thum.io')
   }
 
   // 2. Fallback: Thum.io (free, no key required)
-  return tryScreenshotUrl(`https://image.thum.io/get/width/1280/crop/900/${targetUrl}`, 15000)
+  return tryScreenshotUrl('Thum.io', `https://image.thum.io/get/width/1280/crop/900/${targetUrl}`, 15000)
 }
 
 /**
