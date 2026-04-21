@@ -6,6 +6,7 @@ import ProductGeneratorPanel from './ProductGeneratorPanel'
 import { buildProductPrompt } from '../../lib/productPromptBuilder'
 import { PRODUCT_FORMATS, PRODUCT_FORMATS_DEFAULT } from '../../lib/productFormats'
 import { normalizeDomain } from '../../lib/domain'
+import { TEAM_MEMBERS_UNIQUE } from '../../lib/teamMembers'
 
 const STEPS = { BRAND: 0, PRODUCT: 1, SCENE: 2, GENERATE: 3 }
 
@@ -34,6 +35,7 @@ function stepSummary(id, { brand, product, scene, formats }) {
 export default function ProductFlow({
   domain: initialDomain,
   initialBrandData,
+  initialOpiekun = '',
   falMode,
   onFalModeChange,
   sessionFolder,
@@ -44,6 +46,7 @@ export default function ProductFlow({
   const [domain, setDomainState] = useState(initialDomain || '')
   const [domainDraft, setDomainDraft] = useState(initialDomain || '')
   const [domainError, setDomainError] = useState('')
+  const [opiekun, setOpiekun] = useState(initialOpiekun || '')
   const [step, setStep] = useState(STEPS.BRAND)
   const [maxStep, setMaxStep] = useState(STEPS.BRAND)
   const stepRefs = useRef([])
@@ -88,8 +91,16 @@ export default function ProductFlow({
   const handleBrandSubmit = useCallback((b) => {
     setBrand(b)
     if (domain && onClientResearched) onClientResearched(domain, b)
+    // Zapisz opiekuna do Supabase (fire-and-forget)
+    if (domain && opiekun) {
+      fetch('/.netlify/functions/update-client-meta', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, opiekun }),
+      }).catch(() => {})
+    }
     setStep(STEPS.PRODUCT)
-  }, [domain, onClientResearched])
+  }, [domain, onClientResearched, opiekun])
 
   const handleProductSubmit = (p) => {
     setProduct(p)
@@ -182,6 +193,17 @@ export default function ProductFlow({
                         autoFocus
                       />
                       {domainError && <div className="text-xs text-red-600 dark:text-red-400">{domainError}</div>}
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Opiekun klienta</label>
+                      <select
+                        value={opiekun}
+                        onChange={(e) => setOpiekun(e.target.value)}
+                        className="input"
+                      >
+                        <option value="">— wybierz opiekuna (opcjonalnie) —</option>
+                        {TEAM_MEMBERS_UNIQUE.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
                       <button
                         type="button"
                         onClick={confirmDomain}

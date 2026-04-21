@@ -98,6 +98,44 @@ const CHANNEL_REQUIREMENTS = {
 - Design for mobile-first, full-screen viewing`,
 }
 
+const GOAL_DIRECTIVES = {
+  'Awareness (Świadomość marki)': `CAMPAIGN GOAL — BRAND AWARENESS:
+- Primary mission: make the brand name and visual identity instantly memorable
+- Prioritize striking, distinctive visuals over hard-sell messaging
+- Emotional impact and brand recall matter more than direct conversion
+- Hero: aspirational lifestyle, brand symbols, or beautiful brand imagery
+- Tone: inspiring, aspirational, confident — the brand is the message
+- CTA is secondary and subtle (e.g. "Poznaj nas", "Dowiedz się więcej")
+- Design for maximum visual impact at a glance — someone sees this and remembers the brand`,
+
+  'Consideration (Ruch / Zaangażowanie)': `CAMPAIGN GOAL — CONSIDERATION / TRAFFIC:
+- Primary mission: spark genuine curiosity and pull the audience toward learning more
+- Lead with a compelling benefit, feature, or offer that gives them a reason to click
+- Balance aspirational brand visuals with a clear, informative message
+- The viewer should feel: "this looks interesting — I want to know more"
+- Tone: engaging, informative, inviting — approachable but not pushy
+- CTA should invite exploration: "Sprawdź", "Dowiedz się więcej", "Zobacz ofertę", "Odkryj"
+- Include enough information to spark interest but leave curiosity unresolved — the click completes the story`,
+
+  'Conversion (Sprzedaż)': `CAMPAIGN GOAL — CONVERSION / SALES:
+- Primary mission: drive immediate action — purchase, sign-up, lead form, phone call
+- Create urgency and communicate clear, unambiguous value proposition
+- Headline must directly address a pain point or lead with a specific benefit or offer
+- CTA must be visually dominant, action-driven, and impossible to miss
+- Tone: direct, confident, benefit-focused — no fluff, no vagueness
+- If there is a discount, limited offer, or deadline — make it the visual hero
+- Design optimized for conversion: clear hierarchy, product prominent, CTA impossible to ignore`,
+
+  'Retargeting': `CAMPAIGN GOAL — RETARGETING:
+- The viewer has ALREADY visited the site — they know the brand, they showed interest
+- Primary mission: re-engage a warm audience and convert their existing intent
+- Reference familiarity — speak to someone who almost made a decision
+- Create urgency or gentle FOMO: limited time, limited stock, "still available for you"
+- Tone: personal, direct, confident — like a friendly follow-up, not a cold pitch
+- CTA: clear, direct re-engagement ("Wróć", "Dokończ zakup", "Oferta nadal czeka", "Ostatnia szansa")
+- Remind them what they were interested in — product or benefit should be front and center`,
+}
+
 /**
  * Compute safe zone percentages for non-native AR formats (banner-in-canvas approach)
  */
@@ -207,7 +245,8 @@ ${brandDna}
 LOGO HANDLING:
 {{LOGO_BLOCK}}
 ${cropZone}
-Campaign goal: ${brand.campaignGoal || 'Conversion'}
+${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
+
 Key message: ${brand.usp || headline}
 ${brand.audience ? `Target audience: ${brand.audience}` : ''}
 ${compInsight ? `\nCOMPETITIVE CONTEXT:\n- Market landscape: ${compInsight}\n- Differentiation directive: CREATE CONTRAST with competitors — stand out, don't blend in.` : ''}

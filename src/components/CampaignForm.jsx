@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { FORMAT_GROUPS, ALL_FORMATS } from '../lib/formats'
 import { normalizeDomain } from '../lib/domain'
+import { TEAM_MEMBERS_UNIQUE, CAMPAIGN_GOALS } from '../lib/teamMembers'
 
-const GOALS = ['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Retargeting']
+const GOALS = CAMPAIGN_GOALS
 const CHANNELS = [
   'Google Display Ads',
   'Meta Ads (Facebook / Instagram)',
@@ -26,11 +27,11 @@ const SECTIONS = [
     id: 'placement',
     title: 'Gdzie?',
     subtitle: 'Klient, kanały i formaty',
-    fields: ['domain', 'channels', 'formats'],
+    fields: ['domain', 'opiekun', 'channels', 'formats'],
     isComplete: (f) => !!f.domain.trim() && f.channels.length > 0 && f.formats.length > 0,
     summary: (f) => {
       const fmtLabels = f.formats.map((id) => ALL_FORMATS.find((x) => x.id === id)?.label).filter(Boolean)
-      return [f.domain, f.channels.join(' · '), fmtLabels.join(', ')].filter(Boolean).join(' — ')
+      return [f.domain, f.opiekun, f.channels.join(' · '), fmtLabels.join(', ')].filter(Boolean).join(' — ')
     },
   },
   {
@@ -62,6 +63,7 @@ export default function CampaignForm({
   onSubmit,
   isLoading,
   initialDomain = '',
+  initialOpiekun = '',
   falMode = 'test',
   onFalModeChange,
   existingDomains = [],
@@ -70,6 +72,7 @@ export default function CampaignForm({
 }) {
   const [form, setForm] = useState(() => ({
     domain: initialDomain,
+    opiekun: initialOpiekun || '',
     goal: '',
     channels: [],
     formats: [],
@@ -292,6 +295,7 @@ function SectionFields({ section, form, update, toggleArray, toggleChannel, doma
 function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
   const label = {
     domain:   'Domena klienta',
+    opiekun:  'Opiekun klienta',
     channels: 'Kanały reklamowe',
     formats:  'Formaty bannerów',
     goal:     'Cel kampanii',
@@ -324,6 +328,20 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
           className="input"
           autoComplete="off"
         />
+      )
+
+    case 'opiekun':
+      return (
+        <select
+          value={form.opiekun}
+          onChange={(e) => update('opiekun', e.target.value)}
+          className="input"
+        >
+          <option value="">— wybierz opiekuna (opcjonalnie) —</option>
+          {TEAM_MEMBERS_UNIQUE.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
       )
 
     case 'channels':
@@ -363,7 +381,7 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
     case 'goal':
       return (
         <div className="flex flex-wrap gap-1.5">
-          {['Awareness (Świadomość marki)', 'Conversion (Sprzedaż)', 'Retargeting'].map((opt) => (
+          {CAMPAIGN_GOALS.map((opt) => (
             <button key={opt} type="button" onClick={() => update('goal', opt)}
               className={`pill ${form.goal === opt ? 'pill-active' : ''}`}>
               {opt}

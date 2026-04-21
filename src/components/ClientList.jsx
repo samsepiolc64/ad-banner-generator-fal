@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
 import { getCost, formatCost } from '../lib/clientCosts'
+import { TEAM_MEMBERS_UNIQUE, CAMPAIGN_GOALS } from '../lib/teamMembers'
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—'
@@ -125,12 +126,20 @@ function BrandPanel({ brand }) {
   )
 }
 
-function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
+function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated }) {
   const [open, setOpen] = useState(false)
   const [faviconOk, setFaviconOk] = useState(true)
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [brandOpen, setBrandOpen] = useState(false)
+
+  // Inline editing state
+  const [editingOpiekun, setEditingOpiekun] = useState(false)
+  const [editingCel, setEditingCel] = useState(false)
+  const [opiekunDraft, setOpiekunDraft] = useState(client.opiekun || '')
+  const [celDraft, setCelDraft] = useState(client.cel_kampanii || '')
+  const [savingMeta, setSavingMeta] = useState(false)
 
   useEffect(() => {
     if (!moreOpen) return
@@ -149,6 +158,19 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   const costTotal = client.cost_usd > 0
     ? Math.max(client.cost_usd, localCost?.total || 0)
     : (localCost?.total || 0)
+
+  const saveMeta = async (field, value) => {
+    setSavingMeta(true)
+    try {
+      await fetch('/.netlify/functions/update-client-meta', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, [field]: value }),
+      })
+      onMetaUpdated?.(domain, { [field]: value })
+    } catch {}
+    setSavingMeta(false)
+  }
 
   const handleOpenDrive = async () => {
     setDriveLoading(true)
@@ -248,7 +270,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
                 ? 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
                 : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}`}
           >
-            Brand {open ? '▲' : '▾'}
+            Karta klienta {open ? '▲' : '▾'}
           </button>
           <button
             type="button"
@@ -286,7 +308,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
                   onClick={() => { setOpen((v) => !v); setMoreOpen(false) }}
                   className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                  Brand {open ? '▲' : '▾'}
+                  Karta klienta {open ? '▲' : '▾'}
                 </button>
                 <button
                   type="button"
@@ -305,7 +327,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
             <button
               key={mod.id}
               type="button"
-              onClick={() => mod.available && onStartFlow(domain, client.brand_data, mod.id)}
+              onClick={() => mod.available && onStartFlow(domain, client.brand_data, mod.id, client.opiekun || '')}
               disabled={!mod.available}
               title={mod.available ? mod.description : `${mod.label} — wkrótce`}
               className={`text-xs px-3 sm:px-4 py-1.5 rounded-xl font-semibold transition-colors whitespace-nowrap ${
@@ -323,12 +345,100 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
         </div>
       </div>
 
-      {/* Brand panel inline */}
+      {/* Karta klienta — panel inline */}
       {open && (
-        <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-          <BrandPanel brand={client.brand_data} />
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
-            {/* Odśwież */}
+        <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 space-y-4">
+
+          {/* === META KLIENTA === */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Domena */}
+            <div className="bg-white dark:bg-gray-800/60 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Domena</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{domain}</div>
+            </div>
+
+            {/* Opiekun */}
+            <div className="bg-white dark:bg-gray-800/60 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Opiekun klienta</div>
+              {editingOpiekun ? (
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={opiekunDraft}
+                    onChange={(e) => setOpiekunDraft(e.target.value)}
+                    className="flex-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 focus:outline-none focus:border-gray-400"
+                    autoFocus
+                  >
+                    <option value="">— brak —</option>
+                    {TEAM_MEMBERS_UNIQUE.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={async () => { await saveMeta('opiekun', opiekunDraft); setEditingOpiekun(false) }}
+                    disabled={savingMeta}
+                    className="text-[11px] px-2 py-1 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 font-semibold disabled:opacity-50"
+                  >✓</button>
+                  <button onClick={() => { setOpiekunDraft(client.opiekun || ''); setEditingOpiekun(false) }} className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500">✕</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{client.opiekun || <span className="text-gray-400 dark:text-gray-500 italic">nie przypisano</span>}</span>
+                  <button onClick={() => setEditingOpiekun(true)} className="text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex-shrink-0">Edytuj</button>
+                </div>
+              )}
+            </div>
+
+            {/* Cel kampanii */}
+            <div className="bg-white dark:bg-gray-800/60 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Cel kampanii</div>
+              {editingCel ? (
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={celDraft}
+                    onChange={(e) => setCelDraft(e.target.value)}
+                    className="flex-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 focus:outline-none focus:border-gray-400"
+                    autoFocus
+                  >
+                    <option value="">— brak —</option>
+                    {CAMPAIGN_GOALS.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={async () => { await saveMeta('cel_kampanii', celDraft); setEditingCel(false) }}
+                    disabled={savingMeta}
+                    className="text-[11px] px-2 py-1 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 font-semibold disabled:opacity-50"
+                  >✓</button>
+                  <button onClick={() => { setCelDraft(client.cel_kampanii || ''); setEditingCel(false) }} className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500">✕</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{client.cel_kampanii || <span className="text-gray-400 dark:text-gray-500 italic">nie ustawiono</span>}</span>
+                  <button onClick={() => setEditingCel(true)} className="text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex-shrink-0">Edytuj</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* === DANE MARKI (zwijane) === */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setBrandOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <span>Dane marki</span>
+              <span>{brandOpen ? '▲' : '▾'}</span>
+            </button>
+            {brandOpen && (
+              <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-700/50">
+                <BrandPanel brand={client.brand_data} />
+              </div>
+            )}
+          </div>
+
+          {/* === DOLNE PRZYCISKI === */}
+          <div className="flex items-center justify-between gap-3 pt-1">
             <button
               type="button"
               onClick={handleRefresh}
@@ -353,7 +463,6 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
               {refreshDone ? 'Zaktualizowano' : refreshing ? 'Odświeżam…' : 'Odśwież dane marki'}
             </button>
 
-            {/* Usuń — inline confirmation */}
             {!confirmDelete ? (
               <button
                 type="button"
@@ -369,19 +478,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Usunąć <strong className="text-gray-700 dark:text-gray-300">{domain}</strong>?</span>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors"
-                >
-                  Anuluj
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                <button type="button" onClick={() => setConfirmDelete(false)} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors">Anuluj</button>
+                <button type="button" onClick={handleDelete} disabled={deleting} className="text-xs px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   {deleting ? 'Usuwam…' : 'Usuń'}
                 </button>
               </div>
@@ -393,7 +491,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted }) {
   )
 }
 
-export default function ClientList({ clients = [], loading = false, onNew, onStartFlow, onRefreshed, onDeleted }) {
+export default function ClientList({ clients = [], loading = false, onNew, onStartFlow, onRefreshed, onDeleted, onMetaUpdated }) {
   const [search, setSearch] = useState('')
 
   const { groups, totalFiltered } = useMemo(() => {
@@ -502,7 +600,7 @@ export default function ClientList({ clients = [], loading = false, onNew, onSta
                 {letter}
               </div>
               {group.map((client) => (
-                <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} onDeleted={handleDeleted} />
+                <ClientRow key={client.domain} client={client} onStartFlow={onStartFlow} onRefreshed={handleRefreshed} onDeleted={handleDeleted} onMetaUpdated={onMetaUpdated} />
               ))}
             </div>
           ))

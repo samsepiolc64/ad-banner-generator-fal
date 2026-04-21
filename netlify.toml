@@ -27,6 +27,9 @@
 [functions."add-cost"]
   timeout = 10
 
+[functions."update-client-meta"]
+  timeout = 10
+
 [functions."list-clients"]
   timeout = 10
 

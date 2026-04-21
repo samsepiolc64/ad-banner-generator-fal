@@ -30,6 +30,13 @@ const DEFAULT_HEADLINES = {
     'Doświadcz tego, co wyjątkowe',
     'Nowa definicja tego, co możliwe',
   ],
+  'Consideration (Ruch / Zaangażowanie)': [
+    'Sprawdź, co mamy dla Ciebie',
+    'Odkryj możliwości, które czekają',
+    'Wszystko, czego szukałeś — w jednym miejscu',
+    'Zacznij swoją historię tutaj',
+    'To może być właśnie to, czego potrzebujesz',
+  ],
   'Conversion (Sprzedaż)': [
     'Twój następny krok — tutaj',
     'Oferta, na którą czekałeś',
@@ -48,6 +55,7 @@ const DEFAULT_HEADLINES = {
 
 const DEFAULT_CTAS = {
   'Awareness (Świadomość marki)': 'Poznaj nas',
+  'Consideration (Ruch / Zaangażowanie)': 'Dowiedz się więcej',
   'Conversion (Sprzedaż)': 'Sprawdź ofertę',
   Retargeting: 'Wróć i skorzystaj',
 }
@@ -89,6 +97,7 @@ export default function App() {
   const [maxStep, setMaxStep] = useState(STEPS.CAMPAIGN)
   const [initialDomain, setInitialDomain] = useState('')
   const [initialBrandData, setInitialBrandData] = useState(null)
+  const [initialOpiekun, setInitialOpiekun] = useState('')
   const [campaignData, setCampaignData] = useState(null)
   const [brandData, setBrandData] = useState(null)
   const [logoDataUrl, setLogoDataUrl] = useState(null)
@@ -123,6 +132,12 @@ export default function App() {
     setClients((prev) => prev.map((c) => c.domain === domain ? { ...c, brand_data: newBrandData } : c))
   }
 
+  const handleClientMetaUpdated = (domain, meta) => {
+    setClients((prev) => prev.map((c) =>
+      normalizeDomain(c.domain) === normalizeDomain(domain) ? { ...c, ...meta } : c
+    ))
+  }
+
   const handleClientDeleted = (domain) => {
     setClients((prev) => prev.filter((c) => c.domain !== domain))
   }
@@ -143,6 +158,7 @@ export default function App() {
   const onNew = () => {
     setInitialDomain('')
     setInitialBrandData(null)
+    setInitialOpiekun('')
     setSelectedModule(null)
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
@@ -150,9 +166,10 @@ export default function App() {
     setMaxStep(STEPS.CAMPAIGN)
   }
 
-  const onStartFlow = (domain, brandData = null, moduleId = null) => {
+  const onStartFlow = (domain, brandData = null, moduleId = null, opiekun = '') => {
     setInitialDomain(domain)
     setInitialBrandData(brandData)
+    setInitialOpiekun(opiekun || '')
     setSelectedModule(moduleId)
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
@@ -188,6 +205,18 @@ export default function App() {
     setBrandData(brand)
     // Auto-select brand logo if research fetched one
     if (brand.logoDataUrl) setLogoDataUrl(brand.logoDataUrl)
+    // Zapisz opiekuna i cel kampanii do Supabase (fire-and-forget)
+    if (campaignData?.domain) {
+      fetch('/.netlify/functions/update-client-meta', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: campaignData.domain,
+          ...(campaignData.opiekun ? { opiekun: campaignData.opiekun } : {}),
+          ...(campaignData.goal ? { cel_kampanii: campaignData.goal } : {}),
+        }),
+      }).catch(() => {})
+    }
 
     setClients((prev) => {
       const normalized = normalizeDomain(campaignData.domain)
@@ -378,6 +407,7 @@ export default function App() {
                 key={flowKey}
                 domain={initialDomain}
                 initialBrandData={initialBrandData}
+                initialOpiekun={initialOpiekun}
                 falMode={falMode}
                 onFalModeChange={setFalMode}
                 sessionFolder={makeSessionFolder('Grafiki produktowe')}
@@ -465,6 +495,7 @@ export default function App() {
                             onSubmit={handleCampaignSubmit}
                             isLoading={isLoading}
                             initialDomain={initialDomain}
+                            initialOpiekun={initialOpiekun}
                             falMode={falMode}
                             onFalModeChange={setFalMode}
                             existingDomains={existingDomains}
@@ -525,6 +556,7 @@ export default function App() {
           onStartFlow={onStartFlow}
           onRefreshed={handleClientRefreshed}
           onDeleted={handleClientDeleted}
+          onMetaUpdated={handleClientMetaUpdated}
         />
       </div>
     </div>
