@@ -99,7 +99,7 @@ async function tryWaybackMachine(domain) {
   const url = `https://web.archive.org/web/0/https://${clean}`
   try {
     console.log(`[wayback] fetching ${url}`)
-    const res = await fetchWithTimeout(url, 12000)
+    const res = await fetchWithTimeout(url, 8000)
     if (!res.ok) {
       console.warn(`[wayback] HTTP ${res.status}`)
       return null
@@ -176,13 +176,13 @@ async function fetchScreenshotAsDataUrl(domain) {
       block_cookie_banners: 'true',
       delay: '1',
     })
-    const result = await tryScreenshotUrl('Screenshotone', `https://api.screenshotone.com/take?${params}`, 20000)
+    const result = await tryScreenshotUrl('Screenshotone', `https://api.screenshotone.com/take?${params}`, 15000)
     if (result) return result
     console.warn('[screenshot] Screenshotone failed — falling back to Thum.io')
   }
 
   // 2. Fallback: Thum.io (free, no key required)
-  return tryScreenshotUrl('Thum.io', `https://image.thum.io/get/width/1280/crop/900/${targetUrl}`, 15000)
+  return tryScreenshotUrl('Thum.io', `https://image.thum.io/get/width/1280/crop/900/${targetUrl}`, 10000)
 }
 
 /**
@@ -450,21 +450,27 @@ export default async (req) => {
       html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
       if (html) source = 'fresh'
 
-      // Step 2: If HTML fetch failed, try the Wayback Machine (archived snapshot)
-      // Wayback is MUCH more reliable than screenshots for Cloudflare-protected sites
+      // Step 2: If HTML fetch failed, try Wayback Machine AND screenshots IN PARALLEL.
+      // Wayback is preferred (HTML analysis > vision), but we don't want to waste
+      // 8s waiting for it if it's going to fail — so we fire both at the same time
+      // and prefer Wayback if it succeeds, otherwise fall back to the screenshot.
+      // Total budget: ~15s instead of up to 33s sequential.
       if (!html) {
-        const wayback = await tryWaybackMachine(normalizedDomain)
-        if (wayback) {
-          html = wayback.html.slice(0, 25000)
-          archiveInfo = { archiveUrl: wayback.archiveUrl, timestamp: wayback.timestamp }
+        console.log('[flow] HTML failed — racing Wayback + screenshot in parallel')
+        const [waybackResult, screenshotResult] = await Promise.all([
+          tryWaybackMachine(normalizedDomain).catch(() => null),
+          fetchScreenshotAsDataUrl(normalizedDomain).catch(() => null),
+        ])
+        if (waybackResult) {
+          html = waybackResult.html.slice(0, 25000)
+          archiveInfo = { archiveUrl: waybackResult.archiveUrl, timestamp: waybackResult.timestamp }
           source = 'wayback'
+          console.log('[flow] using Wayback (preferred)')
+        } else if (screenshotResult) {
+          screenshotDataUrl = screenshotResult
+          source = 'screenshot'
+          console.log('[flow] using screenshot (Wayback failed)')
         }
-      }
-
-      // Step 3: If HTML and Wayback both failed, try a visual screenshot fallback
-      if (!html) {
-        screenshotDataUrl = await fetchScreenshotAsDataUrl(normalizedDomain)
-        if (screenshotDataUrl) source = 'screenshot'
       }
 
       if (!html && !screenshotDataUrl) source = 'domain-only'
