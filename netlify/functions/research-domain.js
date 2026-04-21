@@ -88,6 +88,54 @@ async function writeSharedCache(supabase, normalizedDomain, brand, fetched) {
 }
 
 /**
+ * Fetch a website screenshot and return as base64 data URL.
+ * Uses Screenshotone API if SCREENSHOT_API_KEY env var is set,
+ * falls back to Thum.io (free, no key required) otherwise.
+ * Returns null if all attempts fail.
+ */
+async function fetchScreenshotAsDataUrl(domain) {
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const targetUrl = `https://${clean}`
+
+  let screenshotUrl
+  const apiKey = process.env.SCREENSHOT_API_KEY
+
+  if (apiKey) {
+    // Screenshotone — https://screenshotone.com/docs/
+    const params = new URLSearchParams({
+      access_key: apiKey,
+      url: targetUrl,
+      format: 'jpg',
+      image_quality: '75',
+      viewport_width: '1280',
+      viewport_height: '900',
+      full_page: 'false',
+      block_ads: 'true',
+      block_cookie_banners: 'true',
+      delay: '1',
+    })
+    screenshotUrl = `https://api.screenshotone.com/take?${params}`
+  } else {
+    // Thum.io — free, no key, best-effort (may rate-limit under high load)
+    screenshotUrl = `https://image.thum.io/get/width/1280/crop/900/${targetUrl}`
+  }
+
+  try {
+    const res = await fetchWithTimeout(screenshotUrl, 20000)
+    if (!res.ok) return null
+    const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
+    if (!ct.startsWith('image/')) return null
+    const buf = await res.arrayBuffer()
+    if (buf.byteLength < 5000) return null      // too small → error page
+    if (buf.byteLength > 4 * 1024 * 1024) return null // too large for Claude Vision
+    const b64 = Buffer.from(buf).toString('base64')
+    return `data:${ct};base64,${b64}`
+  } catch {
+    return null
+  }
+}
+
+/**
  * Pre-parse HTML for technical brand hints to guide Claude:
  * Google Fonts names, CSS custom property colors, button/CTA background colors.
  * Returns a plain-text block or null if nothing useful found.
@@ -340,6 +388,12 @@ export default async (req) => {
     // These are passed to Claude as ground truth — much more reliable than visual inference
     const technicalHints = html ? extractTechnicalHints(html) : null
 
+    // Step 1c: If HTML fetch failed, try a visual screenshot fallback
+    let screenshotDataUrl = null
+    if (!html) {
+      screenshotDataUrl = await fetchScreenshotAsDataUrl(normalizedDomain)
+    }
+
     // Step 2: Build the Claude prompt — with HTML if available, or just domain name
     const SCHEMA_INSTRUCTIONS = `Return ONLY valid minified JSON (no markdown fences, no explanation) matching EXACTLY this schema:
 {
@@ -378,8 +432,18 @@ IMPORTANT:
 - "competitors": identify 3-5 real direct competitors in the SAME market (same country if local brand, same language if applicable). Use your training knowledge — DO NOT invent fake brands. If you don't know real ones, return an empty array [].
 - "competitorInsight" and "differentiationDirective" should always be filled — they guide creative contrast even when competitor list is empty.`
 
-    const userContent = html
-      ? `You are a senior brand strategist and front-end analyst. Extract deep brand DNA from this website for use in creating advertising creatives.
+    // Step 3: Build Claude messages — three modes:
+    //   A) HTML available  → text prompt with full HTML + technical hints
+    //   B) Screenshot only → multimodal prompt (image + text) via Claude Vision
+    //   C) Nothing         → text-only inference from domain name
+    let claudeMessages
+    let screenshotUsed = false
+
+    if (html) {
+      // Mode A: full HTML analysis
+      claudeMessages = [{
+        role: 'user',
+        content: `You are a senior brand strategist and front-end analyst. Extract deep brand DNA from this website for use in creating advertising creatives.
 
 Website: ${domain}
 ${technicalHints ? `
@@ -389,8 +453,45 @@ ${technicalHints}
 HTML (truncated):
 ${html}
 
-${SCHEMA_INSTRUCTIONS}`
-      : `You are a senior brand strategist. I could not fetch the website ${domain}. Based on the domain name and your general knowledge, make your best inference about this brand.
+${SCHEMA_INSTRUCTIONS}`,
+      }]
+    } else if (screenshotDataUrl) {
+      // Mode B: visual screenshot analysis via Claude Vision
+      screenshotUsed = true
+      const mediaTypeMatch = screenshotDataUrl.match(/^data:(image\/[^;]+);base64,/)
+      const mediaType = mediaTypeMatch?.[1] || 'image/jpeg'
+      const base64Data = screenshotDataUrl.replace(/^data:image\/[^;]+;base64,/, '')
+
+      claudeMessages = [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64Data },
+          },
+          {
+            type: 'text',
+            text: `You are a senior brand strategist and visual designer. The HTML of this website was inaccessible (blocked by WAF/CDN), but here is a screenshot. Analyze the visual design carefully to extract brand DNA for advertising creatives.
+
+Website: ${domain}
+
+VISUAL ANALYSIS FOCUS:
+- Identify ALL colors used — extract hex codes as precisely as possible from what you see
+- Find CTA/action buttons (Buy, Order, Contact, Zamów, Sprawdź, etc.) and note their exact background color
+- Identify font styles: serif vs sans-serif, weight, any recognizable typeface families
+- Note the overall layout style, visual motifs, imagery, mood
+- Read any visible headlines, taglines, product names
+- Identify the brand name, industry, and what they sell
+
+${SCHEMA_INSTRUCTIONS}`,
+          },
+        ],
+      }]
+    } else {
+      // Mode C: domain-name inference only
+      claudeMessages = [{
+        role: 'user',
+        content: `You are a senior brand strategist. I could not fetch the website ${domain}. Based on the domain name and your general knowledge, make your best inference about this brand.
 
 Rules:
 - ".pl" → Polish brand
@@ -398,9 +499,11 @@ Rules:
 - If you recognize the brand (major companies), use what you know
 - Otherwise make reasonable inferences
 
-${SCHEMA_INSTRUCTIONS}`
+${SCHEMA_INSTRUCTIONS}`,
+      }]
+    }
 
-    // Step 3: Send to Claude (Sonnet for better extraction)
+    // Step 4: Send to Claude
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -411,7 +514,7 @@ ${SCHEMA_INSTRUCTIONS}`
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 4096,
-        messages: [{ role: 'user', content: userContent }],
+        messages: claudeMessages,
       }),
     })
 
@@ -470,6 +573,7 @@ ${SCHEMA_INSTRUCTIONS}`
       JSON.stringify({
         brand: { ...brandData, domain },
         fetched: !!html,
+        screenshotUsed,
         source: 'fresh',
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }

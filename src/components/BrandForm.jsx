@@ -49,6 +49,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [logoUrl, setLogoUrl] = useState(() => initialBrand?.logoUrl || null)
   const [logoDataUrl, setLogoDataUrl] = useState(() => initialBrand?.logoDataUrl || null)
   const [fetchedSite, setFetchedSite] = useState(false)
+  const [screenshotUsed, setScreenshotUsed] = useState(false)
   const [deepBrand, setDeepBrand] = useState(() => {
     if (!initialBrand?.name) return {}
     return {
@@ -144,6 +145,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       const b = data.brand || {}
       applyBrandData(b, false)
       setFetchedSite(!!data.fetched)
+      setScreenshotUsed(!!data.screenshotUsed)
       setResearchState('done')
 
       // Track where this came from (server-side shared cache vs. fresh Claude call)
@@ -269,7 +271,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white mb-4"></div>
         <div className="text-sm font-semibold text-gray-900 dark:text-white">Analizuję markę {domain}...</div>
         <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Claude czyta stronę i wyciąga dane brandowe</div>
-        <div className="text-[10px] text-gray-300 dark:text-gray-600 mt-2">To może potrwać 15-40 sekund</div>
+        <div className="text-[10px] text-gray-300 dark:text-gray-600 mt-2">To może potrwać 20-50 sekund (gdy strona blokuje HTML — robimy screenshot)</div>
       </div>
     )
   }
@@ -325,6 +327,19 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         btnLabel: 'Odśwież research',
         showDetails: true,
       },
+      done_screenshot: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5">
+            <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+            <circle cx="8" cy="8" r="2.5"/>
+            <path d="M5.5 3.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v.5"/>
+          </svg>
+        ),
+        title: `Analiza ze screenshotu — ${domain}`,
+        body: `Strona zablokowała pobieranie HTML, ale Claude przeanalizował zrzut ekranu wizualnie. Kolory i fonty mogą być mniej precyzyjne — sprawdź poniżej.`,
+        btnLabel: 'Spróbuj ponownie',
+        showDetails: true,
+      },
       done_nosite: {
         icon: (
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
@@ -333,7 +348,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
           </svg>
         ),
         title: 'Strona niedostępna',
-        body: `Nie udało się pobrać ${domain} — Claude wygenerował dane na podstawie nazwy domeny. Sprawdź i popraw pola poniżej.`,
+        body: `Nie udało się pobrać ${domain} ani zrobić screenshotu — Claude wygenerował dane na podstawie samej nazwy domeny. Sprawdź i popraw pola poniżej.`,
         btnLabel: 'Spróbuj ponownie',
         showDetails: false,
       },
@@ -352,12 +367,13 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     }
 
     let key = null
-    if (researchState === 'prefilled')                      key = 'prefilled'
-    else if (researchState === 'cached')                    key = 'cached'
-    else if (researchState === 'done' && cacheSource === 'shared') key = 'shared'
-    else if (researchState === 'done' && fetchedSite)       key = 'done_ok'
-    else if (researchState === 'done' && !fetchedSite)      key = 'done_nosite'
-    else if (researchState === 'failed')                    key = 'failed'
+    if (researchState === 'prefilled')                                   key = 'prefilled'
+    else if (researchState === 'cached')                                 key = 'cached'
+    else if (researchState === 'done' && cacheSource === 'shared')       key = 'shared'
+    else if (researchState === 'done' && fetchedSite)                    key = 'done_ok'
+    else if (researchState === 'done' && !fetchedSite && screenshotUsed) key = 'done_screenshot'
+    else if (researchState === 'done' && !fetchedSite)                   key = 'done_nosite'
+    else if (researchState === 'failed')                                 key = 'failed'
 
     if (!key) return null
     const c = configs[key]
