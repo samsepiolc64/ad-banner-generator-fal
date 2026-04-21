@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { loadResearch, saveResearch, clearResearch, formatAge } from '../lib/researchCache'
+import ScreenshotUploader from './ScreenshotUploader'
 
 /**
  * Brand data form.
@@ -50,6 +51,10 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [logoDataUrl, setLogoDataUrl] = useState(() => initialBrand?.logoDataUrl || null)
   const [fetchedSite, setFetchedSite] = useState(false)
   const [screenshotUsed, setScreenshotUsed] = useState(false)
+  // source: null | 'fresh' | 'wayback' | 'screenshot' | 'user-screenshot' | 'domain-only' | 'shared-cache'
+  const [source, setSource] = useState(null)
+  const [archiveTimestamp, setArchiveTimestamp] = useState(null)
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
   const [deepBrand, setDeepBrand] = useState(() => {
     if (!initialBrand?.name) return {}
     return {
@@ -105,7 +110,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
    * @param {AbortSignal} [signal]
    * @param {boolean} [force] — if true, bypasses Supabase L2 cache (for refresh button)
    */
-  const runResearch = useCallback(async (signal, force = false) => {
+  const runResearch = useCallback(async (signal, force = false, userScreenshot = null) => {
     setResearchState('researching')
     setResearchError(null)
 
@@ -113,7 +118,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       const res = await fetch('/.netlify/functions/research-domain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, force }),
+        body: JSON.stringify({ domain, force, userScreenshot }),
         signal,
       })
 
@@ -146,6 +151,8 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       applyBrandData(b, false)
       setFetchedSite(!!data.fetched)
       setScreenshotUsed(!!data.screenshotUsed)
+      setSource(data.source || null)
+      setArchiveTimestamp(data.archiveTimestamp || null)
       setResearchState('done')
 
       // Track where this came from (server-side shared cache vs. fresh Claude call)
@@ -234,8 +241,34 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     clearResearch(domain)
     setCachedTimestamp(null)
     setCacheSource(null)
+    setSource(null)
+    setArchiveTimestamp(null)
     runResearch(undefined, true) // force=true → server skips Supabase, calls Claude
   }
+
+  /** User uploaded their own screenshot — run research again with that image */
+  const handleUserScreenshotUpload = async (dataUrl) => {
+    clearResearch(domain)
+    setCachedTimestamp(null)
+    setCacheSource(null)
+    setSource(null)
+    setArchiveTimestamp(null)
+    setUploadingScreenshot(true)
+    try {
+      await runResearch(undefined, true, dataUrl)
+    } finally {
+      setUploadingScreenshot(false)
+    }
+  }
+
+  /** Parse Wayback YYYYMMDDhhmmss timestamp to human date */
+  const formatArchiveDate = (ts) => {
+    if (!ts || ts.length < 8) return null
+    return `${ts.slice(6, 8)}.${ts.slice(4, 6)}.${ts.slice(0, 4)}`
+  }
+
+  // Show the screenshot uploader only when research came from unreliable source
+  const isUnreliableSource = ['wayback', 'screenshot', 'domain-only'].includes(source)
 
   const update = (key, val) => setBrand((p) => ({ ...p, [key]: val }))
 
@@ -329,15 +362,41 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       },
       done_screenshot: {
         icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
+            <path d="M8 2L14 13H2L8 2z"/>
+            <path d="M8 7v3M8 11.5v.5"/>
+          </svg>
+        ),
+        title: `⚠ Research ze screenshotu — może być niedokładny`,
+        body: `Strona zablokowała pobieranie HTML (prawdopodobnie Cloudflare), więc Claude analizował automatyczny zrzut ekranu. Taki screenshot często pokazuje stronę weryfikacji, a nie prawdziwy content — sprawdź wyniki i w razie wątpliwości wgraj własny zrzut poniżej.`,
+        btnLabel: 'Spróbuj ponownie',
+        showDetails: true,
+      },
+      done_wayback: {
+        icon: (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M8 5v3l2 1.5"/>
+          </svg>
+        ),
+        title: `⚠ Research z archiwum (Wayback Machine)`,
+        body: archiveTimestamp
+          ? `Strona zablokowała pobieranie, więc Claude użył historycznego snapshota z ${formatArchiveDate(archiveTimestamp) || 'archiwum'}. Dane brandowe (kolory, fonty) zwykle są stabilne, ale oferta/hasła mogły się zmienić. Jeśli coś wygląda nie tak — wgraj świeży screenshot poniżej.`
+          : `Strona zablokowała pobieranie, więc Claude użył historycznego snapshota z archiwum internetu. Dane brandowe zwykle są stabilne, ale warto zweryfikować.`,
+        btnLabel: 'Spróbuj ponownie',
+        showDetails: true,
+      },
+      done_user_screenshot: {
+        icon: (
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5">
             <rect x="1" y="3" width="14" height="10" rx="1.5"/>
             <circle cx="8" cy="8" r="2.5"/>
             <path d="M5.5 3.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v.5"/>
           </svg>
         ),
-        title: `Analiza ze screenshotu — ${domain}`,
-        body: `Strona zablokowała pobieranie HTML, ale Claude przeanalizował zrzut ekranu wizualnie. Kolory i fonty mogą być mniej precyzyjne — sprawdź poniżej.`,
-        btnLabel: 'Spróbuj ponownie',
+        title: `Analiza z Twojego screenshotu — ${domain}`,
+        body: `Claude przeanalizował zrzut ekranu, który wgrałeś. Jeśli screenshot pokazywał prawdziwą stronę, dane poniżej powinny być dokładne.`,
+        btnLabel: 'Odśwież research',
         showDetails: true,
       },
       done_nosite: {
@@ -370,6 +429,10 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     if (researchState === 'prefilled')                                   key = 'prefilled'
     else if (researchState === 'cached')                                 key = 'cached'
     else if (researchState === 'done' && cacheSource === 'shared')       key = 'shared'
+    else if (researchState === 'done' && source === 'user-screenshot')   key = 'done_user_screenshot'
+    else if (researchState === 'done' && source === 'wayback')           key = 'done_wayback'
+    else if (researchState === 'done' && source === 'screenshot')        key = 'done_screenshot'
+    else if (researchState === 'done' && source === 'domain-only')       key = 'done_nosite'
     else if (researchState === 'done' && fetchedSite)                    key = 'done_ok'
     else if (researchState === 'done' && !fetchedSite && screenshotUsed) key = 'done_screenshot'
     else if (researchState === 'done' && !fetchedSite)                   key = 'done_nosite'
@@ -463,6 +526,30 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {renderBanner()}
+
+      {isUnreliableSource && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-4 -mt-2">
+          <div className="flex items-start gap-2.5 mb-3">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5">
+              <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+              <circle cx="8" cy="8" r="2.5"/>
+              <path d="M5.5 3.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v.5"/>
+            </svg>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-0.5">
+                Masz lepszy screenshot?
+              </div>
+              <div className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                Jeśli powyższe dane nie pasują do rzeczywistej strony klienta, zrób ręcznie zrzut ekranu i wgraj go — Claude przeanalizuje go jeszcze raz.
+              </div>
+            </div>
+          </div>
+          <ScreenshotUploader
+            onUpload={handleUserScreenshotUpload}
+            isUploading={uploadingScreenshot}
+          />
+        </div>
+      )}
 
       <Field label="Nazwa marki">
         <input
