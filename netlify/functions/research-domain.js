@@ -38,6 +38,47 @@ async function getSupabase() {
 }
 
 /**
+ * Derive a reasonable brand-name default from a domain.
+ * "aleszale.pl" -> "Aleszale"; "x-kom.pl" -> "x-kom"; "www.foo.com" -> "Foo".
+ * We keep the hyphen casing style intact when present (e.g. "x-kom"),
+ * otherwise Title Case the single token.
+ */
+function brandNameFromDomain(domain) {
+  if (!domain) return ''
+  const clean = String(domain).toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
+  const body = clean.split('.')[0] || clean
+  if (!body) return ''
+  // Preserve hyphenated brands as-is (x-kom, e-obuwie) but title-case single tokens
+  if (body.includes('-')) return body
+  return body.charAt(0).toUpperCase() + body.slice(1)
+}
+
+/**
+ * Does the brand name plausibly come from this domain? Returns true if there's
+ * significant lexical overlap between the domain body and the brand name
+ * (ignoring case, diacritics, spaces). Used to flag hallucinated brand names
+ * like "Ależ Żale" for domain "aleszale.pl".
+ */
+function brandMatchesDomain(brandName, domain) {
+  if (!brandName || !domain) return false
+  const strip = (s) => String(s).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+  const body = strip(String(domain).replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0] || '')
+  const name = strip(brandName)
+  if (!body || !name) return false
+  // Direct substring match either direction
+  if (body.includes(name) || name.includes(body)) return true
+  // Check if at least 60% of domain body characters appear as a substring of name
+  // (covers cases like "aleszalepl" brand vs "aleszale" domain body)
+  const minLen = Math.max(4, Math.floor(body.length * 0.6))
+  for (let i = 0; i + minLen <= body.length; i++) {
+    if (name.includes(body.slice(i, i + minLen))) return true
+  }
+  return false
+}
+
+/**
  * Extract the first complete JSON object from a text blob using brace-balance
  * scanning. More robust than `/{[\s\S]*}/` greedy regex because the text may
  * start with a prose block (e.g. VISUAL EVIDENCE) containing stray braces in
@@ -601,10 +642,10 @@ ${SCHEMA_INSTRUCTIONS}`,
 ${sourceNote}
 
 ⚠ CRITICAL ANTI-HALLUCINATION RULES ⚠
-1. The domain name "${domain}" is provided ONLY for the "domain" field. DO NOT use it to infer industry, product type, or brand name. Polish/unusual domain names often sound misleading (e.g. "aleszale.pl" has NOTHING to do with grief or complaints — it's a real business, and what they sell is VISIBLE in the screenshot).
-2. Every single field MUST be grounded in what you ACTUALLY SEE in the pixels. If you cannot see evidence, write "nieznane" (Polish for unknown) rather than guessing from the domain.
-3. The brand name is whatever is displayed in the LOGO in the screenshot — NOT a creative interpretation of the domain.
-4. The product/industry is whatever products you can SEE on the page — NOT what the domain sounds like.
+1. BRAND NAME rule (strict): The brand name is almost always the domain body with a capital letter — for "${domain}" that means "${brandNameFromDomain(domain)}". Only override this if the LOGO in the screenshot clearly displays a DIFFERENT brand name (e.g. domain is "pzu.pl" but logo says "Powszechny Zakład Ubezpieczeń"). NEVER invent creative/phonetic interpretations of the domain (e.g. "aleszale" is NOT "Ależ Żale" — it's just "Aleszale").
+2. PRODUCT/INDUSTRY rule: Industry and product type MUST come from what you SEE in the screenshot (product photos, category menu, hero content), NOT from how the domain sounds. Polish domain names are often folk-etymology traps (e.g. "aleszale.pl" has NOTHING to do with grief/complaints — look at the products shown).
+3. EVIDENCE rule: Every descriptive field must be grounded in visible pixels. If you cannot see evidence for a field, write a minimal neutral value rather than guessing from the domain.
+4. COLOR rule: Extract hex codes from what you see — dominant menu bar color, CTA button color, background color. Do NOT default to generic "corporate blue/orange" unless those colors are actually visible.
 
 STEP 1 — GROUNDING (MANDATORY before you write JSON):
 Before the JSON, write a brief "VISUAL EVIDENCE:" block listing concretely what you see in the image:
@@ -697,6 +738,17 @@ ${SCHEMA_INSTRUCTIONS}`,
         JSON.stringify({ error: 'Invalid JSON from Claude: ' + parseErr.message, fallback: 'manual' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+
+    // ---- SANITY CHECK: brand name must resemble the domain ----
+    // Catches hallucinations like "aleszale.pl" -> "Ależ Żale" (folk etymology).
+    // If Claude's name has zero lexical overlap with the domain, override with
+    // a domain-derived default. Logged so we can tell when this triggered.
+    if (brandData.name && !brandMatchesDomain(brandData.name, domain)) {
+      const fallbackName = brandNameFromDomain(domain)
+      console.warn(`[sanity] brand name "${brandData.name}" does not match domain "${domain}" — overriding with "${fallbackName}"`)
+      brandData.name = fallbackName
+      brandData._nameOverridden = true
     }
 
     // ---- FETCH LOGO SERVER-SIDE (avoids CORS on client canvas) ----
