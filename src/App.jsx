@@ -289,7 +289,6 @@ export default function App() {
           variantIndex: v,
           brand: { ...brand, campaignGoal: campaignData.goal },
           headline: headlines[v] || headlines[0],
-          subheadline: campaignData.subheadline || null,
           hasProductImage: !!campaignData.productImage,
           cta,
           compInsight,

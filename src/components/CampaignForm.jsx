@@ -38,7 +38,7 @@ const SECTIONS = [
     id: 'message',
     title: 'Co?',
     subtitle: 'Cel, hasło i CTA',
-    fields: ['goal', 'headline', 'subheadline', 'cta', 'productImage'],
+    fields: ['goal', 'headline', 'cta', 'productImage'],
     isComplete: (f) => !!f.goal,
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
@@ -79,12 +79,11 @@ export default function CampaignForm({
     formats: [],
     headlineType: 'auto',
     headline: '',
-    subheadline: '',
     ctaType: 'auto',
     cta: '',
     variants: 2,
     notes: '',
-    productImage: null,   // base64 data URL of product reference photo (optional)
+    productImage: null,  // base64 data URL of product reference photo (optional)
   }))
   const [activeSection, setActiveSection] = useState(0)
   const [maxSection, setMaxSection] = useState(0)
@@ -395,7 +394,6 @@ function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
     formats:      'Formaty bannerów',
     goal:         'Cel kampanii',
     headline:     'Hasło reklamowe',
-    subheadline:  'Drugi wers / podtytuł (opcjonalnie)',
     cta:          'Tekst CTA (przycisk)',
     variants:     'Warianty A/B na każdy format',
     notes:        'Dodatkowe uwagi (opcjonalnie)',
@@ -503,10 +501,23 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
             })}
           </div>
           {form.headlineType === 'custom' && (
-            <input type="text" value={form.headline}
-              onChange={(e) => update('headline', e.target.value)}
-              placeholder="Wpisz hasło reklamowe..."
-              className="input" autoFocus />
+            <div className="space-y-1">
+              <textarea
+                value={form.headline}
+                onChange={(e) => update('headline', e.target.value)}
+                onKeyDown={(e) => {
+                  // Allow Enter for second line; Shift+Enter also fine
+                  if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation()
+                }}
+                placeholder={"Wpisz hasło reklamowe...\n(drugi wiersz → mniejszy font na banerze)"}
+                rows={2}
+                className="input resize-none"
+                autoFocus
+              />
+              <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                Enter = nowy wiersz — pojawi się jako podtytuł z mniejszym fontem.
+              </div>
+            </div>
           )}
         </div>
       )
@@ -544,22 +555,6 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
               {n}
             </button>
           ))}
-        </div>
-      )
-
-    case 'subheadline':
-      return (
-        <div className="space-y-1.5">
-          <input
-            type="text"
-            value={form.subheadline}
-            onChange={(e) => update('subheadline', e.target.value)}
-            placeholder="np. Bezpłatna dostawa · 14 dni na zwrot"
-            className="input"
-          />
-          <div className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
-            Jeśli wypełnisz to pole, główne hasło zostanie wyróżnione dużym fontem, a ten tekst — mniejszym, poniżej.
-          </div>
         </div>
       )
 

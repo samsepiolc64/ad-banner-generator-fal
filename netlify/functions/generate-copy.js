@@ -99,19 +99,24 @@ ${goal === 'Retargeting' ? '- Tone of returning/continuing. Warm re-engagement, 
 ALSO write a short CTA button text (2-4 words, ${langHint}) that fits the goal and brand tone.
 
 HARD RULES:
-- Each headline under 8 words (ideally 3-6).
+- Each headline MUST have exactly TWO PARTS separated by a literal newline (\n):
+    LINE 1 — PRIMARY: 3–5 words. The dominant, striking statement. Works on its own.
+    LINE 2 — SECONDARY: 5–10 words. A supporting benefit, detail, or emotional hook.
+  Together they tell a complete mini-story. LINE 1 will be rendered large and bold;
+  LINE 2 will be rendered smaller and lighter below it on the banner.
 - NO emoji.
 - NO brand name inside the headline unless it naturally fits (rare).
 - NO generic ad clichés ("Discover more", "Unlock your potential", "Experience the difference") unless they genuinely match this brand's documented tone.
 - Every headline must feel distinct — different angle, different rhythm, different word choice.
-- If the brand's example taglines use "Ty/Twój" (you/your), match that. If they use imperative, match that. If they use nominalizations, match that.
+- If the brand's example taglines use "Ty/Twój" (you/your), match that. If they use imperative, match that.
 
 OUTPUT:
-Return ONLY valid minified JSON (no markdown, no explanation) matching this schema EXACTLY:
+Return ONLY valid minified JSON (no markdown, no explanation) matching this schema EXACTLY.
+The "headline" value must contain a literal \n between the two parts:
 {
   "headlines": [
-    { "variantIndex": 1, "variantName": "Produkt centralny", "headline": "..." },
-    { "variantIndex": 2, "variantName": "Lifestyle", "headline": "..." }
+    { "variantIndex": 1, "variantName": "Produkt centralny", "headline": "Krótka mocna linia\nDłuższa wspierająca linia z benefitem" },
+    { "variantIndex": 2, "variantName": "Lifestyle", "headline": "Emocjonalna linia\nKonkretny benefit lub call-to-emotion" }
   ],
   "cta": "..."
 }`

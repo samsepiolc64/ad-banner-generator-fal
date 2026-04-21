@@ -169,8 +169,7 @@ export function buildPrompt({
   format,           // { width, height, ar, channel }
   variantIndex,     // 0-based
   brand,            // { name, domain, colors: { primary, secondary, accent }, style, photoStyle, typography, audience, usp }
-  headline,         // string
-  subheadline,      // string or null — secondary/supporting text line
+  headline,         // string — may contain \n to separate primary from secondary line
   cta,              // string
   hasProductImage,  // boolean — true when caller is supplying a product reference image
   compInsight,      // string or null
@@ -290,21 +289,27 @@ ${!hasProductImage ? `- No specific product image was provided. Show a lifestyle
 The result must feel like content from the brand's own Instagram feed, not a generic ad.` : ''}${!hasProductImage && variant.name !== 'Lifestyle' ? `
 PRODUCT/SUBJECT NOTE: No specific product image was provided. Feature a visually compelling, high-quality representation of this brand's product category. Use elegant, unlabeled props or a lifestyle scene — avoid photorealistic packaging with invented labels or logos.` : ''}
 
-AD COPY PLACEMENT:
-${subheadline
-  ? `TYPOGRAPHIC HIERARCHY — this is the key to visual impact:
-- PRIMARY HEADLINE: "${headline}"
+${(() => {
+  // Auto-detect two-part headlines: split on first \n (from AI) or ". " sentence break (from user)
+  const parts = headline.split('\n').map(s => s.trim()).filter(Boolean)
+  const primary = parts[0] || headline
+  const secondary = parts[1] || null
+  return `AD COPY PLACEMENT:
+${secondary
+  ? `TYPOGRAPHIC HIERARCHY — critical for visual impact:
+- PRIMARY HEADLINE: "${primary}"
   · The dominant, unmissable text element — large, heavy, bold (weight 800–900)
   · Position: upper-center of the content area
   · Visually equivalent to ~70–90pt on a 1080px canvas
-- SECONDARY LINE: "${subheadline}"
+- SECONDARY LINE: "${secondary}"
   · Directly below the primary, same horizontal center, clear separation
   · Size: 55–65% of the primary headline's visual size
   · Weight: regular or medium (400–500) — noticeably lighter than the primary
   · The reader's eye MUST land on the primary first, then drift to the secondary`
-  : `- Headline: "${headline}" — position: center, size: large, weight: bold`
+  : `- Headline: "${primary}" — position: center, size: large, weight: bold`
 }${(isStories || isTikTokVertical) ? '' : `
-- CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}
+- CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}`
+})()}
 
 TYPOGRAPHY REQUIREMENTS:
 - All text must be crystal clear and highly legible at any display size
