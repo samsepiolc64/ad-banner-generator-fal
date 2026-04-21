@@ -37,6 +37,32 @@ async function getSupabase() {
   }
 }
 
+/**
+ * Extract the first complete JSON object from a text blob using brace-balance
+ * scanning. More robust than `/{[\s\S]*}/` greedy regex because the text may
+ * start with a prose block (e.g. VISUAL EVIDENCE) containing stray braces in
+ * quoted strings. Returns the raw JSON string or null.
+ */
+function extractJsonObject(text) {
+  if (!text) return null
+  const start = text.indexOf('{')
+  if (start === -1) return null
+  let depth = 0, inString = false, escape = false
+  for (let i = start; i < text.length; i++) {
+    const c = text[i]
+    if (escape) { escape = false; continue }
+    if (c === '\\' && inString) { escape = true; continue }
+    if (c === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return text.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
 /** Normalize a domain so the cache key is stable */
 function normalizeDomain(domain) {
   return String(domain || '')
@@ -481,7 +507,7 @@ export default async (req) => {
     const technicalHints = html ? extractTechnicalHints(html) : null
 
     // Step 2: Build the Claude prompt — with HTML if available, or just domain name
-    const SCHEMA_INSTRUCTIONS = `Return ONLY valid minified JSON (no markdown fences, no explanation) matching EXACTLY this schema:
+    const SCHEMA_INSTRUCTIONS = `Return a JSON object (no markdown fences) matching EXACTLY this schema — it may be preceded by a VISUAL EVIDENCE block when specified earlier in the prompt:
 {
   "name": "official brand name",
   "industry": "specific industry vertical — e.g. 'premium menswear e-commerce', 'B2B logistics SaaS', 'sustainable skincare DTC', 'regional real estate agency'",
@@ -553,8 +579,12 @@ ${SCHEMA_INSTRUCTIONS}`,
       const mediaType = mediaTypeMatch?.[1] || 'image/jpeg'
       const base64Data = screenshotDataUrl.replace(/^data:image\/[^;]+;base64,/, '')
 
+      // Log image size to catch truncation / upload bugs
+      const approxBytes = Math.floor(base64Data.length * 0.75)
+      console.log(`[vision] source=${source} media=${mediaType} size=${approxBytes} bytes (~${Math.round(approxBytes/1024)} KB)`)
+
       const sourceNote = source === 'user-screenshot'
-        ? 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. Treat this as the authoritative view of the real brand.'
+        ? 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. This is the AUTHORITATIVE view — trust it over any other signal.'
         : 'The HTML of this website was inaccessible (blocked by WAF/CDN), but here is an automated screenshot.'
 
       claudeMessages = [{
@@ -566,19 +596,32 @@ ${SCHEMA_INSTRUCTIONS}`,
           },
           {
             type: 'text',
-            text: `You are a senior brand strategist and visual designer. ${sourceNote} Analyze the visual design carefully to extract brand DNA for advertising creatives.
+            text: `You are a senior brand strategist and visual designer analyzing a screenshot to extract brand DNA for advertising creatives.
 
-Website: ${domain}
+${sourceNote}
 
-VISUAL ANALYSIS FOCUS:
-- Identify ALL colors used — extract hex codes as precisely as possible from what you see
-- Find CTA/action buttons (Buy, Order, Contact, Zamów, Sprawdź, etc.) and note their exact background color
-- Identify font styles: serif vs sans-serif, weight, any recognizable typeface families
-- Note the overall layout style, visual motifs, imagery, mood
-- Read any visible headlines, taglines, product names
-- Identify the brand name, industry, and what they sell
+⚠ CRITICAL ANTI-HALLUCINATION RULES ⚠
+1. The domain name "${domain}" is provided ONLY for the "domain" field. DO NOT use it to infer industry, product type, or brand name. Polish/unusual domain names often sound misleading (e.g. "aleszale.pl" has NOTHING to do with grief or complaints — it's a real business, and what they sell is VISIBLE in the screenshot).
+2. Every single field MUST be grounded in what you ACTUALLY SEE in the pixels. If you cannot see evidence, write "nieznane" (Polish for unknown) rather than guessing from the domain.
+3. The brand name is whatever is displayed in the LOGO in the screenshot — NOT a creative interpretation of the domain.
+4. The product/industry is whatever products you can SEE on the page — NOT what the domain sounds like.
 
-${SCHEMA_INSTRUCTIONS}`,
+STEP 1 — GROUNDING (MANDATORY before you write JSON):
+Before the JSON, write a brief "VISUAL EVIDENCE:" block listing concretely what you see in the image:
+- Logo text/imagery (copy it exactly as shown)
+- Main navigation/menu items (copy them exactly)
+- Visible product names or categories (copy 3-5 examples)
+- Dominant UI colors (describe them: "deep burgundy menu bar", "olive-green promo badge", etc.)
+- CTA button colors and labels (e.g. "green WYPRZEDAŻ!!! badges")
+- Hero image subject/mood
+- Any headlines or slogans visible
+
+STEP 2 — JSON:
+After the VISUAL EVIDENCE block, output the JSON object. Every field in the JSON MUST be consistent with and derived from your VISUAL EVIDENCE. If your JSON contradicts your evidence, you have failed the task.
+
+${SCHEMA_INSTRUCTIONS}
+
+REMEMBER: Ground every field in visible pixels. The domain name is a label, not a clue.`,
           },
         ],
       }]
@@ -627,18 +670,28 @@ ${SCHEMA_INSTRUCTIONS}`,
     const claudeData = await claudeRes.json()
     const text = claudeData.content?.[0]?.text || ''
 
-    // Parse JSON from Claude's response
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
+    // Parse JSON from Claude's response — balance-scan (not greedy regex)
+    // because the text may include a VISUAL EVIDENCE block before the JSON,
+    // and that block might contain stray braces in quoted strings.
+    const jsonStr = extractJsonObject(text)
+    if (!jsonStr) {
       return new Response(
         JSON.stringify({ error: 'Could not parse Claude response', fallback: 'manual', raw: text.slice(0, 300) }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
+    // Log the VISUAL EVIDENCE block (everything before the JSON) — priceless
+    // for debugging hallucinations in screenshot mode
+    const jsonStart = text.indexOf(jsonStr)
+    if (jsonStart > 0) {
+      const evidence = text.slice(0, jsonStart).trim()
+      if (evidence) console.log(`[vision] evidence block:\n${evidence.slice(0, 1500)}`)
+    }
+
     let brandData
     try {
-      brandData = JSON.parse(jsonMatch[0])
+      brandData = JSON.parse(jsonStr)
     } catch (parseErr) {
       return new Response(
         JSON.stringify({ error: 'Invalid JSON from Claude: ' + parseErr.message, fallback: 'manual' }),
