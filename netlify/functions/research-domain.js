@@ -88,6 +88,40 @@ async function writeSharedCache(supabase, normalizedDomain, brand, fetched) {
 }
 
 /**
+ * Try to fetch an archived snapshot of a domain from the Wayback Machine.
+ * Perfect fallback for Cloudflare-protected sites — Wayback has historical
+ * snapshots of the REAL page (not the Cloudflare verification page).
+ * Returns { html, archiveUrl, timestamp } or null.
+ */
+async function tryWaybackMachine(domain) {
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  // "/web/0/" redirects to the closest snapshot (usually most recent)
+  const url = `https://web.archive.org/web/0/https://${clean}`
+  try {
+    console.log(`[wayback] fetching ${url}`)
+    const res = await fetchWithTimeout(url, 12000)
+    if (!res.ok) {
+      console.warn(`[wayback] HTTP ${res.status}`)
+      return null
+    }
+    const html = await res.text()
+    if (html.length < 1000) {
+      console.warn('[wayback] response too short — no real snapshot')
+      return null
+    }
+    // Wayback's final URL pattern: /web/20240501120000/https://aleszale.pl/
+    const finalUrl = res.url || url
+    const timestampMatch = finalUrl.match(/\/web\/(\d{14})\//)
+    const timestamp = timestampMatch?.[1] || null
+    console.log(`[wayback] got ${html.length} chars, timestamp: ${timestamp}`)
+    return { html, archiveUrl: finalUrl, timestamp }
+  } catch (e) {
+    console.warn('[wayback] exception:', e.message)
+    return null
+  }
+}
+
+/**
  * Fetch a website screenshot and return as base64 data URL.
  * Uses Screenshotone API if SCREENSHOT_API_KEY env var is set,
  * falls back to Thum.io (free, no key required) otherwise.
@@ -366,7 +400,7 @@ export default async (req) => {
 
   try {
     const body = await req.json()
-    const { domain, force } = body
+    const { domain, force, userScreenshot } = body
 
     if (!domain) {
       return new Response(
@@ -380,7 +414,8 @@ export default async (req) => {
 
     // ---- L2 CACHE LOOKUP (Supabase) ----
     // Skip cache if user explicitly asked for fresh research (refresh button)
-    if (!force) {
+    // Also skip if user uploaded their own screenshot — that's a manual override
+    if (!force && !userScreenshot) {
       const cached = await readSharedCache(supabase, normalizedDomain)
       if (cached) {
         return new Response(
@@ -396,19 +431,48 @@ export default async (req) => {
     }
 
     // ---- CACHE MISS (or forced refresh) → run actual research ----
-    // Step 1: Try to fetch the website (multiple URL variants, timeout)
-    const fetchResult = await tryFetchVariants(domain)
-    const html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
+    // source tracks WHAT data layer we used — reported back so UI can
+    // show appropriate reliability warnings.
+    let source = 'fresh'           // 'fresh' | 'wayback' | 'screenshot' | 'user-screenshot' | 'domain-only'
+    let html = null
+    let fetchResult = null
+    let screenshotDataUrl = null
+    let archiveInfo = null         // { archiveUrl, timestamp } when source === 'wayback'
 
-    // Step 1b: Pre-parse HTML for technical hints (fonts, colors, buttons)
+    if (userScreenshot) {
+      // Mode override: user uploaded their own screenshot → skip all fetches
+      console.log('[flow] user-screenshot override — skipping fetches')
+      screenshotDataUrl = userScreenshot
+      source = 'user-screenshot'
+    } else {
+      // Step 1: Try to fetch the website (multiple URL variants, timeout)
+      fetchResult = await tryFetchVariants(domain)
+      html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
+      if (html) source = 'fresh'
+
+      // Step 2: If HTML fetch failed, try the Wayback Machine (archived snapshot)
+      // Wayback is MUCH more reliable than screenshots for Cloudflare-protected sites
+      if (!html) {
+        const wayback = await tryWaybackMachine(normalizedDomain)
+        if (wayback) {
+          html = wayback.html.slice(0, 25000)
+          archiveInfo = { archiveUrl: wayback.archiveUrl, timestamp: wayback.timestamp }
+          source = 'wayback'
+        }
+      }
+
+      // Step 3: If HTML and Wayback both failed, try a visual screenshot fallback
+      if (!html) {
+        screenshotDataUrl = await fetchScreenshotAsDataUrl(normalizedDomain)
+        if (screenshotDataUrl) source = 'screenshot'
+      }
+
+      if (!html && !screenshotDataUrl) source = 'domain-only'
+    }
+
+    // Pre-parse HTML for technical hints (fonts, colors, buttons)
     // These are passed to Claude as ground truth — much more reliable than visual inference
     const technicalHints = html ? extractTechnicalHints(html) : null
-
-    // Step 1c: If HTML fetch failed, try a visual screenshot fallback
-    let screenshotDataUrl = null
-    if (!html) {
-      screenshotDataUrl = await fetchScreenshotAsDataUrl(normalizedDomain)
-    }
 
     // Step 2: Build the Claude prompt — with HTML if available, or just domain name
     const SCHEMA_INSTRUCTIONS = `Return ONLY valid minified JSON (no markdown fences, no explanation) matching EXACTLY this schema:
@@ -458,12 +522,15 @@ IMPORTANT:
     let screenshotUsed = false
 
     if (html) {
-      // Mode A: full HTML analysis
+      // Mode A: full HTML analysis (either live fetch or Wayback snapshot)
+      const waybackNote = source === 'wayback' && archiveInfo
+        ? `\nNOTE: This HTML is an ARCHIVED snapshot from the Wayback Machine (archive.org), captured at ${archiveInfo.timestamp || 'unknown date'}. Some content may be outdated but the visual brand DNA (colors, fonts, layout) is typically stable.\n`
+        : ''
       claudeMessages = [{
         role: 'user',
         content: `You are a senior brand strategist and front-end analyst. Extract deep brand DNA from this website for use in creating advertising creatives.
 
-Website: ${domain}
+Website: ${domain}${waybackNote}
 ${technicalHints ? `
 TECHNICAL HINTS PRE-EXTRACTED FROM HTML (treat these as ground truth — more reliable than visual inference):
 ${technicalHints}
@@ -480,6 +547,10 @@ ${SCHEMA_INSTRUCTIONS}`,
       const mediaType = mediaTypeMatch?.[1] || 'image/jpeg'
       const base64Data = screenshotDataUrl.replace(/^data:image\/[^;]+;base64,/, '')
 
+      const sourceNote = source === 'user-screenshot'
+        ? 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. Treat this as the authoritative view of the real brand.'
+        : 'The HTML of this website was inaccessible (blocked by WAF/CDN), but here is an automated screenshot.'
+
       claudeMessages = [{
         role: 'user',
         content: [
@@ -489,7 +560,7 @@ ${SCHEMA_INSTRUCTIONS}`,
           },
           {
             type: 'text',
-            text: `You are a senior brand strategist and visual designer. The HTML of this website was inaccessible (blocked by WAF/CDN), but here is a screenshot. Analyze the visual design carefully to extract brand DNA for advertising creatives.
+            text: `You are a senior brand strategist and visual designer. ${sourceNote} Analyze the visual design carefully to extract brand DNA for advertising creatives.
 
 Website: ${domain}
 
@@ -592,7 +663,9 @@ ${SCHEMA_INSTRUCTIONS}`,
         brand: { ...brandData, domain },
         fetched: !!html,
         screenshotUsed,
-        source: 'fresh',
+        source,
+        archiveTimestamp: archiveInfo?.timestamp || null,
+        archiveUrl: archiveInfo?.archiveUrl || null,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
