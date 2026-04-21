@@ -198,70 +198,6 @@ async function tryWaybackMachine(domain) {
 }
 
 /**
- * Fetch a website screenshot and return as base64 data URL.
- * Uses Screenshotone API if SCREENSHOT_API_KEY env var is set,
- * falls back to Thum.io (free, no key required) otherwise.
- * Returns null if all attempts fail.
- */
-async function fetchScreenshotAsDataUrl(domain) {
-  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-  const targetUrl = `https://${clean}`
-
-  // Helper: fetch a screenshot URL and return base64 data URL, or null on failure
-  async function tryScreenshotUrl(label, screenshotUrl, timeoutMs) {
-    try {
-      console.log(`[screenshot] trying ${label} for ${targetUrl}`)
-      const res = await fetchWithTimeout(screenshotUrl, timeoutMs)
-      const ct = (res.headers.get('content-type') || '').split(';')[0].trim()
-      console.log(`[screenshot] ${label} → HTTP ${res.status}, content-type: ${ct}`)
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '')
-        console.warn(`[screenshot] ${label} non-ok status — body: ${errBody.slice(0, 300)}`)
-        return null
-      }
-      if (!ct.startsWith('image/')) { console.warn(`[screenshot] ${label} not an image`); return null }
-      // Thum.io returns image/gif as a loading placeholder when it can't capture the site — skip
-      if (ct === 'image/gif') { console.warn(`[screenshot] ${label} returned GIF (placeholder) — skipping`); return null }
-      const buf = await res.arrayBuffer()
-      console.log(`[screenshot] ${label} → ${buf.byteLength} bytes`)
-      if (buf.byteLength < 5000) { console.warn(`[screenshot] ${label} too small`); return null }
-      if (buf.byteLength > 4 * 1024 * 1024) { console.warn(`[screenshot] ${label} too large`); return null }
-      const b64 = Buffer.from(buf).toString('base64')
-      console.log(`[screenshot] ${label} success`)
-      return `data:${ct};base64,${b64}`
-    } catch (e) {
-      console.warn(`[screenshot] ${label} exception:`, e.message)
-      return null
-    }
-  }
-
-  const apiKey = process.env.SCREENSHOT_API_KEY
-  console.log(`[screenshot] SCREENSHOT_API_KEY set: ${!!apiKey}`)
-
-  // 1. Try Screenshotone first (if API key configured)
-  if (apiKey) {
-    const params = new URLSearchParams({
-      access_key: apiKey,
-      url: targetUrl,
-      format: 'jpg',
-      image_quality: '75',
-      viewport_width: '1280',
-      viewport_height: '900',
-      full_page: 'false',
-      block_ads: 'true',
-      block_cookie_banners: 'true',
-      delay: '1',
-    })
-    const result = await tryScreenshotUrl('Screenshotone', `https://api.screenshotone.com/take?${params}`, 15000)
-    if (result) return result
-    console.warn('[screenshot] Screenshotone failed — falling back to Thum.io')
-  }
-
-  // 2. Fallback: Thum.io (free, no key required)
-  return tryScreenshotUrl('Thum.io', `https://image.thum.io/get/width/1280/crop/900/${targetUrl}`, 10000)
-}
-
-/**
  * Pre-parse HTML for technical brand hints to guide Claude:
  * Google Fonts names, CSS custom property colors, button/CTA background colors.
  * Returns a plain-text block or null if nothing useful found.
@@ -509,7 +445,7 @@ export default async (req) => {
     // ---- CACHE MISS (or forced refresh) → run actual research ----
     // source tracks WHAT data layer we used — reported back so UI can
     // show appropriate reliability warnings.
-    let source = 'fresh'           // 'fresh' | 'wayback' | 'screenshot' | 'user-screenshot' | 'domain-only'
+    let source = 'fresh'           // 'fresh' | 'wayback' | 'user-screenshot' | 'domain-only'
     let html = null
     let fetchResult = null
     let screenshotDataUrl = null
@@ -526,30 +462,23 @@ export default async (req) => {
       html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
       if (html) source = 'fresh'
 
-      // Step 2: If HTML fetch failed, try Wayback Machine AND screenshots IN PARALLEL.
-      // Wayback is preferred (HTML analysis > vision), but we don't want to waste
-      // 8s waiting for it if it's going to fail — so we fire both at the same time
-      // and prefer Wayback if it succeeds, otherwise fall back to the screenshot.
-      // Total budget: ~15s instead of up to 33s sequential.
+      // Step 2: If HTML fetch failed, try Wayback Machine.
+      // Screenshot services (Screenshotone, Thum.io) were removed — for
+      // Cloudflare-protected sites they just capture the WAF challenge page,
+      // so they were useless. If Wayback also fails, we fall back to
+      // domain-only mode and the UI surfaces the manual-upload panel.
       if (!html) {
-        console.log('[flow] HTML failed — racing Wayback + screenshot in parallel')
-        const [waybackResult, screenshotResult] = await Promise.all([
-          tryWaybackMachine(normalizedDomain).catch(() => null),
-          fetchScreenshotAsDataUrl(normalizedDomain).catch(() => null),
-        ])
+        console.log('[flow] HTML failed — trying Wayback Machine')
+        const waybackResult = await tryWaybackMachine(normalizedDomain).catch(() => null)
         if (waybackResult) {
           html = waybackResult.html.slice(0, 25000)
           archiveInfo = { archiveUrl: waybackResult.archiveUrl, timestamp: waybackResult.timestamp }
           source = 'wayback'
-          console.log('[flow] using Wayback (preferred)')
-        } else if (screenshotResult) {
-          screenshotDataUrl = screenshotResult
-          source = 'screenshot'
-          console.log('[flow] using screenshot (Wayback failed)')
+          console.log('[flow] using Wayback snapshot')
         }
       }
 
-      if (!html && !screenshotDataUrl) source = 'domain-only'
+      if (!html) source = 'domain-only'
     }
 
     // Pre-parse HTML for technical hints (fonts, colors, buttons)
@@ -633,9 +562,7 @@ ${SCHEMA_INSTRUCTIONS}`,
       const approxBytes = Math.floor(base64Data.length * 0.75)
       console.log(`[vision] source=${source} media=${mediaType} size=${approxBytes} bytes (~${Math.round(approxBytes/1024)} KB)`)
 
-      const sourceNote = source === 'user-screenshot'
-        ? 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. This is the AUTHORITATIVE view — trust it over any other signal.'
-        : 'The HTML of this website was inaccessible (blocked by WAF/CDN), but here is an automated screenshot.'
+      const sourceNote = 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. This is the AUTHORITATIVE view — trust it over any other signal.'
 
       claudeMessages = [{
         role: 'user',
@@ -750,30 +677,6 @@ ${SCHEMA_INSTRUCTIONS}`,
       if (evidence) console.log(`[vision] evidence block:\n${evidence.slice(0, 1500)}`)
     }
 
-    // Detect when the screenshot was actually a WAF/CDN challenge page.
-    // In that case the "research" is really about the security vendor, not
-    // the client — we should treat it as "no data available" instead of
-    // silently presenting Cloudflare colors as the brand's colors.
-    const evidenceLc = evidence.toLowerCase()
-    const isChallengePage =
-      screenshotUsed && source !== 'user-screenshot' &&
-      /cloudflare|waf challenge|security verification|verifying you are (not )?human|checking your browser|just a moment|ddos[\s-]?guard|bot protection/i.test(evidenceLc)
-    if (isChallengePage) {
-      console.warn('[vision] detected WAF/CDN challenge page — discarding research result')
-      // Fall through as if we had no data at all (source = domain-only).
-      // The client will see the amber uploader panel asking for a manual
-      // screenshot. Do NOT write to cache — this was a polluted result.
-      return new Response(
-        JSON.stringify({
-          brand: { domain, name: brandNameFromDomain(domain) },
-          fetched: false,
-          screenshotUsed: true,
-          source: 'domain-only',
-          challengeDetected: true,
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
     // Also log the JSON Claude actually returned — so when evidence looks
     // good but the form is still wrong, we can see the exact mismatch.
     console.log(`[claude] json output:\n${jsonStr.slice(0, 2000)}`)
