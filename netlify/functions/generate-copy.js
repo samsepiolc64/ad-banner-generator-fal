@@ -11,11 +11,11 @@
  */
 
 const VARIANT_HINTS = [
-  { name: 'Produkt centralny', headlineStyle: 'Calm, product-focused, elegant — describes product or effect' },
-  { name: 'Lifestyle', headlineStyle: 'Emotional, human, aspirational — speaks to the person, not about the product' },
-  { name: 'Typograficzny', headlineStyle: 'Short, strong, striking — max 5 words, imperative or provocation' },
-  { name: 'Asymetryczny minimalizm', headlineStyle: 'Elegant, laconic, premium — sounds like a perfume or car tagline' },
-  { name: 'Dynamiczny', headlineStyle: 'Energetic, active — action verb, sense of movement' },
+  { name: 'Hero lifestyle',       headlineStyle: 'Emotional, human, warm — speaks to the person and their world, not about the product features' },
+  { name: 'Product w scenie',     headlineStyle: 'Aspirational, sensory, product-forward — evokes the tactile/visual appeal of owning or using the product' },
+  { name: 'Editorial split',      headlineStyle: 'Confident, editorial, punchy — reads like a magazine cover line; bold statement, no fluff' },
+  { name: 'Immersive cinematic',  headlineStyle: 'Atmospheric, short, cinematic — few words, high impact; lets the image do most of the work' },
+  { name: 'Minimalist éditorial', headlineStyle: 'Elegant, laconic, premium — quiet confidence; sounds like a luxury brand tagline' },
 ]
 
 export default async (req) => {

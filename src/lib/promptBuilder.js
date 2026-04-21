@@ -6,44 +6,39 @@
 
 const VARIANT_MATRIX = [
   {
-    name: 'Produkt centralny',
-    layout: 'Product centered, text below',
-    hero: 'Product / mockup in center',
-    bg: 'Light, clean, lots of white space',
-    mood: 'Clean, premium, calm',
-    headlineStyle: 'Calm, product-focused, elegant — describes product or effect',
+    name: 'Hero lifestyle',
+    layout: 'Full-bleed lifestyle photograph fills the entire canvas; headline and CTA float over a cinematic dark gradient in the lower portion — image dominates, text is secondary',
+    hero: 'A person naturally using, wearing, or experiencing the product in an authentic real-world moment — not staged, feels candid and editorial',
+    bg: 'Real-world environment appropriate for the brand (home interior, outdoor setting, café, nature) with a subtle dark gradient overlay only where text needs to be legible',
+    mood: 'Warm, cinematic, editorial — feels like a spread from a premium lifestyle magazine; natural light, genuine emotion, real-life story',
   },
   {
-    name: 'Lifestyle',
-    layout: 'Lifestyle scene left 60% / text right 40%',
-    hero: 'Person / user in context',
-    bg: 'Dark or deep brand color',
-    mood: 'Emotional, human, warm',
-    headlineStyle: 'Emotional, human, aspirational — speaks to the person, not about the product',
+    name: 'Product w scenie',
+    layout: 'Product styled as the hero, placed naturally in a rich atmospheric environment with complementary props; text overlaid on a contrasting area or side panel',
+    hero: 'Product photographed as if from a luxury brand lookbook — carefully styled with relevant props, textures, and contextual elements that tell its story',
+    bg: 'Atmospheric, tactile surface or environment that matches the product\'s world: marble, linen, wood grain, botanical elements, or brand-appropriate setting; rich texture',
+    mood: 'Aspirational, tactile, curated — like a premium brand\'s own Instagram content or editorial catalog shot',
   },
   {
-    name: 'Typograficzny',
-    layout: 'Typographic — text as main visual element',
-    hero: 'Large headline as graphic',
-    bg: 'Gradient or texture from brand palette',
-    mood: 'Bold, modern, energetic',
-    headlineStyle: 'Short, strong, striking — max 5 words, imperative or provocation',
+    name: 'Editorial split',
+    layout: 'Bold vertical split: left half — atmospheric lifestyle photography; right half — solid brand-color panel with headline and CTA; hard geometric division between image and color',
+    hero: 'Striking lifestyle or product photograph on one side — strong composition that holds its own in half the frame',
+    bg: 'Left: rich photographic scene; Right: brand primary or deepest color — high contrast between the two halves creates modern editorial tension',
+    mood: 'Modern, magazine-editorial, confident — the geometry feels designed, not templated; echoes high-end fashion and luxury brand campaigns',
   },
   {
-    name: 'Asymetryczny minimalizm',
-    layout: 'Asymmetric — product on side, lots of white space',
-    hero: 'Product detail / close-up',
-    bg: 'Neutral, architectural',
-    mood: 'Minimalist, luxurious, calm',
-    headlineStyle: 'Elegant, laconic, premium — sounds like a perfume or car tagline',
+    name: 'Immersive cinematic',
+    layout: 'Full-bleed edge-to-edge scene with cinematic wide composition; minimal text floated over a naturally dark area of the image — zero empty background, zero padding',
+    hero: 'Wide, immersive lifestyle scene or dramatic product moment that fills every pixel — composition tells a story without needing much text',
+    bg: 'The photography itself IS the background — no separate panels or color areas; scene naturally provides contrast zones for text placement',
+    mood: 'Cinematic, dramatic, high-impact — feels like a film still or a luxury car campaign; atmosphere over information',
   },
   {
-    name: 'Dynamiczny',
-    layout: 'Dynamic — diagonal lines / movement',
-    hero: 'Abstract + product',
-    bg: 'Contrasting, two-tone',
-    mood: 'Dynamic, technological, fast',
-    headlineStyle: 'Energetic, active — action verb, sense of movement',
+    name: 'Minimalist éditorial',
+    layout: 'Generous negative space with one precisely placed visual element — product detail or single lifestyle accent; typography secondary to the image',
+    hero: 'A single, carefully chosen visual: close-up product texture, a detail shot from a lifestyle scene, or one striking prop — quality over quantity',
+    bg: 'Light, airy background — white or very light brand neutral; perhaps a subtle texture or gradient; the emptiness is intentional and luxurious',
+    mood: 'Quietly luxurious, calm, premium — like a high-end fragrance or jewellery ad; the restraint communicates exclusivity',
   },
 ]
 
@@ -244,9 +239,7 @@ VISUAL IDENTITY:
 - Style: ${brand.visualStyle || brand.style || 'minimalist, premium feel'}${brand.visualMotifs ? `
 - Site motifs (incorporate at least one): ${brand.visualMotifs}` : ''}
 - Photography: ${brand.photoStyle || 'lifestyle photography, bright natural light'}${brand.exampleTaglines?.length ? `
-- Actual copy/headlines from the site — match this exact tone: ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}
-
-Background for THIS variant: ${variantIndex === 1 ? 'dark, rich — use the brand\'s deepest/darkest color' : 'light, airy — use white or the brand\'s lightest neutral'}`
+- Actual copy/headlines from the site — match this exact tone: ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}`
 
   const prompt = `OUTPUT FORMAT:
 - A finished, production-ready advertising image
@@ -262,6 +255,14 @@ Background for THIS variant: ${variantIndex === 1 ? 'dark, rich — use the bran
 - Do NOT render placeholder rectangles with labels inside
 - The output must look like a real ad ready for publication — NEVER like a design spec sheet or style guide
 - Zero tolerance for any technical markup, annotations, labels, or measurement indicators visible in the final image
+
+⚠ MODERN EDITORIAL AESTHETIC — NON-NEGOTIABLE:
+1. ALWAYS include real lifestyle photography, a product-in-scene, or an atmospheric visual — text-only compositions are STRICTLY FORBIDDEN
+2. Photography or imagery must occupy at least 60% of the canvas visual area — imagery dominates, text supports
+3. FORBIDDEN aesthetics (instant fail): flat solid-color background with text floating in the middle · blank white/grey bg with a product cutout · clip-art or stock-photo-generic style · corporate brochure grid layout · template-banner feel · gradient blob with copy
+4. The result must feel like a high-end magazine editorial or a premium brand campaign — NOT a generic digital banner
+5. Composition must be designed: every element has intentional placement, visual tension, and breathing room — NOT just "image left, text right"
+6. Shoot for the feeling of: a luxury fashion campaign · a premium lifestyle brand's Instagram · an editorial spread in a design-forward magazine
 
 ${brandDna}
 
@@ -322,7 +323,7 @@ CHANNEL-SPECIFIC REQUIREMENTS:
 ${channelReqs}
 
 NEGATIVE PROMPT (do NOT render any of these):
-blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom third of the image, any content near the left or right edges, Instagram Stories UI overlay, Instagram Stories chrome, social media app interface, app navigation bar, platform header bar, profile avatar circle, username overlay, account name text, story viewer header, timestamp text, story controls, send message bar, reply box, message input field, heart icon row, share icon, paper plane icon, swipe up indicator, swipe up text, story progress bar, story dots indicator, any simulated mobile phone UI, any simulated app UI' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
+text-only composition, no photography no lifestyle scene, flat color background with only text, blank white background with product cutout floating, solid color background with text floating in center, empty background with text, template banner layout, generic digital banner aesthetic, corporate brochure style, clip art product on plain background, stock photo cliché, gradient blob background, flat vector illustration style, blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom third of the image, any content near the left or right edges, Instagram Stories UI overlay, Instagram Stories chrome, social media app interface, app navigation bar, platform header bar, profile avatar circle, username overlay, account name text, story viewer header, timestamp text, story controls, send message bar, reply box, message input field, heart icon row, share icon, paper plane icon, swipe up indicator, swipe up text, story progress bar, story dots indicator, any simulated mobile phone UI, any simulated app UI' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
 
   return prompt
 }
