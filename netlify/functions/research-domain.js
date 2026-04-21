@@ -708,7 +708,10 @@ ${SCHEMA_INSTRUCTIONS}`,
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4096,
+        // 8192 leaves comfortable headroom — the full schema with Polish prose
+        // fields + VISUAL EVIDENCE block + competitors routinely hits 5-6k tokens.
+        // At 4096 JSON was being truncated mid-object (seen in production logs).
+        max_tokens: 8192,
         messages: claudeMessages,
       }),
     })
@@ -740,10 +743,36 @@ ${SCHEMA_INSTRUCTIONS}`,
 
     // Log the VISUAL EVIDENCE block (everything before the JSON) — priceless
     // for debugging hallucinations in screenshot mode
-    const jsonStart = text.indexOf(jsonStr)
-    if (jsonStart > 0) {
-      const evidence = text.slice(0, jsonStart).trim()
+    const jsonStartIdx = text.indexOf(jsonStr)
+    let evidence = ''
+    if (jsonStartIdx > 0) {
+      evidence = text.slice(0, jsonStartIdx).trim()
       if (evidence) console.log(`[vision] evidence block:\n${evidence.slice(0, 1500)}`)
+    }
+
+    // Detect when the screenshot was actually a WAF/CDN challenge page.
+    // In that case the "research" is really about the security vendor, not
+    // the client — we should treat it as "no data available" instead of
+    // silently presenting Cloudflare colors as the brand's colors.
+    const evidenceLc = evidence.toLowerCase()
+    const isChallengePage =
+      screenshotUsed && source !== 'user-screenshot' &&
+      /cloudflare|waf challenge|security verification|verifying you are (not )?human|checking your browser|just a moment|ddos[\s-]?guard|bot protection/i.test(evidenceLc)
+    if (isChallengePage) {
+      console.warn('[vision] detected WAF/CDN challenge page — discarding research result')
+      // Fall through as if we had no data at all (source = domain-only).
+      // The client will see the amber uploader panel asking for a manual
+      // screenshot. Do NOT write to cache — this was a polluted result.
+      return new Response(
+        JSON.stringify({
+          brand: { domain, name: brandNameFromDomain(domain) },
+          fetched: false,
+          screenshotUsed: true,
+          source: 'domain-only',
+          challengeDetected: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
     // Also log the JSON Claude actually returned — so when evidence looks
     // good but the form is still wrong, we can see the exact mismatch.
