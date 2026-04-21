@@ -61,21 +61,19 @@ function brandNameFromDomain(domain) {
  */
 function brandMatchesDomain(brandName, domain) {
   if (!brandName || !domain) return false
-  const strip = (s) => String(s).toLowerCase()
+  // Normalize: lowercase + strip diacritics. Crucially we DO NOT strip spaces,
+  // so a hallucinated split like "Ales Zale" for "aleszale" is caught.
+  const stripDiacritics = (s) => String(s).toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '')
-  const body = strip(String(domain).replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0] || '')
-  const name = strip(brandName)
-  if (!body || !name) return false
-  // Direct substring match either direction
-  if (body.includes(name) || name.includes(body)) return true
-  // Check if at least 60% of domain body characters appear as a substring of name
-  // (covers cases like "aleszalepl" brand vs "aleszale" domain body)
-  const minLen = Math.max(4, Math.floor(body.length * 0.6))
-  for (let i = 0; i + minLen <= body.length; i++) {
-    if (name.includes(body.slice(i, i + minLen))) return true
-  }
-  return false
+  const brand = stripDiacritics(brandName).trim()
+  const body = stripDiacritics(
+    String(domain).replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0] || ''
+  )
+  if (!body || !brand || body.length < 3) return false
+  // Domain body must appear as a contiguous substring in the brand name.
+  // This accepts: "Aleszale", "aleszale.pl", "ALESZALE" → all contain "aleszale".
+  // This rejects: "Ales Zale" (has space breaking the contiguous match) → override fires.
+  return brand.includes(body)
 }
 
 /**
@@ -181,6 +179,17 @@ async function tryWaybackMachine(domain) {
     const timestampMatch = finalUrl.match(/\/web\/(\d{14})\//)
     const timestamp = timestampMatch?.[1] || null
     console.log(`[wayback] got ${html.length} chars, timestamp: ${timestamp}`)
+
+    // Reject stale snapshots (>3 years old) — brand may have completely pivoted
+    // and we shouldn't use ancient designs as ground truth.
+    if (timestamp && timestamp.length >= 4) {
+      const snapshotYear = parseInt(timestamp.slice(0, 4), 10)
+      const currentYear = new Date().getFullYear()
+      if (snapshotYear && currentYear - snapshotYear > 3) {
+        console.warn(`[wayback] rejecting stale snapshot from ${snapshotYear} (>${currentYear - 3})`)
+        return null
+      }
+    }
     return { html, archiveUrl: finalUrl, timestamp }
   } catch (e) {
     console.warn('[wayback] exception:', e.message)
@@ -658,11 +667,18 @@ Before the JSON, write a brief "VISUAL EVIDENCE:" block listing concretely what 
 - Any headlines or slogans visible
 
 STEP 2 — JSON:
-After the VISUAL EVIDENCE block, output the JSON object. Every field in the JSON MUST be consistent with and derived from your VISUAL EVIDENCE. If your JSON contradicts your evidence, you have failed the task.
+After the VISUAL EVIDENCE block, output the JSON object. EVERY field in the JSON MUST be derived directly from your evidence:
+- "name": use the EXACT logo text you described (e.g. if evidence says logo = "aleszale.pl", then name = "aleszale.pl" — DO NOT split words, DO NOT reinterpret).
+- "colors.primary": the dominant menu/nav color you described (e.g. if evidence = "deep burgundy menu bar" → primary must be a burgundy hex like #8B2142, NOT #222222 or generic dark).
+- "colors.accent" / "ctaColor": the CTA button color you described (e.g. if evidence = "green WYPRZEDAŻ badges" → accent must be a green hex, NOT orange or blue).
+- "productType": list the PRODUCTS you saw (e.g. "chusty, kapelusze, skarpety, czapki" — NOT generic categories).
+- "industry": derive from visible products, in Polish (e.g. "akcesoria odzieżowe e-commerce" — NOT inferred from domain).
+
+If your JSON contradicts your evidence (e.g. evidence says burgundy + green, but JSON has blue + orange), YOU HAVE FAILED and the output will be rejected.
 
 ${SCHEMA_INSTRUCTIONS}
 
-REMEMBER: Ground every field in visible pixels. The domain name is a label, not a clue.`,
+FINAL REMINDER: Copy the logo text VERBATIM into "name". Translate visible colors into hex codes matching those colors. The domain is a label, not a clue.`,
           },
         ],
       }]
@@ -729,6 +745,9 @@ ${SCHEMA_INSTRUCTIONS}`,
       const evidence = text.slice(0, jsonStart).trim()
       if (evidence) console.log(`[vision] evidence block:\n${evidence.slice(0, 1500)}`)
     }
+    // Also log the JSON Claude actually returned — so when evidence looks
+    // good but the form is still wrong, we can see the exact mismatch.
+    console.log(`[claude] json output:\n${jsonStr.slice(0, 2000)}`)
 
     let brandData
     try {
