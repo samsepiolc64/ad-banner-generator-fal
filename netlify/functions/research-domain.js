@@ -97,11 +97,27 @@ async function fetchScreenshotAsDataUrl(domain) {
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
   const targetUrl = `https://${clean}`
 
-  let screenshotUrl
+  // Helper: fetch a screenshot URL and return base64 data URL, or null on failure
+  async function tryScreenshotUrl(screenshotUrl, timeoutMs) {
+    try {
+      const res = await fetchWithTimeout(screenshotUrl, timeoutMs)
+      if (!res.ok) return null
+      const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
+      if (!ct.startsWith('image/')) return null
+      const buf = await res.arrayBuffer()
+      if (buf.byteLength < 5000) return null      // too small → likely an error page
+      if (buf.byteLength > 4 * 1024 * 1024) return null // too large for Claude Vision
+      const b64 = Buffer.from(buf).toString('base64')
+      return `data:${ct};base64,${b64}`
+    } catch {
+      return null
+    }
+  }
+
   const apiKey = process.env.SCREENSHOT_API_KEY
 
+  // 1. Try Screenshotone first (if API key configured)
   if (apiKey) {
-    // Screenshotone — https://screenshotone.com/docs/
     const params = new URLSearchParams({
       access_key: apiKey,
       url: targetUrl,
@@ -114,25 +130,13 @@ async function fetchScreenshotAsDataUrl(domain) {
       block_cookie_banners: 'true',
       delay: '1',
     })
-    screenshotUrl = `https://api.screenshotone.com/take?${params}`
-  } else {
-    // Thum.io — free, no key, best-effort (may rate-limit under high load)
-    screenshotUrl = `https://image.thum.io/get/width/1280/crop/900/${targetUrl}`
+    const result = await tryScreenshotUrl(`https://api.screenshotone.com/take?${params}`, 20000)
+    if (result) return result
+    console.warn('Screenshotone failed — falling back to Thum.io')
   }
 
-  try {
-    const res = await fetchWithTimeout(screenshotUrl, 20000)
-    if (!res.ok) return null
-    const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
-    if (!ct.startsWith('image/')) return null
-    const buf = await res.arrayBuffer()
-    if (buf.byteLength < 5000) return null      // too small → error page
-    if (buf.byteLength > 4 * 1024 * 1024) return null // too large for Claude Vision
-    const b64 = Buffer.from(buf).toString('base64')
-    return `data:${ct};base64,${b64}`
-  } catch {
-    return null
-  }
+  // 2. Fallback: Thum.io (free, no key required)
+  return tryScreenshotUrl(`https://image.thum.io/get/width/1280/crop/900/${targetUrl}`, 15000)
 }
 
 /**
