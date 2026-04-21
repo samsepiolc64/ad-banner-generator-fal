@@ -295,7 +295,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
             }
           </div>
           <div className="min-w-0">
-            <div className="font-medium text-gray-900 dark:text-white truncate">{domain}</div>
+            <div className="font-medium text-gray-900 dark:text-white truncate">{normalizeDomain(domain)}
           </div>
         </div>
 
