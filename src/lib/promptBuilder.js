@@ -170,7 +170,9 @@ export function buildPrompt({
   variantIndex,     // 0-based
   brand,            // { name, domain, colors: { primary, secondary, accent }, style, photoStyle, typography, audience, usp }
   headline,         // string
+  subheadline,      // string or null — secondary/supporting text line
   cta,              // string
+  hasProductImage,  // boolean — true when caller is supplying a product reference image
   compInsight,      // string or null
   notes,            // string or null
   modelInfo,        // { type, ar, needsResize } from resolveModel()
@@ -278,10 +280,30 @@ CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
 - Layout: ${variant.layout}
 - Hero element: ${variant.hero}
 - Background: ${variant.bg}
-- Mood/atmosphere: ${variant.mood}
+- Mood/atmosphere: ${variant.mood}${variant.name === 'Lifestyle' ? `
+LIFESTYLE SCENE — brand-authentic direction (override generic stock-photo clichés with THIS brand's world):
+${brand.photoStyle ? `- Photography character: ${brand.photoStyle}` : '- Natural, editorial lifestyle photography — feels real, not staged'}
+${brand.visualMotifs ? `- Brand visual motifs to weave into the scene naturally: ${brand.visualMotifs}` : ''}
+${brand.tone ? `- Scene energy must reflect this brand's tone: ${brand.tone}` : ''}
+${brand.visualStyle ? `- Overall aesthetic feel: ${brand.visualStyle}` : ''}
+${!hasProductImage ? `- No specific product image was provided. Show a lifestyle scene that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop/product appropriate for the industry, or a scene that implies the product without showing a specific item.` : ''}
+The result must feel like content from the brand's own Instagram feed, not a generic ad.` : ''}${!hasProductImage && variant.name !== 'Lifestyle' ? `
+PRODUCT/SUBJECT NOTE: No specific product image was provided. Feature a visually compelling, high-quality representation of this brand's product category. Use elegant, unlabeled props or a lifestyle scene — avoid photorealistic packaging with invented labels or logos.` : ''}
 
 AD COPY PLACEMENT:
-- Headline: "${headline}" — position: center, size: large, weight: bold${(isStories || isTikTokVertical) ? '' : `
+${subheadline
+  ? `TYPOGRAPHIC HIERARCHY — this is the key to visual impact:
+- PRIMARY HEADLINE: "${headline}"
+  · The dominant, unmissable text element — large, heavy, bold (weight 800–900)
+  · Position: upper-center of the content area
+  · Visually equivalent to ~70–90pt on a 1080px canvas
+- SECONDARY LINE: "${subheadline}"
+  · Directly below the primary, same horizontal center, clear separation
+  · Size: 55–65% of the primary headline's visual size
+  · Weight: regular or medium (400–500) — noticeably lighter than the primary
+  · The reader's eye MUST land on the primary first, then drift to the secondary`
+  : `- Headline: "${headline}" — position: center, size: large, weight: bold`
+}${(isStories || isTikTokVertical) ? '' : `
 - CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}
 
 TYPOGRAPHY REQUIREMENTS:

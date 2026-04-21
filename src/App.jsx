@@ -289,6 +289,8 @@ export default function App() {
           variantIndex: v,
           brand: { ...brand, campaignGoal: campaignData.goal },
           headline: headlines[v] || headlines[0],
+          subheadline: campaignData.subheadline || null,
+          hasProductImage: !!campaignData.productImage,
           cta,
           compInsight,
           notes: campaignData.notes || null,
@@ -530,6 +532,7 @@ export default function App() {
                               brandName={brandData?.name}
                               domain={campaignData?.domain}
                               notes={campaignData?.notes}
+                              productImage={campaignData?.productImage || null}
                               falMode={falMode}
                             />
                           </>

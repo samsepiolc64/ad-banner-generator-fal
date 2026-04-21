@@ -63,7 +63,7 @@ async function uploadToDrive(blob, filename, sessionFolderId) {
   })
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, falMode = 'test' }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, falMode = 'test' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -134,20 +134,22 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
-    const productRefUrl = extractUrl(notes)
-    const hasRef = hasLogo || !!productRefUrl
+    // productImage prop (base64 dataURL) takes priority over URL embedded in notes
+    const productRefUrl = !productImage ? extractUrl(notes) : null
+    const hasProductRef = !!productImage || !!productRefUrl
+    const hasRef = hasLogo || hasProductRef
 
     // Pick the right logo block based on whether a real logo will be composited
     const logoBlock = hasLogo ? LOGO_BLOCK_WITH_LOGO : LOGO_BLOCK_NO_LOGO
 
     // Always suppress fal.ai from rendering the brand name as floating text.
-    // With logo: real logo is composited after — fal.ai must not pre-draw it.
-    // Without logo: still unwanted — hallucinated wordmarks look unprofessional.
     const brandNameSuppress = `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark as a floating element. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as standalone text.`
 
-    // If a product reference URL was provided, inject a strong instruction to use it
-    const productRefBlock = productRefUrl
-      ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nThe first reference image provided is the EXACT product to feature in this ad. You MUST reproduce this product with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and graphic elements on the surface\n- Exact size relationships between product parts\nDo NOT redesign, simplify, or reinterpret the product. Render it as a faithful photographic reproduction of the reference image.`
+    // Product reference instruction — injected when a reference image is supplied.
+    // The reference image is placed FIRST in imageUrls so fal.ai treats it as the
+    // primary subject. Logo (if any) comes second.
+    const productRefBlock = hasProductRef
+      ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nThe FIRST reference image supplied is the EXACT product to feature. Reproduce it with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and any graphic elements on the surface\n- Exact size relationships between parts\nDo NOT redesign, simplify, or reinterpret the product. It must be a faithful, photographic-quality reproduction of the reference.`
       : ''
 
     const finalPrompt = (fmt.prompt + productRefBlock)
@@ -155,10 +157,12 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
 
     try {
-      // Build image_urls: logo (data URL) + product reference URL (if provided)
+      // Build image_urls: product reference FIRST (primary subject), logo second.
+      // Order matters — fal.ai's edit endpoint weights earlier images more heavily.
       const imageUrls = []
+      if (productImage) imageUrls.push(productImage)        // base64 dataURL (user-uploaded)
+      else if (productRefUrl) imageUrls.push(productRefUrl) // URL fallback from notes field
       if (hasLogo) imageUrls.push(logoDataUrl)
-      if (productRefUrl) imageUrls.push(productRefUrl)
 
       // Step 1: Submit to fal.ai queue
       const submitRes = await fetch('/.netlify/functions/generate-image', {

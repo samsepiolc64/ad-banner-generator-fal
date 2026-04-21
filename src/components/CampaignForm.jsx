@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { FORMAT_GROUPS, ALL_FORMATS } from '../lib/formats'
 import { normalizeDomain } from '../lib/domain'
 import { TEAM_MEMBERS_UNIQUE, CAMPAIGN_GOALS } from '../lib/teamMembers'
@@ -38,12 +38,13 @@ const SECTIONS = [
     id: 'message',
     title: 'Co?',
     subtitle: 'Cel, hasło i CTA',
-    fields: ['goal', 'headline', 'cta'],
+    fields: ['goal', 'headline', 'subheadline', 'cta', 'productImage'],
     isComplete: (f) => !!f.goal,
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
       const ct = f.ctaType === 'custom' ? (f.cta || 'własne CTA') : 'CTA auto'
-      return [f.goal, hl, ct].filter(Boolean).join(' — ')
+      const img = f.productImage ? ' · 📷 produkt' : ''
+      return [f.goal, hl, ct].filter(Boolean).join(' — ') + img
     },
   },
   {
@@ -78,10 +79,12 @@ export default function CampaignForm({
     formats: [],
     headlineType: 'auto',
     headline: '',
+    subheadline: '',
     ctaType: 'auto',
     cta: '',
     variants: 2,
     notes: '',
+    productImage: null,   // base64 data URL of product reference photo (optional)
   }))
   const [activeSection, setActiveSection] = useState(0)
   const [maxSection, setMaxSection] = useState(0)
@@ -292,17 +295,111 @@ function SectionFields({ section, form, update, toggleArray, toggleChannel, doma
   )
 }
 
+/**
+ * Compact product image picker.
+ * Supports drag & drop, click-to-browse, and Ctrl+V paste.
+ * Stores result as base64 data URL in parent state.
+ */
+function ProductImagePicker({ value, onChange }) {
+  const [dragOver, setDragOver] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef(null)
+  const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
+
+  const processFile = useCallback((file) => {
+    setError('')
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setError('Plik musi być obrazem (PNG, JPG, WebP).'); return }
+    if (file.size > MAX_SIZE) { setError(`Za duży (max 4 MB).`); return }
+    const reader = new FileReader()
+    reader.onload = (e) => onChange(e.target.result)
+    reader.onerror = () => setError('Nie udało się odczytać pliku.')
+    reader.readAsDataURL(file)
+  }, [onChange])
+
+  // Global paste — active while component is mounted
+  useEffect(() => {
+    const onPaste = (e) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const it of items) {
+        if (it.type?.startsWith('image/')) {
+          const file = it.getAsFile()
+          if (file) { processFile(file); e.preventDefault(); return }
+        }
+      }
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [processFile])
+
+  if (value) {
+    return (
+      <div className="space-y-2">
+        <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center gap-3 p-2">
+          <img src={value} alt="Podgląd produktu" className="w-16 h-16 object-contain rounded-lg flex-shrink-0 bg-white dark:bg-gray-800" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Zdjęcie produktu wgrane</div>
+            <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+              Model postara się wiernie odwzorować ten produkt w scenie reklamowej.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onChange(null); if (inputRef.current) inputRef.current.value = '' }}
+            className="flex-shrink-0 text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
+            title="Usuń zdjęcie"
+          >
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4">
+              <path d="M2 2l10 10M12 2L2 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f) }}
+        onClick={() => inputRef.current?.click()}
+        className={`cursor-pointer rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors
+          ${dragOver
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+            : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-900/50'}`}
+      >
+        <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">
+          Przeciągnij zdjęcie produktu lub kliknij
+        </div>
+        <div className="text-[11px] text-gray-400 dark:text-gray-500">
+          możesz też wkleić (Ctrl+V) · PNG, JPG, WebP · max 4 MB
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f) }} />
+      </div>
+      <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5 leading-tight">
+        Bez zdjęcia model wygeneruje ogólną grafikę dopasowaną do branży klienta.
+      </div>
+      {error && <div className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</div>}
+    </div>
+  )
+}
+
 function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
   const label = {
-    domain:   'Domena klienta',
-    opiekun:  'Opiekun klienta',
-    channels: 'Kanały reklamowe',
-    formats:  'Formaty bannerów',
-    goal:     'Cel kampanii',
-    headline: 'Hasło reklamowe',
-    cta:      'Tekst CTA (przycisk)',
-    variants: 'Warianty A/B na każdy format',
-    notes:    'Dodatkowe uwagi (opcjonalnie)',
+    domain:       'Domena klienta',
+    opiekun:      'Opiekun klienta',
+    channels:     'Kanały reklamowe',
+    formats:      'Formaty bannerów',
+    goal:         'Cel kampanii',
+    headline:     'Hasło reklamowe',
+    subheadline:  'Drugi wers / podtytuł (opcjonalnie)',
+    cta:          'Tekst CTA (przycisk)',
+    variants:     'Warianty A/B na każdy format',
+    notes:        'Dodatkowe uwagi (opcjonalnie)',
+    productImage: 'Zdjęcie produktu (opcjonalnie)',
   }[field]
 
   return (
@@ -449,6 +546,25 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
           ))}
         </div>
       )
+
+    case 'subheadline':
+      return (
+        <div className="space-y-1.5">
+          <input
+            type="text"
+            value={form.subheadline}
+            onChange={(e) => update('subheadline', e.target.value)}
+            placeholder="np. Bezpłatna dostawa · 14 dni na zwrot"
+            className="input"
+          />
+          <div className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
+            Jeśli wypełnisz to pole, główne hasło zostanie wyróżnione dużym fontem, a ten tekst — mniejszym, poniżej.
+          </div>
+        </div>
+      )
+
+    case 'productImage':
+      return <ProductImagePicker value={form.productImage} onChange={(v) => update('productImage', v)} />
 
     case 'notes':
       return (
