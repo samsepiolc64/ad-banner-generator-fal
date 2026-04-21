@@ -77,6 +77,22 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [visualOpen, setVisualOpen] = useState(false)
 
+  // Research progress stepper — advances through realistic timing estimates
+  const [researchStep, setResearchStep] = useState(0)
+  const RESEARCH_STEPS = [
+    { label: 'Pobieranie strony',    detail: 'próba bezpośredniego fetchu HTML',          after: 0 },
+    { label: 'Screenshotone',        detail: 'render wizualny przez headless browser',     after: 8500 },
+    { label: 'Wayback Machine',      detail: 'archiwalna wersja strony (archive.org)',     after: 17000 },
+    { label: 'Claude analizuje',     detail: 'wyciąganie danych brandowych z treści',      after: 25000 },
+  ]
+  useEffect(() => {
+    if (researchState !== 'researching') { setResearchStep(0); return }
+    const timers = RESEARCH_STEPS
+      .map((step, i) => i > 0 ? setTimeout(() => setResearchStep(i), step.after) : null)
+      .filter(Boolean)
+    return () => timers.forEach(clearTimeout)
+  }, [researchState]) // eslint-disable-line react-hooks/exhaustive-deps
+
   /** Apply a brand data object (from API or cache) to the form + deep brand state */
   const applyBrandData = useCallback((b, fromCache = false) => {
     setBrand({
@@ -303,9 +319,40 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     return (
       <div className="py-10 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white mb-4"></div>
-        <div className="text-sm font-semibold text-gray-900 dark:text-white">Analizuję markę {domain}...</div>
-        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">Claude czyta stronę i wyciąga dane brandowe</div>
-        <div className="text-[10px] text-gray-300 dark:text-gray-600 mt-2">To może potrwać 20-50 sekund (gdy strona blokuje HTML — sięgamy do archiwum Wayback Machine)</div>
+        <div className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Analizuję markę {domain}…</div>
+
+        {/* Step-by-step progress */}
+        <div className="mt-4 inline-flex flex-col gap-2 text-left">
+          {RESEARCH_STEPS.map((step, i) => {
+            const isDone    = i < researchStep
+            const isActive  = i === researchStep
+            const isPending = i > researchStep
+            return (
+              <div key={i} className={`flex items-start gap-2.5 text-xs transition-opacity duration-500 ${isPending ? 'opacity-30' : 'opacity-100'}`}>
+                {/* Icon */}
+                <span className="mt-0.5 w-4 flex-shrink-0 flex justify-center">
+                  {isDone ? (
+                    <svg className="w-4 h-4 text-green-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 8l3.5 3.5L13 4.5"/>
+                    </svg>
+                  ) : isActive ? (
+                    <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 animate-spin" />
+                  ) : (
+                    <span className="inline-block w-2 h-2 mt-0.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  )}
+                </span>
+                {/* Label */}
+                <span className={`font-medium ${isDone ? 'text-gray-400 dark:text-gray-500' : isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {step.label}
+                </span>
+                {/* Detail — only for active step */}
+                {isActive && (
+                  <span className="text-gray-400 dark:text-gray-500">— {step.detail}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
