@@ -55,6 +55,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [source, setSource] = useState(null)
   const [archiveTimestamp, setArchiveTimestamp] = useState(null)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
+  const [uploaderOpen, setUploaderOpen] = useState(false)
   const [deepBrand, setDeepBrand] = useState(() => {
     if (!initialBrand?.name) return {}
     return {
@@ -527,7 +528,9 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     <form onSubmit={handleSubmit} className="space-y-4">
       {renderBanner()}
 
-      {isUnreliableSource && (
+      {/* Uploader — zawsze dostępny, ale różnie eksponowany */}
+      {isUnreliableSource ? (
+        // Niepewne źródło: żółty panel, uploader widoczny od razu
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-4 -mt-2">
           <div className="flex items-start gap-2.5 mb-3">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5">
@@ -548,6 +551,38 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
             onUpload={handleUserScreenshotUpload}
             isUploading={uploadingScreenshot}
           />
+        </div>
+      ) : (
+        // Pewne źródło: dyskretny collapsible — gdyby user i tak chciał użyć własnego screenshota
+        <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden -mt-2">
+          <button
+            type="button"
+            onClick={() => setUploaderOpen(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+                <circle cx="8" cy="8" r="2.5"/>
+                <path d="M5.5 3.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v.5"/>
+              </svg>
+              Dane nie pasują? Wgraj własny screenshot
+            </span>
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`w-3 h-3 transition-transform ${uploaderOpen ? 'rotate-180' : ''}`}>
+              <path d="M2 4l4 4 4-4"/>
+            </svg>
+          </button>
+          {uploaderOpen && (
+            <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-700/50">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Zrób ręcznie zrzut ekranu strony klienta (np. kluczowej podstrony produktowej) — Claude przeanalizuje go i nadpisze aktualne dane.
+              </div>
+              <ScreenshotUploader
+                onUpload={handleUserScreenshotUpload}
+                isUploading={uploadingScreenshot}
+              />
+            </div>
+          )}
         </div>
       )}
 
