@@ -136,6 +136,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
   const [brandOpen, setBrandOpen] = useState(false)
   const [screenshotOpen, setScreenshotOpen] = useState(false)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
+  const [screenshotError, setScreenshotError] = useState('')
 
   // Inline editing state
   const [editingOpiekun, setEditingOpiekun] = useState(false)
@@ -242,20 +243,41 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
   const handleRefreshWithScreenshot = useCallback(async (dataUrl) => {
     setUploadingScreenshot(true)
     setRefreshDone(false)
+    setScreenshotError('')
     try {
+      // Compress screenshot before sending — raw PNG screenshots can exceed
+      // Netlify's 6 MB body limit and slow down Claude Vision analysis.
+      // Resize to max 1440px wide, JPEG quality 0.75 (~200–600 KB typical).
+      const compressed = await new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          const maxW = 1440
+          const scale = Math.min(1, maxW / img.width)
+          const canvas = document.createElement('canvas')
+          canvas.width  = Math.round(img.width  * scale)
+          canvas.height = Math.round(img.height * scale)
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+          resolve(canvas.toDataURL('image/jpeg', 0.75))
+        }
+        img.onerror = () => resolve(dataUrl) // fallback: send original if canvas fails
+        img.src = dataUrl
+      })
+
       const res = await fetch('/.netlify/functions/research-domain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, force: true, userScreenshot: dataUrl }),
+        body: JSON.stringify({ domain, force: true, userScreenshot: compressed }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`Błąd serwera (HTTP ${res.status}). Spróbuj ponownie.`)
       const data = await res.json()
+      if (data.error) throw new Error(data.error)
       onRefreshed(domain, data.brand)
       setRefreshDone(true)
       setScreenshotOpen(false)
       setTimeout(() => setRefreshDone(false), 4000)
     } catch (err) {
       console.error('Screenshot refresh failed:', err)
+      setScreenshotError(err.message || 'Wystąpił nieznany błąd. Spróbuj ponownie.')
     } finally {
       setUploadingScreenshot(false)
     }
@@ -491,7 +513,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
             </button>
             <button
               type="button"
-              onClick={() => setScreenshotOpen((v) => !v)}
+              onClick={() => { setScreenshotOpen((v) => !v); setScreenshotError('') }}
               disabled={refreshing || uploadingScreenshot}
               className={`inline-flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 font-medium transition-colors disabled:cursor-not-allowed
                 ${screenshotOpen
@@ -544,6 +566,15 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                 onUpload={handleRefreshWithScreenshot}
                 isUploading={uploadingScreenshot}
               />
+              {screenshotError && (
+                <div className="mt-2 flex items-start gap-2 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5">
+                    <circle cx="7" cy="7" r="6"/>
+                    <path d="M7 4.5v3M7 9.5v.5"/>
+                  </svg>
+                  <span>{screenshotError}</span>
+                </div>
+              )}
             </div>
           )}
           </div>
