@@ -104,8 +104,14 @@ async function fetchScreenshotAsDataUrl(domain) {
       const res = await fetchWithTimeout(screenshotUrl, timeoutMs)
       const ct = (res.headers.get('content-type') || '').split(';')[0].trim()
       console.log(`[screenshot] ${label} → HTTP ${res.status}, content-type: ${ct}`)
-      if (!res.ok) { console.warn(`[screenshot] ${label} non-ok status`); return null }
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        console.warn(`[screenshot] ${label} non-ok status — body: ${errBody.slice(0, 300)}`)
+        return null
+      }
       if (!ct.startsWith('image/')) { console.warn(`[screenshot] ${label} not an image`); return null }
+      // Thum.io returns image/gif as a loading placeholder when it can't capture the site — skip
+      if (ct === 'image/gif') { console.warn(`[screenshot] ${label} returned GIF (placeholder) — skipping`); return null }
       const buf = await res.arrayBuffer()
       console.log(`[screenshot] ${label} → ${buf.byteLength} bytes`)
       if (buf.byteLength < 5000) { console.warn(`[screenshot] ${label} too small`); return null }
