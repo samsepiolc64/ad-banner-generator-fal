@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js",
-    "test:watch": "node --test --watch src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js"
+    "test:watch": "node --test --watch src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js",
+    "prepare": "husky"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.1",
@@ -19,6 +20,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^2.1.9",
     "autoprefixer": "^10.4.20",
+    "husky": "^9.1.7",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.0",
