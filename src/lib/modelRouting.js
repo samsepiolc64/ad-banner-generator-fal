@@ -51,7 +51,7 @@ export function resolveModel(fmt) {
 /** Cost per image for a given model type */
 export function costPerImage(modelType) {
   if (modelType === 'nb2') return 0.08
-  if (modelType === 'flux-kontext') return 0.04 // fal-ai/flux-pro/kontext
+  if (modelType === 'flux-kontext') return 0.08 // fal-ai/flux-pro/kontext/max
   return 0.15 // nbpro
 }
 

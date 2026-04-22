@@ -12,9 +12,11 @@ const ENDPOINTS = {
     t2i: 'https://queue.fal.run/fal-ai/nano-banana-pro',
     edit: 'https://queue.fal.run/fal-ai/nano-banana-pro/edit',
   },
-  // FLUX Pro Kontext — dedicated edit model. Preserves composition; takes a single image_url.
+  // FLUX Pro Kontext MAX — dedicated edit model with improved text rendering
+  // (incl. non-ASCII glyphs like Polish diacritics). Preserves composition;
+  // takes a single image_url.
   'flux-kontext': {
-    edit: 'https://queue.fal.run/fal-ai/flux-pro/kontext',
+    edit: 'https://queue.fal.run/fal-ai/flux-pro/kontext/max',
   },
 }
 

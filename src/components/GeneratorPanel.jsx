@@ -311,22 +311,34 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
-      const filename = `${safeDomain}_${fmtSlug}.jpg`
+      // Original (unedited) filename — always used as the KEY for our maps so
+      // the edit workflow always references the ORIGINAL banner, not a chain
+      // of accumulating edits (which would compound text degradation).
+      const originalKey = `${safeDomain}_${fmtSlug}.jpg`
+      // Actual filename saved to disk. Edited versions get "_edytowany" suffix
+      // (and overwrite previous edits on repeated text changes).
+      const filename = isEditMode
+        ? `${safeDomain}_${fmtSlug}_edytowany.jpg`
+        : originalKey
 
-      // Save prompt, texts, seed and original blob for this banner
-      promptsMapRef.current[filename] = finalPrompt
-      textsMapRef.current[filename] = {
+      // Save prompt and texts under the KEY that matches the UI row (always originalKey).
+      promptsMapRef.current[originalKey] = finalPrompt
+      textsMapRef.current[originalKey] = {
         headline: textOverrides?.headline ?? (fmt.headline || ''),
         cta: textOverrides?.cta ?? (fmt.cta || ''),
       }
-      // Save seed only on original generation (not on text-edit re-runs, to keep the original seed)
+      // Seed: saved only on the initial generation — reused for all subsequent edits.
       if (!isEditMode && returnedSeed != null) {
-        seedMapRef.current[filename] = returnedSeed
+        seedMapRef.current[originalKey] = returnedSeed
       }
-      // Always update the stored blob so it reflects the latest version of the banner
-      originalBlobsRef.current[filename] = blob
+      // originalBlobsRef: store the ORIGINAL banner only once (first successful gen).
+      // On edit runs we do NOT overwrite it — Kontext must always reference the pristine
+      // original, otherwise repeated edits would accumulate visual drift.
+      if (!isEditMode) {
+        originalBlobsRef.current[originalKey] = blob
+      }
       // Clear stale editing state so editor reinitializes from fresh values on next open
-      setEditingTexts((prev) => { const next = { ...prev }; delete next[filename]; return next })
+      setEditingTexts((prev) => { const next = { ...prev }; delete next[originalKey]; return next })
 
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })
