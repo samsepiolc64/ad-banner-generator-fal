@@ -79,60 +79,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const driveFolderRef = useRef(null)
   // Collects { filename → finalPrompt } for each successfully generated banner
   const promptsMapRef = useRef({})
-  // Holds the built markdown content after generation — null until ready
-  const [promptsContent, setPromptsContent] = useState(null)
-  const [promptsFilename, setPromptsFilename] = useState(null)
-  const wasRunningRef = useRef(false)
+  // Array of { filename, prompt } shown in the inline prompts panel
+  const [promptsEntries, setPromptsEntries] = useState([])
+  const [promptsOpen, setPromptsOpen] = useState(false)
+  // Track which prompt cards are expanded (filename → bool)
+  const [expandedPrompts, setExpandedPrompts] = useState({})
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
-
-  // Detect when generation finishes (running: true → false) and build prompts file
-  useEffect(() => {
-    const justFinished = wasRunningRef.current && !running
-    wasRunningRef.current = running
-    if (!justFinished) return
-
-    const entries = Object.entries(promptsMapRef.current)
-    if (entries.length === 0) return
-
-    const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-    const fname = `${safeDomain}_prompty.md`
-
-    const now = new Date()
-    const pad = (n) => String(n).padStart(2, '0')
-    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-
-    const lines = [
-      `# Prompty kreacji — ${domain}`,
-      `Data wygenerowania: ${dateStr}`,
-      `Liczba kreacji: ${entries.length}`,
-      '',
-    ]
-    for (const [bname, prompt] of entries) {
-      lines.push('---', '', `### ${bname}`, '', prompt, '')
-    }
-    const content = lines.join('\n')
-
-    setPromptsContent(content)
-    setPromptsFilename(fname)
-
-    // Write to local folder (if selected)
-    if (folderHandleRef.current) {
-      folderHandleRef.current.getFileHandle(fname, { create: true })
-        .then((fh) => fh.createWritable())
-        .then((w) => w.write(new Blob([content], { type: 'text/plain' })).then(() => w.close()))
-        .then(() => console.log('[prompts] saved to folder:', fname))
-        .catch((e) => console.warn('[prompts] folder save failed:', e.message))
-    }
-
-    // Upload to Google Drive (if connected)
-    const sessionFolderId = driveFolderRef.current?.sessionFolderId
-    if (sessionFolderId) {
-      uploadToDrive(new Blob([content], { type: 'text/plain' }), fname, sessionFolderId, 'text/plain')
-        .then(() => console.log('[prompts] uploaded to Drive:', fname))
-        .catch((e) => console.warn('[prompts] Drive upload failed:', e.message))
-    }
-  }, [running, domain]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalFormats = formats.length
   const progress = totalFormats > 0 ? Math.round((doneCount / totalFormats) * 100) : 0
@@ -272,8 +225,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const filename = `${safeDomain}_${fmtSlug}.jpg`
 
-      // Record prompt for this banner (used to generate prompts.md at the end)
+      // Record prompt for this banner and update inline prompts panel
       promptsMapRef.current[filename] = finalPrompt
+      setPromptsEntries(Object.entries(promptsMapRef.current).map(([f, p]) => ({ filename: f, prompt: p })))
 
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })
@@ -315,10 +269,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     if (running) return
     setRunning(true)
 
-    // Reset prompts map and download button state for fresh generation run
+    // Reset prompts map and panel for fresh generation run
     promptsMapRef.current = {}
-    setPromptsContent(null)
-    setPromptsFilename(null)
+    setPromptsEntries([])
+    setExpandedPrompts({})
 
     // Single shared AbortController — stopGeneration cancels all in-flight requests at once
     const controller = new AbortController()
@@ -479,18 +433,68 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         )
       })()}
 
-      {/* Prompts download button — appears after generation completes */}
-      {promptsContent && (
-        <a
-          href={URL.createObjectURL(new Blob([promptsContent], { type: 'text/plain' }))}
-          download={promptsFilename}
-          className="mt-3 flex items-center justify-center gap-2 w-full rounded-xl py-3 text-sm font-semibold border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16" />
-          </svg>
-          Pobierz prompty kreacji (.md)
-        </a>
+      {/* Inline prompts panel — appears as soon as first banner is generated */}
+      {promptsEntries.length > 0 && (
+        <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          {/* Toggle header */}
+          <button
+            type="button"
+            onClick={() => setPromptsOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/60 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" />
+              </svg>
+              Prompty kreacji ({promptsEntries.length})
+            </span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${promptsOpen ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {/* Prompt entries */}
+          {promptsOpen && (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {promptsEntries.map(({ filename, prompt }) => {
+                const isExpanded = !!expandedPrompts[filename]
+                return (
+                  <div key={filename} className="bg-white dark:bg-gray-900/30">
+                    {/* Banner row */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPrompts((prev) => ({ ...prev, [filename]: !prev[filename] }))}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                    >
+                      <span className="text-xs font-mono text-gray-600 dark:text-gray-400 truncate">{filename}</span>
+                      <svg
+                        className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 ml-2 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+                    {/* Prompt text */}
+                    {isExpanded && (
+                      <div className="px-4 pb-3">
+                        <textarea
+                          readOnly
+                          value={prompt}
+                          onClick={(e) => e.target.select()}
+                          className="w-full h-48 text-[11px] font-mono bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 text-gray-700 dark:text-gray-300 resize-y focus:outline-none"
+                        />
+                        <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1">Kliknij w pole żeby zaznaczyć wszystko</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
 
     </div>
