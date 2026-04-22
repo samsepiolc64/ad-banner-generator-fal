@@ -44,6 +44,26 @@ function extractUrl(text) {
   return m ? m[0] : null
 }
 
+/**
+ * Replace ad copy texts (headline + CTA) in an already-built prompt string.
+ * Targets the fixed patterns emitted by promptBuilder.js — single-line or two-part hierarchy.
+ */
+function replaceAdCopyInPrompt(prompt, headline, cta) {
+  const parts = headline.split('\n').map((s) => s.trim()).filter(Boolean)
+  const primary = parts[0] || ''
+  const secondary = parts[1] || null
+
+  let result = prompt
+  if (secondary) {
+    result = result.replace(/- PRIMARY HEADLINE: "[^"]*"/, `- PRIMARY HEADLINE: "${primary}"`)
+    result = result.replace(/- SECONDARY LINE: "[^"]*"/, `- SECONDARY LINE: "${secondary}"`)
+  } else {
+    result = result.replace(/- Headline: "[^"]*"/, `- Headline: "${primary}"`)
+  }
+  result = result.replace(/- CTA button: "[^"]*"/, `- CTA button: "${cta}"`)
+  return result
+}
+
 const SESSION_FOLDER = (() => {
   const now = new Date()
   const pad = (n) => String(n).padStart(2, '0')
@@ -79,8 +99,14 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const driveFolderRef = useRef(null)
   // Collects { filename → finalPrompt } for each successfully generated banner
   const promptsMapRef = useRef({})
+  // Collects { filename → { headline, cta } } for text-edit feature
+  const textsMapRef = useRef({})
   // Tracks which banner rows have their prompt expanded (filename → bool)
   const [expandedPrompts, setExpandedPrompts] = useState({})
+  // Tracks which banner rows have their text editor open (filename → bool)
+  const [expandedTexts, setExpandedTexts] = useState({})
+  // Current form values in text editors (filename → { primary, secondary, cta })
+  const [editingTexts, setEditingTexts] = useState({})
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -133,7 +159,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     throw new Error('Timeout — fal.ai nie odpowiedział w 3 minuty')
   }
 
-  const generateOne = async (fmt, signal) => {
+  // textOverrides = { headline, cta } — when provided, replaces copy in the prompt
+  const generateOne = async (fmt, signal, textOverrides = null) => {
     updateStatus(fmt.id, { status: 'generating' })
 
     const model = resolveModel(fmt)
@@ -150,22 +177,24 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     const brandNameSuppress = `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark as a floating element. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as standalone text.`
 
     // Product reference instruction — injected when a reference image is supplied.
-    // The reference image is placed FIRST in imageUrls so fal.ai treats it as the
-    // primary subject. Logo (if any) comes second.
     const productRefBlock = hasProductRef
       ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nThe FIRST reference image supplied is the EXACT product to feature. Reproduce it with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and any graphic elements on the surface\n- Exact size relationships between parts\nDo NOT redesign, simplify, or reinterpret the product. It must be a faithful, photographic-quality reproduction of the reference.`
       : ''
 
-    const finalPrompt = (fmt.prompt + productRefBlock)
+    // Apply text overrides if provided — swap AD COPY texts in the existing prompt
+    const basePrompt = textOverrides
+      ? replaceAdCopyInPrompt(fmt.prompt, textOverrides.headline, textOverrides.cta)
+      : fmt.prompt
+
+    const finalPrompt = (basePrompt + productRefBlock)
       .replace('{{LOGO_BLOCK}}', logoBlock)
       .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
 
     try {
       // Build image_urls: product reference FIRST (primary subject), logo second.
-      // Order matters — fal.ai's edit endpoint weights earlier images more heavily.
       const imageUrls = []
-      if (productImage) imageUrls.push(productImage)        // base64 dataURL (user-uploaded)
-      else if (productRefUrl) imageUrls.push(productRefUrl) // URL fallback from notes field
+      if (productImage) imageUrls.push(productImage)
+      else if (productRefUrl) imageUrls.push(productRefUrl)
       if (hasLogo) imageUrls.push(logoDataUrl)
 
       // Step 1: Submit to fal.ai queue
@@ -207,7 +236,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       }
 
-      // Overlay the REAL logo (exact pixels) onto the generated banner
       if (hasLogo) {
         srcBlob = await compositeLogoOnBanner(srcBlob, logoDataUrl, fmt.width, fmt.height)
       }
@@ -218,12 +246,17 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-      // fmt.id = "meta-1200x628-v1" — keep only dimensions + variant, drop channel prefix
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const filename = `${safeDomain}_${fmtSlug}.jpg`
 
-      // Record prompt for this banner (read via promptsMapRef in the banner row JSX)
+      // Save prompt and texts used in this generation
       promptsMapRef.current[filename] = finalPrompt
+      textsMapRef.current[filename] = {
+        headline: textOverrides?.headline ?? (fmt.headline || ''),
+        cta: textOverrides?.cta ?? (fmt.cta || ''),
+      }
+      // Clear stale editing state so editor reinitializes from fresh values on next open
+      setEditingTexts((prev) => { const next = { ...prev }; delete next[filename]; return next })
 
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })
@@ -237,8 +270,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         a.click()
       }
 
-      // Upload to Google Drive in background — does not block or affect local save
-      // sessionFolderId was pre-created once in generateAll() to avoid race conditions
+      // Upload to Google Drive in background
       const sessionFolderId = driveFolderRef.current?.sessionFolderId
       if (sessionFolderId) {
         uploadToDrive(blob, filename, sessionFolderId).catch(() => {})
@@ -252,12 +284,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     }
   }
 
-  const retryOne = async (fmt) => {
+  // textOverrides = { headline, cta } — optional, for "Zmień teksty" regeneration
+  const retryOne = async (fmt, textOverrides = null) => {
     if (running) return
     setRunning(true)
     const controller = new AbortController()
     abortRef.current = controller
-    await generateOne(fmt, controller.signal)
+    await generateOne(fmt, controller.signal, textOverrides)
     setRunning(false)
   }
 
@@ -265,18 +298,19 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     if (running) return
     setRunning(true)
 
-    // Reset prompts map and expanded state for fresh generation run
+    // Reset all per-banner state for a fresh run
     promptsMapRef.current = {}
+    textsMapRef.current = {}
     setExpandedPrompts({})
+    setExpandedTexts({})
+    setEditingTexts({})
 
-    // Single shared AbortController — stopGeneration cancels all in-flight requests at once
     const controller = new AbortController()
     abortRef.current = controller
 
     const pending = formats.filter((f) => statuses[f.id]?.status !== 'done')
 
     // Pre-flight: create Drive folders ONCE before parallel uploads.
-    // This prevents the TOCTOU race condition that caused duplicate domain folders.
     if (!driveFolderRef.current) {
       try {
         const res = await fetch('/.netlify/functions/ensure-drive-folders', {
@@ -291,12 +325,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           driveFolderRef.current = await res.json()
         }
       } catch {
-        // Drive pre-flight failure is non-fatal — uploads will simply be skipped
+        // Drive pre-flight failure is non-fatal
       }
     }
 
-    // Fire all submissions simultaneously — fal.ai queue handles concurrency on their end.
-    // Each generateOne independently polls its own request_id, so they truly run in parallel.
     await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
 
     setRunning(false)
@@ -305,6 +337,35 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const stopGeneration = () => {
     abortRef.current?.abort()
     setRunning(false)
+  }
+
+  // Open/close text editor for a banner row
+  const toggleTextsEditor = (filename) => {
+    const isCurrentlyOpen = !!expandedTexts[filename]
+
+    if (!isCurrentlyOpen) {
+      // Initialize form from saved texts (only if not already set)
+      if (!editingTexts[filename]) {
+        const saved = textsMapRef.current[filename]
+        if (saved) {
+          const parts = (saved.headline || '').split('\n').map((s) => s.trim()).filter(Boolean)
+          setEditingTexts((prev) => ({
+            ...prev,
+            [filename]: { primary: parts[0] || '', secondary: parts[1] || '', cta: saved.cta || '' },
+          }))
+        }
+      }
+      // Close prompt panel if open
+      setExpandedPrompts((prev) => ({ ...prev, [filename]: false }))
+    }
+
+    setExpandedTexts((prev) => ({ ...prev, [filename]: !prev[filename] }))
+  }
+
+  // Open/close prompt panel — also closes text editor
+  const togglePrompt = (filename) => {
+    setExpandedTexts((prev) => ({ ...prev, [filename]: false }))
+    setExpandedPrompts((prev) => ({ ...prev, [filename]: !prev[filename] }))
   }
 
   return (
@@ -351,6 +412,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           const filename = `${safeDomain}_${fmtSlug}.jpg`
           const promptText = promptsMapRef.current[filename]
           const isPromptOpen = !!expandedPrompts[filename]
+          const isTextsOpen = !!expandedTexts[filename]
+          const ed = editingTexts[filename]
+          const savedTexts = textsMapRef.current[filename]
+          const hasTwoLines = !!(savedTexts?.headline?.includes('\n'))
 
           return (
             <div
@@ -381,13 +446,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                   </div>
                 </div>
 
-                {/* Status + prompt toggle */}
+                {/* Status + action buttons */}
                 <div className="flex-shrink-0 flex items-center gap-2">
                   {st.status === 'done' && (
                     <>
                       <button
                         type="button"
-                        onClick={() => setExpandedPrompts((prev) => ({ ...prev, [filename]: !prev[filename] }))}
+                        onClick={() => togglePrompt(filename)}
                         className={`text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
                           ${isPromptOpen
                             ? 'border-blue-400 text-blue-500 bg-blue-50 dark:bg-blue-950/40'
@@ -395,6 +460,17 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                           }`}
                       >
                         {isPromptOpen ? '▲ Prompt' : '▼ Prompt'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleTextsEditor(filename)}
+                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
+                          ${isTextsOpen
+                            ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                          }`}
+                      >
+                        {isTextsOpen ? '▲ Teksty' : '✏️ Zmień teksty'}
                       </button>
                       <span className="text-brand-green font-semibold whitespace-nowrap">✅ zapisano</span>
                     </>
@@ -418,7 +494,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 </div>
               </div>
 
-              {/* Expandable prompt */}
+              {/* Expandable: prompt viewer */}
               {isPromptOpen && promptText && (
                 <div className="px-3 pb-3 border-t border-black/10 dark:border-white/5 pt-2.5">
                   <textarea
@@ -428,6 +504,75 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                     className="w-full h-40 text-[11px] font-mono bg-white/60 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 text-gray-700 dark:text-gray-300 resize-y focus:outline-none"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Kliknij w pole → Ctrl+A żeby zaznaczyć wszystko</p>
+                </div>
+              )}
+
+              {/* Expandable: text editor */}
+              {isTextsOpen && ed && (
+                <div className="px-3 pb-3 border-t border-black/10 dark:border-white/5 pt-2.5 space-y-2.5">
+                  {/* Headline — 1 or 2 fields depending on original structure */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                      {hasTwoLines ? 'Nagłówek główny (duży)' : 'Nagłówek'}
+                    </label>
+                    <input
+                      type="text"
+                      value={ed.primary}
+                      onChange={(e) => setEditingTexts((prev) => ({
+                        ...prev, [filename]: { ...prev[filename], primary: e.target.value },
+                      }))}
+                      className="w-full text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  {hasTwoLines && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                        Podtytuł (mniejszy)
+                      </label>
+                      <input
+                        type="text"
+                        value={ed.secondary}
+                        onChange={(e) => setEditingTexts((prev) => ({
+                          ...prev, [filename]: { ...prev[filename], secondary: e.target.value },
+                        }))}
+                        className="w-full text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 transition-colors"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                      Tekst CTA (przycisk)
+                    </label>
+                    <input
+                      type="text"
+                      value={ed.cta}
+                      onChange={(e) => setEditingTexts((prev) => ({
+                        ...prev, [filename]: { ...prev[filename], cta: e.target.value },
+                      }))}
+                      className="w-full text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const headline = (hasTwoLines && ed.secondary.trim())
+                        ? `${ed.primary}\n${ed.secondary}`
+                        : ed.primary
+                      setExpandedTexts((prev) => ({ ...prev, [filename]: false }))
+                      retryOne(fmt, { headline, cta: ed.cta })
+                    }}
+                    disabled={running || !ed.primary.trim()}
+                    className="w-full text-sm font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg px-4 py-2.5 hover:bg-gray-700 dark:hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ↻ Regeneruj z nowymi tekstami
+                  </button>
+
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    Tylko teksty zostaną podmienione — styl, układ i grafika pozostają bez zmian.
+                  </p>
                 </div>
               )}
             </div>

@@ -305,6 +305,7 @@ export default function App() {
           channel: fmt.channel,
           prompt,
           headline: headlines[v] || headlines[0],
+          cta,
         })
       }
     }
