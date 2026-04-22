@@ -12,12 +12,6 @@ const ENDPOINTS = {
     t2i: 'https://queue.fal.run/fal-ai/nano-banana-pro',
     edit: 'https://queue.fal.run/fal-ai/nano-banana-pro/edit',
   },
-  // FLUX Pro Kontext MAX — dedicated edit model with improved text rendering
-  // (incl. non-ASCII glyphs like Polish diacritics). Preserves composition;
-  // takes a single image_url.
-  'flux-kontext': {
-    edit: 'https://queue.fal.run/fal-ai/flux-pro/kontext/max',
-  },
 }
 
 export default async (req) => {
@@ -51,30 +45,16 @@ export default async (req) => {
     }
 
     const endpoints = ENDPOINTS[modelType] || ENDPOINTS.nbpro
-    const isKontext = modelType === 'flux-kontext'
-    const endpoint = isKontext ? endpoints.edit : (useLogo ? endpoints.edit : endpoints.t2i)
+    const endpoint = useLogo ? endpoints.edit : endpoints.t2i
 
     // logoDataUrl may be a single string or an array of URLs/data-URLs
     const imageUrls = useLogo
       ? (Array.isArray(logoDataUrl) ? logoDataUrl : [logoDataUrl]).filter(Boolean)
       : []
 
-    let falBody
-    if (isKontext) {
-      // FLUX Kontext: single image_url, no aspect_ratio (preserved from input automatically)
-      const mainImage = imageUrls[0]
-      if (!mainImage) {
-        return new Response(
-          JSON.stringify({ error: 'FLUX Kontext requires an image_url (original banner).' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-      falBody = { prompt, image_url: mainImage, ...(seed != null ? { seed } : {}) }
-    } else if (imageUrls.length > 0) {
-      falBody = { prompt, aspect_ratio: ar, image_urls: imageUrls, ...(seed != null ? { seed } : {}) }
-    } else {
-      falBody = { prompt, aspect_ratio: ar, ...(seed != null ? { seed } : {}) }
-    }
+    const falBody = imageUrls.length > 0
+      ? { prompt, aspect_ratio: ar, image_urls: imageUrls, ...(seed != null ? { seed } : {}) }
+      : { prompt, aspect_ratio: ar, ...(seed != null ? { seed } : {}) }
 
     const falRes = await fetch(endpoint, {
       method: 'POST',

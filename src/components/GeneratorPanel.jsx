@@ -256,8 +256,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     if (isEditMode) {
       // JSON re-describe path: Claude Vision analyzes the ORIGINAL banner → detailed
       // JSON → we substitute new text content → NB Pro /edit regenerates from scratch
-      // with the original as a visual reference image. NB Pro renders Polish diacritics
-      // correctly (FLUX Kontext did not).
+      // with the original as a visual reference image. NB Pro renders Polish
+      // diacritics (ą, ę, ś, ć, ź, ż, ł, ó, ń) correctly.
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const origFilename = `${safeDomain}_${fmtSlug}.jpg`
@@ -349,8 +349,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       }
 
-      // In edit mode the original banner already has the logo baked in (Kontext preserves it).
-      // Re-running compositeLogoOnBanner here would stamp a SECOND logo on top.
+      // In edit mode the original banner (passed as reference) already has the logo
+      // baked in, and NB Pro /edit reproduces it. Re-running compositeLogoOnBanner
+      // here would stamp a SECOND logo on top.
       if (hasLogo && !isEditMode) {
         srcBlob = await compositeLogoOnBanner(srcBlob, logoDataUrl, fmt.width, fmt.height)
       }
@@ -385,8 +386,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         seedMapRef.current[originalKey] = returnedSeed
       }
       // originalBlobsRef: store the ORIGINAL banner only once (first successful gen).
-      // On edit runs we do NOT overwrite it — Kontext must always reference the pristine
-      // original, otherwise repeated edits would accumulate visual drift.
+      // On edit runs we do NOT overwrite it — NB Pro /edit must always reference the
+      // pristine original (and Vision's cached description is derived from it too),
+      // otherwise repeated edits would accumulate visual drift.
       if (!isEditMode) {
         originalBlobsRef.current[originalKey] = blob
       }
