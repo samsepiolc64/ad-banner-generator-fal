@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
 import { addCost } from '../lib/clientCosts'
@@ -79,10 +79,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const driveFolderRef = useRef(null)
   // Collects { filename → finalPrompt } for each successfully generated banner
   const promptsMapRef = useRef({})
-  // Array of { filename, prompt } shown in the inline prompts panel
-  const [promptsEntries, setPromptsEntries] = useState([])
-  const [promptsOpen, setPromptsOpen] = useState(false)
-  // Track which prompt cards are expanded (filename → bool)
+  // Tracks which banner rows have their prompt expanded (filename → bool)
   const [expandedPrompts, setExpandedPrompts] = useState({})
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
@@ -225,9 +222,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const filename = `${safeDomain}_${fmtSlug}.jpg`
 
-      // Record prompt for this banner and update inline prompts panel
+      // Record prompt for this banner (read via promptsMapRef in the banner row JSX)
       promptsMapRef.current[filename] = finalPrompt
-      setPromptsEntries(Object.entries(promptsMapRef.current).map(([f, p]) => ({ filename: f, prompt: p })))
 
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })
@@ -269,9 +265,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     if (running) return
     setRunning(true)
 
-    // Reset prompts map and panel for fresh generation run
+    // Reset prompts map and expanded state for fresh generation run
     promptsMapRef.current = {}
-    setPromptsEntries([])
     setExpandedPrompts({})
 
     // Single shared AbortController — stopGeneration cancels all in-flight requests at once
@@ -305,7 +300,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
 
     setRunning(false)
-    // Prompts file is built in the useEffect that watches running → false
   }
 
   const stopGeneration = () => {
@@ -352,54 +346,90 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           const st = statuses[fmt.id]
           const model = resolveModel(fmt)
           const preview = previews[fmt.id]
+          const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+          const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
+          const filename = `${safeDomain}_${fmtSlug}.jpg`
+          const promptText = promptsMapRef.current[filename]
+          const isPromptOpen = !!expandedPrompts[filename]
 
           return (
             <div
               key={fmt.id}
-              className={`rounded-xl p-3 flex items-center gap-3.5 transition-colors
+              className={`rounded-xl overflow-hidden transition-colors
                 ${st.status === 'done' ? 'bg-brand-green-light dark:bg-green-950/30' : ''}
                 ${st.status === 'error' ? 'bg-brand-red-light dark:bg-red-950/30' : ''}
                 ${st.status === 'generating' ? 'bg-orange-50 dark:bg-orange-950/30' : ''}
                 ${st.status === 'idle' ? 'bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800' : ''}`}
             >
-              {/* Thumbnail */}
-              <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl text-gray-300 dark:text-gray-600">
-                {preview ? (
-                  <img src={preview} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  '📷'
-                )}
-              </div>
+              {/* Main row */}
+              <div className="p-3 flex items-center gap-3.5">
+                {/* Thumbnail */}
+                <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl text-gray-300 dark:text-gray-600">
+                  {preview ? (
+                    <img src={preview} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    '📷'
+                  )}
+                </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  {fmt.width}×{fmt.height}px
-                  {model.needsResize ? ` (${model.ar}→resize)` : ''}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {fmt.width}×{fmt.height}px
+                    {model.needsResize ? ` (${model.ar}→resize)` : ''}
+                  </div>
+                </div>
+
+                {/* Status + prompt toggle */}
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  {st.status === 'done' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedPrompts((prev) => ({ ...prev, [filename]: !prev[filename] }))}
+                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
+                          ${isPromptOpen
+                            ? 'border-blue-400 text-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                          }`}
+                      >
+                        {isPromptOpen ? '▲ Prompt' : '▼ Prompt'}
+                      </button>
+                      <span className="text-brand-green font-semibold whitespace-nowrap">✅ zapisano</span>
+                    </>
+                  )}
+                  {st.status === 'error' && (
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>
+                        ❌ {st.message?.slice(0, 50)}
+                      </span>
+                      <button
+                        onClick={() => retryOne(fmt)}
+                        disabled={running}
+                        className="text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                      >
+                        ↻ Ponów
+                      </button>
+                    </div>
+                  )}
+                  {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap">⚡ generowanie...</span>}
+                  {st.status === 'idle' && <span className="text-gray-300 dark:text-gray-600 whitespace-nowrap">⏳ oczekuje</span>}
                 </div>
               </div>
 
-              {/* Status */}
-              <div className="flex-shrink-0 text-sm text-right">
-                {st.status === 'done' && <span className="text-brand-green font-semibold whitespace-nowrap">✅ zapisano</span>}
-                {st.status === 'error' && (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>
-                      ❌ {st.message?.slice(0, 50)}
-                    </span>
-                    <button
-                      onClick={() => retryOne(fmt)}
-                      disabled={running}
-                      className="text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                    >
-                      ↻ Ponów
-                    </button>
-                  </div>
-                )}
-                {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap">⚡ generowanie...</span>}
-                {st.status === 'idle' && <span className="text-gray-300 dark:text-gray-600 whitespace-nowrap">⏳ oczekuje</span>}
-              </div>
+              {/* Expandable prompt */}
+              {isPromptOpen && promptText && (
+                <div className="px-3 pb-3 border-t border-black/10 dark:border-white/5 pt-2.5">
+                  <textarea
+                    readOnly
+                    value={promptText}
+                    onClick={(e) => e.target.select()}
+                    className="w-full h-40 text-[11px] font-mono bg-white/60 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 text-gray-700 dark:text-gray-300 resize-y focus:outline-none"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Kliknij w pole → Ctrl+A żeby zaznaczyć wszystko</p>
+                </div>
+              )}
             </div>
           )
         })}
@@ -433,69 +463,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         )
       })()}
 
-      {/* Inline prompts panel — appears as soon as first banner is generated */}
-      {promptsEntries.length > 0 && (
-        <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-          {/* Toggle header */}
-          <button
-            type="button"
-            onClick={() => setPromptsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/60 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" />
-              </svg>
-              Prompty kreacji ({promptsEntries.length})
-            </span>
-            <svg
-              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${promptsOpen ? 'rotate-180' : ''}`}
-              fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-
-          {/* Prompt entries */}
-          {promptsOpen && (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {promptsEntries.map(({ filename, prompt }) => {
-                const isExpanded = !!expandedPrompts[filename]
-                return (
-                  <div key={filename} className="bg-white dark:bg-gray-900/30">
-                    {/* Banner row */}
-                    <button
-                      type="button"
-                      onClick={() => setExpandedPrompts((prev) => ({ ...prev, [filename]: !prev[filename] }))}
-                      className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
-                    >
-                      <span className="text-xs font-mono text-gray-600 dark:text-gray-400 truncate">{filename}</span>
-                      <svg
-                        className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 ml-2 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-                      </svg>
-                    </button>
-                    {/* Prompt text */}
-                    {isExpanded && (
-                      <div className="px-4 pb-3">
-                        <textarea
-                          readOnly
-                          value={prompt}
-                          onClick={(e) => e.target.select()}
-                          className="w-full h-48 text-[11px] font-mono bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 text-gray-700 dark:text-gray-300 resize-y focus:outline-none"
-                        />
-                        <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1">Kliknij w pole żeby zaznaczyć wszystko</p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
     </div>
   )
