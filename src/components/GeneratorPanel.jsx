@@ -65,26 +65,48 @@ function replaceAdCopyInPrompt(prompt, headline, cta) {
 }
 
 /**
- * Build a FLUX Kontext edit instruction for text-only replacement.
- * Kontext responds best to concise, direct edit instructions (not verbose prompts).
+ * Build an NB Pro /edit prompt from a structured JSON description of the
+ * original banner (produced by Claude Vision via describe-banner.js) PLUS
+ * the new text values the user wants. The JSON carries every visual attribute
+ * of the original — scene, subjects, lighting, composition, typography style,
+ * text positions — while the text CONTENT is injected fresh.
+ *
+ * Why: NB Pro reliably renders Polish diacritics (KAWĄ, ŚWIEŻĄ, Sprawdź) but
+ * needs a thorough prompt to reproduce the original layout closely. The
+ * original image is also passed as a reference (image_urls) to anchor visual
+ * identity — the JSON + image reference together give ~75-85% fidelity.
  */
-function buildTextEditPrompt(headline, cta, isStories, isTikTokVertical) {
+function buildTextEditPromptFromJson(description, headline, cta, isStories, isTikTokVertical) {
   const parts = headline.split('\n').map((s) => s.trim()).filter(Boolean)
   const primary = parts[0] || ''
   const secondary = parts[1] || null
+  const includeCta = !isStories && !isTikTokVertical
 
-  const instructions = []
-  if (secondary) {
-    instructions.push(`Replace the large primary headline text with exactly: "${primary}"`)
-    instructions.push(`Replace the smaller secondary headline line with exactly: "${secondary}"`)
-  } else {
-    instructions.push(`Replace the headline text with exactly: "${primary}"`)
-  }
-  if (!isStories && !isTikTokVertical) {
-    instructions.push(`Replace the CTA button text with exactly: "${cta}"`)
-  }
+  const textBlock = secondary
+    ? `- PRIMARY HEADLINE: "${primary}" (large, dominant)\n- SECONDARY LINE: "${secondary}" (smaller, below primary)`
+    : `- Headline: "${primary}"`
+  const ctaBlock = includeCta ? `\n- CTA button: "${cta}"` : ''
 
-  return `${instructions.join('. ')}. Keep the exact same font, font weight, font size, text color, and text position for each replaced text element. Do not change anything else in the image — preserve the background, product, people, lighting, colors, composition, logos, decorative elements, and overall design identically.`
+  // Pretty-printed JSON to keep it readable in the prompt
+  const jsonPretty = JSON.stringify(description, null, 2)
+
+  return `Recreate this advertising banner exactly as described in the JSON specification below. The first reference image is the ORIGINAL banner — reproduce its visual identity (scene, subjects, lighting, composition, colors, mood) as faithfully as possible. ONLY the text content changes.
+
+VISUAL SPECIFICATION (from analysis of the original):
+${jsonPretty}
+
+AD COPY — use EXACTLY these text values, rendered in the typography style described in "text_layout":
+${textBlock}${ctaBlock}
+
+CRITICAL REQUIREMENTS:
+- Reproduce the scene, background, subjects, foreground objects, composition, lighting, color palette, atmosphere, and photographic style EXACTLY as described in the JSON. Use the reference image as the authoritative source for visual identity.
+- Place the new text content at the positions described in "text_layout" using the typography styles described there (font character, size, color, weight, casing).
+- Render all text with crisp, correctly-spelled Polish typography — including Polish diacritics (ą, ę, ś, ć, ź, ż, ł, ó, ń) spelled and shaped correctly.
+- Preserve the aspect ratio and logo placement from the JSON.
+- Do NOT add, remove, or rearrange any visual elements beyond what is described.
+- Do NOT change the people's appearance, poses, clothing, or expressions — reproduce them from the reference image.
+
+NEGATIVE PROMPT: garbled text, misspelled words, missing diacritics, wrong characters, different people, different composition, added elements, removed elements, different color palette.`
 }
 
 /** Convert a Blob to a base64 data URL (needed to re-send as image reference) */
@@ -138,6 +160,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const seedMapRef = useRef({})
   // Collects { filename → Blob } — original compressed banner, used as img2img reference
   const originalBlobsRef = useRef({})
+  // Cache of { filename → description JSON } returned by Claude Vision (describe-banner).
+  // Prevents re-running Vision on every text edit of the same banner — one description
+  // per banner, reused across multiple text-edit regenerations.
+  const descriptionsMapRef = useRef({})
   // Tracks which banner rows have their prompt expanded (filename → bool)
   const [expandedPrompts, setExpandedPrompts] = useState({})
   // Tracks which banner rows have their text editor open (filename → bool)
@@ -228,16 +254,40 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     let submitImageUrls
 
     if (isEditMode) {
-      // FLUX Kontext: concise edit instruction + ONLY the original banner as reference.
-      // (Logo is already baked into the original banner's pixels via post-generation compositing,
-      //  so we don't pass it again — Kontext would try to ADD another copy.)
-      finalPrompt = buildTextEditPrompt(textOverrides.headline, textOverrides.cta, isStories, isTikTokVertical)
+      // JSON re-describe path: Claude Vision analyzes the ORIGINAL banner → detailed
+      // JSON → we substitute new text content → NB Pro /edit regenerates from scratch
+      // with the original as a visual reference image. NB Pro renders Polish diacritics
+      // correctly (FLUX Kontext did not).
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const origFilename = `${safeDomain}_${fmtSlug}.jpg`
       const origBlob = originalBlobsRef.current[origFilename]
-      const origDataUrl = origBlob ? await blobToDataUrl(origBlob) : null
-      submitImageUrls = origDataUrl ? [origDataUrl] : []
+      if (!origBlob) throw new Error('Brak oryginalnego banera do edycji — zregeneruj go najpierw.')
+      const origDataUrl = await blobToDataUrl(origBlob)
+
+      // Describe once, cache for subsequent edits of the same banner
+      let description = descriptionsMapRef.current[origFilename]
+      if (!description) {
+        const descRes = await fetch('/.netlify/functions/describe-banner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: origDataUrl, mediaType: 'image/jpeg' }),
+          signal,
+        })
+        if (!descRes.ok) {
+          const errText = await descRes.text().catch(() => '')
+          throw new Error(`Analiza obrazu nie powiodła się: ${errText.slice(0, 200)}`)
+        }
+        const descData = await descRes.json()
+        if (!descData.description) throw new Error('Brak opisu obrazu z Claude Vision')
+        description = descData.description
+        descriptionsMapRef.current[origFilename] = description
+      }
+
+      finalPrompt = buildTextEditPromptFromJson(
+        description, textOverrides.headline, textOverrides.cta, isStories, isTikTokVertical
+      )
+      submitImageUrls = [origDataUrl]
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
@@ -264,8 +314,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         body: JSON.stringify({
           prompt: finalPrompt,
           ar: model.ar,
-          // Text-edit mode → FLUX Kontext (dedicated edit model, preserves composition)
-          modelType: isEditMode ? 'flux-kontext' : model.type,
+          // Text-edit mode: use NB Pro /edit (renders Polish text correctly)
+          // with original as reference + JSON-driven prompt + original seed.
+          modelType: isEditMode ? 'nbpro' : model.type,
           useLogo: submitImageUrls.length > 0,
           logoDataUrl: submitImageUrls.length > 0 ? submitImageUrls : undefined,
           falMode,
@@ -305,7 +356,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       }
 
       const blob = await compressToJpeg(srcBlob)
-      addCost(domain, costPerImage(isEditMode ? 'flux-kontext' : model.type))
+      // Edit mode cost = NB Pro $0.15 + Haiku Vision ~$0.003 (only on first edit; subsequent
+      // edits of the same banner reuse the cached description).
+      addCost(domain, costPerImage(isEditMode ? 'nbpro' : model.type))
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
@@ -385,6 +438,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     textsMapRef.current = {}
     seedMapRef.current = {}
     originalBlobsRef.current = {}
+    descriptionsMapRef.current = {}
     setExpandedPrompts({})
     setExpandedTexts({})
     setEditingTexts({})
