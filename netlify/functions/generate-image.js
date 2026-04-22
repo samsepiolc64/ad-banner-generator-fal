@@ -24,7 +24,7 @@ export default async (req) => {
 
   try {
     const body = await req.json()
-    const { prompt, ar, modelType, useLogo, logoDataUrl, falMode } = body
+    const { prompt, ar, modelType, useLogo, logoDataUrl, falMode, seed } = body
 
     const FAL_API_KEY = falMode === 'prod'
       ? (process.env.FAL_PROD_API_KEY || process.env.FAL_API_KEY)
@@ -53,8 +53,8 @@ export default async (req) => {
       : []
 
     const falBody = imageUrls.length > 0
-      ? { prompt, aspect_ratio: ar, image_urls: imageUrls }
-      : { prompt, aspect_ratio: ar }
+      ? { prompt, aspect_ratio: ar, image_urls: imageUrls, ...(seed != null ? { seed } : {}) }
+      : { prompt, aspect_ratio: ar, ...(seed != null ? { seed } : {}) }
 
     const falRes = await fetch(endpoint, {
       method: 'POST',

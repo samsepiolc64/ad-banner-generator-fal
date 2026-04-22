@@ -64,6 +64,49 @@ function replaceAdCopyInPrompt(prompt, headline, cta) {
   return result
 }
 
+/**
+ * Build a minimal focused prompt for text-only edit via img2img.
+ * Sent alongside the original banner as reference image — tells the model
+ * to preserve every visual element and only swap the text content.
+ */
+function buildTextEditPrompt(headline, cta, isStories, isTikTokVertical) {
+  const parts = headline.split('\n').map((s) => s.trim()).filter(Boolean)
+  const primary = parts[0] || ''
+  const secondary = parts[1] || null
+
+  const headlinePart = secondary
+    ? `- Primary headline (large, dominant): "${primary}"\n- Secondary line (smaller, below primary): "${secondary}"`
+    : `- Headline: "${primary}"`
+  const ctaPart = (isStories || isTikTokVertical) ? '' : `\n- CTA button text: "${cta}"`
+
+  return `You are given an advertising banner image. Your task is a SURGICAL TEXT-ONLY replacement.
+
+REPRODUCE THE BANNER WITH PIXEL-PERFECT FIDELITY — keep everything identical EXCEPT the text listed below.
+
+NEW TEXT VALUES:
+${headlinePart}${ctaPart}
+
+PRESERVE ABSOLUTELY EVERYTHING ELSE (do NOT change):
+- Background scene, photography, atmosphere, and all visual content
+- Colors, lighting, shadows, gradients, and visual mood
+- Product or subject position, styling, and proportions
+- Layout, spacing, alignment, and composition
+- All decorative graphic elements and brand visual details
+- Font style, weight, and size hierarchy (change words only, not the typographic treatment)
+
+This is a text swap, not a redesign. The output must look identical to the input except for the updated text content.`
+}
+
+/** Convert a Blob to a base64 data URL (needed to re-send as image reference) */
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 const SESSION_FOLDER = (() => {
   const now = new Date()
   const pad = (n) => String(n).padStart(2, '0')
@@ -101,6 +144,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const promptsMapRef = useRef({})
   // Collects { filename → { headline, cta } } for text-edit feature
   const textsMapRef = useRef({})
+  // Collects { filename → seed } returned by fal.ai — used for text-edit regeneration
+  const seedMapRef = useRef({})
+  // Collects { filename → Blob } — original compressed banner, used as img2img reference
+  const originalBlobsRef = useRef({})
   // Tracks which banner rows have their prompt expanded (filename → bool)
   const [expandedPrompts, setExpandedPrompts] = useState({})
   // Tracks which banner rows have their text editor open (filename → bool)
@@ -150,7 +197,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const data = await res.json()
 
       if (data.error) throw new Error(data.error)
-      if (data.status === 'COMPLETED') return data.imageUrl
+      if (data.status === 'COMPLETED') return { imageUrl: data.imageUrl, seed: data.seed ?? null }
       if (data.status === 'FAILED') throw new Error('fal.ai: generation failed')
 
       await new Promise((r) => setTimeout(r, POLL_INTERVAL))
@@ -181,22 +228,44 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nThe FIRST reference image supplied is the EXACT product to feature. Reproduce it with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and any graphic elements on the surface\n- Exact size relationships between parts\nDo NOT redesign, simplify, or reinterpret the product. It must be a faithful, photographic-quality reproduction of the reference.`
       : ''
 
-    // Apply text overrides if provided — swap AD COPY texts in the existing prompt
-    const basePrompt = textOverrides
-      ? replaceAdCopyInPrompt(fmt.prompt, textOverrides.headline, textOverrides.cta)
-      : fmt.prompt
+    // --- TEXT-EDIT MODE (img2img): send original banner as reference + focused prompt ---
+    // Used when textOverrides provided — preserves visual composition, swaps text only.
+    const isEditMode = !!textOverrides
+    const isStories = fmt.channel === 'meta' && (fmt.ar === '9:16' || (fmt.height > fmt.width && fmt.height / fmt.width > 1.5))
+    const isTikTokVertical = fmt.channel === 'tiktok'
 
-    const finalPrompt = (basePrompt + productRefBlock)
-      .replace('{{LOGO_BLOCK}}', logoBlock)
-      .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
+    let finalPrompt
+    let submitImageUrls
+
+    if (isEditMode) {
+      // img2img: focused text-swap prompt + original banner as first image reference
+      finalPrompt = buildTextEditPrompt(textOverrides.headline, textOverrides.cta, isStories, isTikTokVertical)
+      const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+      const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
+      const origFilename = `${safeDomain}_${fmtSlug}.jpg`
+      const origBlob = originalBlobsRef.current[origFilename]
+      const origDataUrl = origBlob ? await blobToDataUrl(origBlob) : null
+      // image_urls: original banner FIRST (main reference), then logo if available
+      submitImageUrls = [origDataUrl, hasLogo ? logoDataUrl : null].filter(Boolean)
+    } else {
+      // Normal generation: full prompt + product/logo references
+      const basePrompt = fmt.prompt
+      finalPrompt = (basePrompt + productRefBlock)
+        .replace('{{LOGO_BLOCK}}', logoBlock)
+        .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
+      submitImageUrls = []
+      if (productImage) submitImageUrls.push(productImage)
+      else if (productRefUrl) submitImageUrls.push(productRefUrl)
+      if (hasLogo) submitImageUrls.push(logoDataUrl)
+    }
+
+    // Reuse the original seed for text-edit regeneration (improves visual similarity)
+    const safeDomainForSeed = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+    const fmtSlugForSeed = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
+    const filenameForSeed = `${safeDomainForSeed}_${fmtSlugForSeed}.jpg`
+    const reusedseed = isEditMode ? (seedMapRef.current[filenameForSeed] ?? null) : null
 
     try {
-      // Build image_urls: product reference FIRST (primary subject), logo second.
-      const imageUrls = []
-      if (productImage) imageUrls.push(productImage)
-      else if (productRefUrl) imageUrls.push(productRefUrl)
-      if (hasLogo) imageUrls.push(logoDataUrl)
-
       // Step 1: Submit to fal.ai queue
       const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
@@ -205,9 +274,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           prompt: finalPrompt,
           ar: model.ar,
           modelType: model.type,
-          useLogo: hasRef,
-          logoDataUrl: imageUrls.length > 0 ? imageUrls : undefined,
+          useLogo: submitImageUrls.length > 0,
+          logoDataUrl: submitImageUrls.length > 0 ? submitImageUrls : undefined,
           falMode,
+          ...(reusedseed != null ? { seed: reusedseed } : {}),
         }),
         signal,
       })
@@ -223,7 +293,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       }
 
       // Step 2: Poll for result (every 3s until done)
-      const imgUrl = await pollForResult(
+      const { imageUrl: imgUrl, seed: returnedSeed } = await pollForResult(
         submitData.status_url,
         submitData.response_url,
         signal
@@ -249,12 +319,18 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const filename = `${safeDomain}_${fmtSlug}.jpg`
 
-      // Save prompt and texts used in this generation
+      // Save prompt, texts, seed and original blob for this banner
       promptsMapRef.current[filename] = finalPrompt
       textsMapRef.current[filename] = {
         headline: textOverrides?.headline ?? (fmt.headline || ''),
         cta: textOverrides?.cta ?? (fmt.cta || ''),
       }
+      // Save seed only on original generation (not on text-edit re-runs, to keep the original seed)
+      if (!isEditMode && returnedSeed != null) {
+        seedMapRef.current[filename] = returnedSeed
+      }
+      // Always update the stored blob so it reflects the latest version of the banner
+      originalBlobsRef.current[filename] = blob
       // Clear stale editing state so editor reinitializes from fresh values on next open
       setEditingTexts((prev) => { const next = { ...prev }; delete next[filename]; return next })
 
@@ -301,6 +377,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Reset all per-banner state for a fresh run
     promptsMapRef.current = {}
     textsMapRef.current = {}
+    seedMapRef.current = {}
+    originalBlobsRef.current = {}
     setExpandedPrompts({})
     setExpandedTexts({})
     setEditingTexts({})

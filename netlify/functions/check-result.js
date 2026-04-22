@@ -72,6 +72,7 @@ export default async (req) => {
 
     const data = await resultRes.json()
     const imageUrl = data.images?.[0]?.url
+    const seed = data.seed ?? data.images?.[0]?.seed ?? null
 
     if (!imageUrl) {
       return new Response(
@@ -81,7 +82,7 @@ export default async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ status: 'COMPLETED', imageUrl }),
+      JSON.stringify({ status: 'COMPLETED', imageUrl, seed }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (err) {
