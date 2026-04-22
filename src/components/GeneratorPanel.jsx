@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
 import { addCost } from '../lib/clientCosts'
@@ -82,8 +82,57 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   // Holds the built markdown content after generation — null until ready
   const [promptsContent, setPromptsContent] = useState(null)
   const [promptsFilename, setPromptsFilename] = useState(null)
+  const wasRunningRef = useRef(false)
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
+
+  // Detect when generation finishes (running: true → false) and build prompts file
+  useEffect(() => {
+    const justFinished = wasRunningRef.current && !running
+    wasRunningRef.current = running
+    if (!justFinished) return
+
+    const entries = Object.entries(promptsMapRef.current)
+    if (entries.length === 0) return
+
+    const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+    const fname = `${safeDomain}_prompty.md`
+
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+
+    const lines = [
+      `# Prompty kreacji — ${domain}`,
+      `Data wygenerowania: ${dateStr}`,
+      `Liczba kreacji: ${entries.length}`,
+      '',
+    ]
+    for (const [bname, prompt] of entries) {
+      lines.push('---', '', `### ${bname}`, '', prompt, '')
+    }
+    const content = lines.join('\n')
+
+    setPromptsContent(content)
+    setPromptsFilename(fname)
+
+    // Write to local folder (if selected)
+    if (folderHandleRef.current) {
+      folderHandleRef.current.getFileHandle(fname, { create: true })
+        .then((fh) => fh.createWritable())
+        .then((w) => w.write(new Blob([content], { type: 'text/plain' })).then(() => w.close()))
+        .then(() => console.log('[prompts] saved to folder:', fname))
+        .catch((e) => console.warn('[prompts] folder save failed:', e.message))
+    }
+
+    // Upload to Google Drive (if connected)
+    const sessionFolderId = driveFolderRef.current?.sessionFolderId
+    if (sessionFolderId) {
+      uploadToDrive(new Blob([content], { type: 'text/plain' }), fname, sessionFolderId, 'text/plain')
+        .then(() => console.log('[prompts] uploaded to Drive:', fname))
+        .catch((e) => console.warn('[prompts] Drive upload failed:', e.message))
+    }
+  }, [running, domain]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalFormats = formats.length
   const progress = totalFormats > 0 ? Math.round((doneCount / totalFormats) * 100) : 0
@@ -262,66 +311,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     setRunning(false)
   }
 
-  /**
-   * Build a Markdown summary of all prompts and save it to folder + Drive.
-   * For browser-download (no folder picker), we just store the content in state
-   * and show a download button — auto-click gets blocked by the browser after
-   * many rapid banner downloads.
-   */
-  const savePromptsFile = async (safeDomain, sessionFolderId) => {
-    const entries = Object.entries(promptsMapRef.current)
-    if (entries.length === 0) {
-      console.warn('[prompts] map is empty — no prompts to save')
-      return
-    }
-
-    const now = new Date()
-    const pad = (n) => String(n).padStart(2, '0')
-    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-
-    const lines = [
-      `# Prompty kreacji — ${domain}`,
-      `Data wygenerowania: ${dateStr}`,
-      `Liczba kreacji: ${entries.length}`,
-      '',
-    ]
-    for (const [fname, prompt] of entries) {
-      lines.push('---', '', `### ${fname}`, '', prompt, '')
-    }
-
-    const content = lines.join('\n')
-    const fname = `${safeDomain}_prompty.md`
-
-    // Write to local folder if user picked one
-    if (folderHandleRef.current) {
-      try {
-        const fh = await folderHandleRef.current.getFileHandle(fname, { create: true })
-        const w = await fh.createWritable()
-        await w.write(new Blob([content], { type: 'text/plain' }))
-        await w.close()
-        console.log('[prompts] saved to local folder:', fname)
-      } catch (e) {
-        console.warn('[prompts] local folder save failed:', e.message)
-      }
-    }
-
-    // Upload to Google Drive
-    if (sessionFolderId) {
-      try {
-        const blob = new Blob([content], { type: 'text/plain' })
-        await uploadToDrive(blob, fname, sessionFolderId, 'text/plain')
-        console.log('[prompts] uploaded to Drive:', fname)
-      } catch (e) {
-        console.warn('[prompts] Drive upload failed:', e.message)
-      }
-    }
-
-    // Always make content available for the manual download button
-    // (auto a.click() is blocked by browser after many rapid banner downloads)
-    setPromptsContent(content)
-    setPromptsFilename(fname)
-  }
-
   const generateAll = async () => {
     if (running) return
     setRunning(true)
@@ -361,12 +350,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Each generateOne independently polls its own request_id, so they truly run in parallel.
     await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
 
-    // Save prompts summary file once all banners are done
-    const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-    const sessionFolderId = driveFolderRef.current?.sessionFolderId
-    await savePromptsFile(safeDomain, sessionFolderId).catch(() => {})
-
     setRunning(false)
+    // Prompts file is built in the useEffect that watches running → false
   }
 
   const stopGeneration = () => {
