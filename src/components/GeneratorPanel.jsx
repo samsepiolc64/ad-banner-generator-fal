@@ -79,6 +79,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const driveFolderRef = useRef(null)
   // Collects { filename → finalPrompt } for each successfully generated banner
   const promptsMapRef = useRef({})
+  // Holds the built markdown content after generation — null until ready
+  const [promptsContent, setPromptsContent] = useState(null)
+  const [promptsFilename, setPromptsFilename] = useState(null)
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -260,12 +263,17 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   }
 
   /**
-   * Build a Markdown summary of all prompts and save it locally + to Drive.
-   * Called once after all banners finish generating.
+   * Build a Markdown summary of all prompts and save it to folder + Drive.
+   * For browser-download (no folder picker), we just store the content in state
+   * and show a download button — auto-click gets blocked by the browser after
+   * many rapid banner downloads.
    */
   const savePromptsFile = async (safeDomain, sessionFolderId) => {
     const entries = Object.entries(promptsMapRef.current)
-    if (entries.length === 0) return
+    if (entries.length === 0) {
+      console.warn('[prompts] map is empty — no prompts to save')
+      return
+    }
 
     const now = new Date()
     const pad = (n) => String(n).padStart(2, '0')
@@ -282,42 +290,46 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     }
 
     const content = lines.join('\n')
-    const promptsFilename = `${safeDomain}_prompty.md`
+    const fname = `${safeDomain}_prompty.md`
 
-    // Save locally — same mechanism as banners
+    // Write to local folder if user picked one
     if (folderHandleRef.current) {
       try {
-        const fh = await folderHandleRef.current.getFileHandle(promptsFilename, { create: true })
+        const fh = await folderHandleRef.current.getFileHandle(fname, { create: true })
         const w = await fh.createWritable()
         await w.write(new Blob([content], { type: 'text/plain' }))
         await w.close()
+        console.log('[prompts] saved to local folder:', fname)
       } catch (e) {
-        console.warn('[prompts] local save failed:', e.message)
+        console.warn('[prompts] local folder save failed:', e.message)
       }
-    } else {
-      // Fallback: browser download
-      const blob = new Blob([content], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = promptsFilename
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 5000)
     }
 
-    // Upload to Google Drive alongside the banners
+    // Upload to Google Drive
     if (sessionFolderId) {
-      const blob = new Blob([content], { type: 'text/plain' })
-      uploadToDrive(blob, promptsFilename, sessionFolderId, 'text/plain').catch(() => {})
+      try {
+        const blob = new Blob([content], { type: 'text/plain' })
+        await uploadToDrive(blob, fname, sessionFolderId, 'text/plain')
+        console.log('[prompts] uploaded to Drive:', fname)
+      } catch (e) {
+        console.warn('[prompts] Drive upload failed:', e.message)
+      }
     }
+
+    // Always make content available for the manual download button
+    // (auto a.click() is blocked by browser after many rapid banner downloads)
+    setPromptsContent(content)
+    setPromptsFilename(fname)
   }
 
   const generateAll = async () => {
     if (running) return
     setRunning(true)
 
-    // Reset prompts map so retries don't accumulate stale entries
+    // Reset prompts map and download button state for fresh generation run
     promptsMapRef.current = {}
+    setPromptsContent(null)
+    setPromptsFilename(null)
 
     // Single shared AbortController — stopGeneration cancels all in-flight requests at once
     const controller = new AbortController()
@@ -481,6 +493,20 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           </button>
         )
       })()}
+
+      {/* Prompts download button — appears after generation completes */}
+      {promptsContent && (
+        <a
+          href={URL.createObjectURL(new Blob([promptsContent], { type: 'text/plain' }))}
+          download={promptsFilename}
+          className="mt-3 flex items-center justify-center gap-2 w-full rounded-xl py-3 text-sm font-semibold border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16" />
+          </svg>
+          Pobierz prompty kreacji (.md)
+        </a>
+      )}
 
     </div>
   )
