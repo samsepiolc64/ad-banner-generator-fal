@@ -65,36 +65,26 @@ function replaceAdCopyInPrompt(prompt, headline, cta) {
 }
 
 /**
- * Build a minimal focused prompt for text-only edit via img2img.
- * Sent alongside the original banner as reference image — tells the model
- * to preserve every visual element and only swap the text content.
+ * Build a FLUX Kontext edit instruction for text-only replacement.
+ * Kontext responds best to concise, direct edit instructions (not verbose prompts).
  */
 function buildTextEditPrompt(headline, cta, isStories, isTikTokVertical) {
   const parts = headline.split('\n').map((s) => s.trim()).filter(Boolean)
   const primary = parts[0] || ''
   const secondary = parts[1] || null
 
-  const headlinePart = secondary
-    ? `- Primary headline (large, dominant): "${primary}"\n- Secondary line (smaller, below primary): "${secondary}"`
-    : `- Headline: "${primary}"`
-  const ctaPart = (isStories || isTikTokVertical) ? '' : `\n- CTA button text: "${cta}"`
+  const instructions = []
+  if (secondary) {
+    instructions.push(`Replace the large primary headline text with exactly: "${primary}"`)
+    instructions.push(`Replace the smaller secondary headline line with exactly: "${secondary}"`)
+  } else {
+    instructions.push(`Replace the headline text with exactly: "${primary}"`)
+  }
+  if (!isStories && !isTikTokVertical) {
+    instructions.push(`Replace the CTA button text with exactly: "${cta}"`)
+  }
 
-  return `You are given an advertising banner image. Your task is a SURGICAL TEXT-ONLY replacement.
-
-REPRODUCE THE BANNER WITH PIXEL-PERFECT FIDELITY — keep everything identical EXCEPT the text listed below.
-
-NEW TEXT VALUES:
-${headlinePart}${ctaPart}
-
-PRESERVE ABSOLUTELY EVERYTHING ELSE (do NOT change):
-- Background scene, photography, atmosphere, and all visual content
-- Colors, lighting, shadows, gradients, and visual mood
-- Product or subject position, styling, and proportions
-- Layout, spacing, alignment, and composition
-- All decorative graphic elements and brand visual details
-- Font style, weight, and size hierarchy (change words only, not the typographic treatment)
-
-This is a text swap, not a redesign. The output must look identical to the input except for the updated text content.`
+  return `${instructions.join('. ')}. Keep the exact same font, font weight, font size, text color, and text position for each replaced text element. Do not change anything else in the image — preserve the background, product, people, lighting, colors, composition, logos, decorative elements, and overall design identically.`
 }
 
 /** Convert a Blob to a base64 data URL (needed to re-send as image reference) */
@@ -238,15 +228,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     let submitImageUrls
 
     if (isEditMode) {
-      // img2img: focused text-swap prompt + original banner as first image reference
+      // FLUX Kontext: concise edit instruction + ONLY the original banner as reference.
+      // (Logo is already baked into the original banner's pixels via post-generation compositing,
+      //  so we don't pass it again — Kontext would try to ADD another copy.)
       finalPrompt = buildTextEditPrompt(textOverrides.headline, textOverrides.cta, isStories, isTikTokVertical)
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const origFilename = `${safeDomain}_${fmtSlug}.jpg`
       const origBlob = originalBlobsRef.current[origFilename]
       const origDataUrl = origBlob ? await blobToDataUrl(origBlob) : null
-      // image_urls: original banner FIRST (main reference), then logo if available
-      submitImageUrls = [origDataUrl, hasLogo ? logoDataUrl : null].filter(Boolean)
+      submitImageUrls = origDataUrl ? [origDataUrl] : []
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
@@ -273,7 +264,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         body: JSON.stringify({
           prompt: finalPrompt,
           ar: model.ar,
-          modelType: model.type,
+          // Text-edit mode → FLUX Kontext (dedicated edit model, preserves composition)
+          modelType: isEditMode ? 'flux-kontext' : model.type,
           useLogo: submitImageUrls.length > 0,
           logoDataUrl: submitImageUrls.length > 0 ? submitImageUrls : undefined,
           falMode,
@@ -306,12 +298,14 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       }
 
-      if (hasLogo) {
+      // In edit mode the original banner already has the logo baked in (Kontext preserves it).
+      // Re-running compositeLogoOnBanner here would stamp a SECOND logo on top.
+      if (hasLogo && !isEditMode) {
         srcBlob = await compositeLogoOnBanner(srcBlob, logoDataUrl, fmt.width, fmt.height)
       }
 
       const blob = await compressToJpeg(srcBlob)
-      addCost(domain, costPerImage(model.type))
+      addCost(domain, costPerImage(isEditMode ? 'flux-kontext' : model.type))
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
