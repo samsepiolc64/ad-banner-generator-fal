@@ -295,7 +295,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
             }
           </div>
           <div className="min-w-0">
-            <div className="font-medium text-gray-900 dark:text-white truncate">{normalizeDomain(domain)}
+            <div className="font-medium text-gray-900 dark:text-white truncate">{normalizeDomain(domain)}</div>
           </div>
         </div>
 
@@ -391,9 +391,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
           ))}
         </div>
       </div>
-    </div>
 
-    {/* Karta klienta — panel inline */}
+      {/* Karta klienta — panel inline */}
       {open && (
         <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 space-y-4">
 
