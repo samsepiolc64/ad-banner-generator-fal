@@ -317,7 +317,8 @@ TYPOGRAPHY REQUIREMENTS:
 - Headline: substantial, bold, prominent — dominant text element in the composition
 - High contrast between text and background for accessibility
 - ${hasExactFonts ? `Use these EXACT brand fonts: ${typographyLine}` : `Font style: ${brand.typography || 'modern sans-serif'}`}
-- Keep text concise and surrounded by visual breathing room — imagery should dominate the composition${format.channel === 'gdn' ? '\n- HARD LIMIT (Google policy): all text combined must cover no more than 20% of the total image surface area' : ''}
+- Keep text concise and surrounded by visual breathing room — imagery should dominate the composition
+- DASH RULE: if any dash is used in text overlays, use en dash (–) NEVER em dash (—)${format.channel === 'gdn' ? '\n- HARD LIMIT (Google policy): all text combined must cover no more than 20% of the total image surface area' : ''}
 
 CHANNEL-SPECIFIC REQUIREMENTS:
 ${channelReqs}
