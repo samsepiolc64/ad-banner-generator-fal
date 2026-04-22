@@ -80,6 +80,14 @@ Prompty budowane w `promptBuilder.js` zawierają sekcje:
 
 Netlify — konfiguracja w `netlify.toml`. Auto-deploy z `main`. Functions timeout: generate-image 60s, research-domain 30s.
 
+## Git — zasady pracy
+
+- **Commity lokalne: tak, zawsze** — po każdej zmianie rób commit lokalny.
+- **Push: TYLKO gdy użytkownik napisze "push"** — nigdy nie pushuj samodzielnie.
+- **Po commicie zawsze powiedz wprost:** `✅ Commit lokalny — NIE wypchniete. Napisz "push" żeby wdrożyć.`
+- **Po pushu zawsze powiedz wprost:** `✅ Wypchniete na GitHub → Netlify zbuduje automatycznie.`
+- Powód: każdy push uruchamia deploy na Netlify i zużywa build credits.
+
 ## Roadmap (z README)
 
 - Auto-research domeny przez Claude API (podstawowy flow gotowy)
