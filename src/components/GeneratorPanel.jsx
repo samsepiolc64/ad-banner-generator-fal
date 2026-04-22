@@ -50,7 +50,7 @@ const SESSION_FOLDER = (() => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
 })()
 
-async function uploadToDrive(blob, filename, sessionFolderId) {
+async function uploadToDrive(blob, filename, sessionFolderId, mimeType = 'image/jpeg') {
   const base64 = await new Promise((resolve) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result.split(',')[1])
@@ -59,7 +59,7 @@ async function uploadToDrive(blob, filename, sessionFolderId) {
   await fetch('/.netlify/functions/upload-to-drive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename, imageBase64: base64, sessionFolderId }),
+    body: JSON.stringify({ filename, imageBase64: base64, sessionFolderId, mimeType }),
   })
 }
 
@@ -77,6 +77,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const abortRef = useRef(null)
   // Pre-flight Drive folder IDs — created once before parallel uploads start
   const driveFolderRef = useRef(null)
+  // Collects { filename → finalPrompt } for each successfully generated banner
+  const promptsMapRef = useRef({})
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -218,6 +220,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       const filename = `${safeDomain}_${fmtSlug}.jpg`
 
+      // Record prompt for this banner (used to generate prompts.md at the end)
+      promptsMapRef.current[filename] = finalPrompt
+
       if (folderHandleRef.current) {
         const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })
         const w = await fh.createWritable()
@@ -254,9 +259,65 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     setRunning(false)
   }
 
+  /**
+   * Build a Markdown summary of all prompts and save it locally + to Drive.
+   * Called once after all banners finish generating.
+   */
+  const savePromptsFile = async (safeDomain, sessionFolderId) => {
+    const entries = Object.entries(promptsMapRef.current)
+    if (entries.length === 0) return
+
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+
+    const lines = [
+      `# Prompty kreacji — ${domain}`,
+      `Data wygenerowania: ${dateStr}`,
+      `Liczba kreacji: ${entries.length}`,
+      '',
+    ]
+    for (const [fname, prompt] of entries) {
+      lines.push('---', '', `### ${fname}`, '', prompt, '')
+    }
+
+    const content = lines.join('\n')
+    const promptsFilename = `${safeDomain}_prompty.md`
+
+    // Save locally — same mechanism as banners
+    if (folderHandleRef.current) {
+      try {
+        const fh = await folderHandleRef.current.getFileHandle(promptsFilename, { create: true })
+        const w = await fh.createWritable()
+        await w.write(new Blob([content], { type: 'text/plain' }))
+        await w.close()
+      } catch (e) {
+        console.warn('[prompts] local save failed:', e.message)
+      }
+    } else {
+      // Fallback: browser download
+      const blob = new Blob([content], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = promptsFilename
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+    }
+
+    // Upload to Google Drive alongside the banners
+    if (sessionFolderId) {
+      const blob = new Blob([content], { type: 'text/plain' })
+      uploadToDrive(blob, promptsFilename, sessionFolderId, 'text/plain').catch(() => {})
+    }
+  }
+
   const generateAll = async () => {
     if (running) return
     setRunning(true)
+
+    // Reset prompts map so retries don't accumulate stale entries
+    promptsMapRef.current = {}
 
     // Single shared AbortController — stopGeneration cancels all in-flight requests at once
     const controller = new AbortController()
@@ -287,6 +348,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Fire all submissions simultaneously — fal.ai queue handles concurrency on their end.
     // Each generateOne independently polls its own request_id, so they truly run in parallel.
     await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
+
+    // Save prompts summary file once all banners are done
+    const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+    const sessionFolderId = driveFolderRef.current?.sessionFolderId
+    await savePromptsFile(safeDomain, sessionFolderId).catch(() => {})
 
     setRunning(false)
   }

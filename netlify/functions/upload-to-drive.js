@@ -48,7 +48,7 @@ export default async (req) => {
   }
 
   try {
-    const { filename, imageBase64, sessionFolderId } = await req.json()
+    const { filename, imageBase64, sessionFolderId, mimeType = 'image/jpeg' } = await req.json()
 
     if (!filename || !imageBase64 || !sessionFolderId) {
       return new Response(JSON.stringify({ error: 'Missing fields: filename, imageBase64, sessionFolderId' }), { status: 400 })
@@ -58,7 +58,7 @@ export default async (req) => {
     console.log('[drive] token ok, uploading to sessionFolder:', sessionFolderId)
 
     const imageBuffer = Buffer.from(imageBase64, 'base64')
-    console.log('[drive] imageBuffer size:', imageBuffer.length)
+    console.log('[drive] imageBuffer size:', imageBuffer.length, 'mimeType:', mimeType)
 
     // Multipart/related upload — single request with metadata + binary
     const boundary = '----BannerBoundary' + Date.now()
@@ -68,7 +68,7 @@ export default async (req) => {
       `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
       `${metadata}\r\n` +
       `--${boundary}\r\n` +
-      `Content-Type: image/jpeg\r\n\r\n`
+      `Content-Type: ${mimeType}\r\n\r\n`
     const epilogue = `\r\n--${boundary}--`
 
     const body = Buffer.concat([
