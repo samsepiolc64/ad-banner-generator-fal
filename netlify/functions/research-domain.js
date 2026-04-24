@@ -847,3 +847,6 @@ ${SCHEMA_INSTRUCTIONS}`,
 export const config = {
   path: '/.netlify/functions/research-domain',
 }
+
+// Named exports for unit testing — pure, side-effect-free functions only
+export { brandNameFromDomain, brandMatchesDomain, extractJsonObject, extractTechnicalHints, normalizeDomain }

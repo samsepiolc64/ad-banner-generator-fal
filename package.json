@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js",
-    "test:watch": "node --test --watch src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js",
+    "test": "node --test src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js src/lib/imageUtils.test.js netlify/functions/research-domain.test.js",
+    "test:watch": "node --test --watch src/lib/domain.test.js src/lib/modelRouting.test.js src/lib/researchCache.test.js src/lib/promptBuilder.test.js src/lib/imageUtils.test.js netlify/functions/research-domain.test.js",
     "prepare": "husky"
   },
   "dependencies": {
