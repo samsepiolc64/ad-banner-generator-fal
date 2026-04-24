@@ -101,6 +101,16 @@ export default function Sidebar({ darkMode, onToggleDark, activeModule, onSelect
 
       {/* Bottom: dark mode toggle */}
       <div className="flex-shrink-0 py-3 mx-2 border-t border-gray-800">
+        {sidebarOpen && (
+          <div className="px-3 pb-2 text-[10px] text-gray-600 dark:text-gray-600 leading-tight">
+            {(() => {
+              try {
+                const d = new Date(__BUILD_DATE__)
+                return `aktualizacja ${d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`
+              } catch { return '' }
+            })()}
+          </div>
+        )}
         <button
           type="button"
           onClick={onToggleDark}
