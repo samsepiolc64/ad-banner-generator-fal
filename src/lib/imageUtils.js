@@ -88,19 +88,36 @@ function analyzeCorners(bitmap, sampleW, sampleH) {
     const data = ctx.getImageData(corner.x, corner.y, cw, ch).data
     let sumL = 0
     let sumL2 = 0
+    let edgeCount = 0
     let n = 0
+    // Build luminance grid for edge density
+    const luma = new Float32Array(cw * ch)
     for (let i = 0; i < data.length; i += 4) {
       const l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+      luma[n] = l
       sumL += l
       sumL2 += l * l
       n++
     }
     const meanL = sumL / n
     const variance = sumL2 / n - meanL * meanL
+    // Edge density: fraction of pixels with sharp luminance transition to right/below neighbor.
+    // Text has many such transitions (letter outlines), smooth backgrounds have few.
+    const EDGE_LUMA_THRESHOLD = 18 // out of 255
+    for (let row = 0; row < ch - 1; row++) {
+      for (let col = 0; col < cw - 1; col++) {
+        const idx = row * cw + col
+        if (
+          Math.abs(luma[idx] - luma[idx + 1]) > EDGE_LUMA_THRESHOLD ||
+          Math.abs(luma[idx] - luma[idx + cw]) > EDGE_LUMA_THRESHOLD
+        ) edgeCount++
+      }
+    }
     return {
       ...corner,
       luminance: meanL / 255,
       stdDev: Math.sqrt(Math.max(0, variance)) / 255,
+      edgeDensity: edgeCount / (cw * ch),
     }
   })
 
@@ -236,6 +253,13 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   const TL_BUSY_THRESHOLD = 0.22
   const tlCorner = corners.find((c) => c.name === 'tl')
   const best = (tlCorner && tlCorner.stdDev <= TL_BUSY_THRESHOLD) ? tlCorner : corners[0]
+
+  // Skip logo entirely if even the best corner has text-like edge density.
+  // Better no logo than a logo stamped on top of headline text.
+  const TEXT_EDGE_THRESHOLD = 0.07
+  if (best.edgeDensity > TEXT_EDGE_THRESHOLD) {
+    return bannerBlob
+  }
 
   // Compute position for the chosen corner
   let x = pad
