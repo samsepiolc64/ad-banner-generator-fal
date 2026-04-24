@@ -79,16 +79,38 @@ export default async (req) => {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   }
 
-  let url
+  let url, probe
   try {
     const body = await req.json()
     url = body.url
+    probe = !!body.probe
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 })
   }
 
   if (!url || !/^https?:\/\//i.test(url)) {
     return new Response(JSON.stringify({ error: 'Invalid or missing URL' }), { status: 400 })
+  }
+
+  // Probe mode: HEAD request to detect Content-Type (image vs webpage)
+  if (probe) {
+    try {
+      const res = await fetch(url, {
+        method: 'HEAD',
+        headers: BROWSER_HEADERS,
+        signal: AbortSignal.timeout(5000),
+        redirect: 'follow',
+      })
+      const ct = res.headers.get('content-type') || ''
+      const type = ct.startsWith('image/') ? 'image' : 'page'
+      return new Response(JSON.stringify({ type, contentType: ct }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    } catch {
+      return new Response(JSON.stringify({ type: 'page', contentType: '' }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
   }
 
   // Try fallbacks in order

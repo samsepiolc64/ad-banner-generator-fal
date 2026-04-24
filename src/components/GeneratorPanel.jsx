@@ -155,7 +155,7 @@ async function uploadToDrive(blob, filename, sessionFolderId, mimeType = 'image/
   })
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, falMode = 'test' }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, falMode = 'test' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -245,11 +245,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
-    // productImage prop (base64 dataURL) takes priority over URL embedded in notes.
-    // Only treat the URL as an image ref if it points to an actual image file —
-    // webpage URLs must never go to fal.ai as image_urls (causes 502).
-    const rawNotesUrl = !productImage ? extractUrl(notes) : null
-    const productRefUrl = (rawNotesUrl && isImageUrl(rawNotesUrl)) ? rawNotesUrl : null
+    // productImage (base64) > notesImageUrl (confirmed image URL from App.jsx probe) > fallback extension check
+    // Webpage URLs must never reach fal.ai as image_urls (causes 502).
+    const rawNotesUrl = !productImage && !notesImageUrl ? extractUrl(notes) : null
+    const productRefUrl = productImage ? null
+      : notesImageUrl ? notesImageUrl
+      : (rawNotesUrl && isImageUrl(rawNotesUrl)) ? rawNotesUrl
+      : null
     const hasProductRef = !!productImage || !!productRefUrl
     const hasRef = hasLogo || hasProductRef
 

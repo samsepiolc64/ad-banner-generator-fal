@@ -103,6 +103,7 @@ export default function App() {
   const [logoDataUrl, setLogoDataUrl] = useState(null)
   const [generatorFormats, setGeneratorFormats] = useState([])
   const [resolvedNotes, setResolvedNotes] = useState(null)
+  const [notesImageUrl, setNotesImageUrl] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copyGenStatus, setCopyGenStatus] = useState('idle')
   const [clients, setClients] = useState([])
@@ -153,6 +154,7 @@ export default function App() {
     setLogoDataUrl(null)
     setGeneratorFormats([])
     setResolvedNotes(null)
+    setNotesImageUrl(null)
     setCopyGenStatus('idle')
     setSelectedModule(null)
   }
@@ -193,6 +195,7 @@ export default function App() {
     setLogoDataUrl(null)
     setGeneratorFormats([])
     setResolvedNotes(null)
+    setNotesImageUrl(null)
     setCopyGenStatus('idle')
   }
 
@@ -282,32 +285,57 @@ export default function App() {
       compInsight = parts.join(' ')
     }
 
-    // Jeśli notes zawiera URL, pobierz treść strony i zastąp URL tekstem
+    // Jeśli notes zawiera URL — rozpoznaj czy to obrazek czy strona
     let notesForPrompt = campaignData.notes || null
+    let detectedImageUrl = null
     if (notesForPrompt) {
       const urlMatch = notesForPrompt.match(/https?:\/\/[^\s]+/)
       if (urlMatch) {
-        try {
-          const urlRes = await fetch('/.netlify/functions/fetch-url-content', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: urlMatch[0] }),
-          })
-          if (urlRes.ok) {
-            const urlData = await urlRes.json()
-            if (urlData.content) {
-              notesForPrompt = notesForPrompt.replace(
-                urlMatch[0],
-                `\n[Treść strony ${urlMatch[0]} — źródło: ${urlData.source}]:\n${urlData.content}\n`
-              )
+        const url = urlMatch[0]
+        const isObviousImage = /\.(jpe?g|png|webp|gif|avif|bmp|svg)(\?.*)?$/i.test(url)
+        let isImage = isObviousImage
+        if (!isObviousImage) {
+          // HEAD probe — sprawdź Content-Type serwera
+          try {
+            const probeRes = await fetch('/.netlify/functions/fetch-url-content', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, probe: true }),
+            })
+            if (probeRes.ok) {
+              const probeData = await probeRes.json()
+              isImage = probeData.type === 'image'
             }
-          }
-        } catch {
-          // Jeśli fetch się nie uda, zostawiamy URL jako tekst
+          } catch {}
+        }
+
+        if (isImage) {
+          // Obrazek → przekaż do fal.ai jako referencję, usuń z notes
+          detectedImageUrl = url
+          notesForPrompt = notesForPrompt.replace(url, '').trim() || null
+        } else {
+          // Strona → pobierz treść dla Claude
+          try {
+            const urlRes = await fetch('/.netlify/functions/fetch-url-content', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            })
+            if (urlRes.ok) {
+              const urlData = await urlRes.json()
+              if (urlData.content) {
+                notesForPrompt = notesForPrompt.replace(
+                  url,
+                  `\n[Treść strony ${url} — źródło: ${urlData.source}]:\n${urlData.content}\n`
+                )
+              }
+            }
+          } catch {}
         }
       }
     }
     setResolvedNotes(notesForPrompt)
+    setNotesImageUrl(detectedImageUrl)
 
     const allFormats = []
     for (const fmt of selectedFormats) {
@@ -563,6 +591,7 @@ export default function App() {
                               domain={campaignData?.domain}
                               notes={resolvedNotes ?? campaignData?.notes}
                               productImage={campaignData?.productImage || null}
+                              notesImageUrl={notesImageUrl}
                               falMode={falMode}
                             />
                           </>
