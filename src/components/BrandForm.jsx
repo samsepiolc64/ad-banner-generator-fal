@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { loadResearch, saveResearch, clearResearch, formatAge } from '../lib/researchCache'
 import ScreenshotUploader from './ScreenshotUploader'
+import ResearchDiff from './ResearchDiff'
 
 /**
  * Brand data form.
@@ -79,6 +80,8 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   // pendingBrand: holds new research result waiting for user acceptance (manual refresh only)
   const [pendingBrand, setPendingBrand] = useState(null)
   const captureOnlyRef = useRef(false)
+  // Snapshot of form state in API format at the moment refresh was triggered
+  const oldBrandSnapshotRef = useRef(null)
 
   // Research progress stepper — advances through realistic timing estimates.
   // Past steps use a neutral gray dash (not green) — we don't know which ones
@@ -271,27 +274,40 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     return () => controller.abort()
   }, [domain, applyBrandData, runResearch, initialBrand])
 
+  /** Snapshot current form into API-compatible format (for diff comparison) */
+  const snapshotCurrentBrand = () => ({
+    name: brand.name,
+    colors: { primary: brand.primary, secondary: brand.secondary, accent: brand.accent },
+    industry: deepBrand.industry,
+    productType: deepBrand.productType,
+    visualStyle: brand.style,
+    tone: deepBrand.tone,
+    usp: brand.usp,
+  })
+
   /** Manual refresh — user clicked "Odśwież research". Bypasses BOTH caches. */
   const handleRefresh = () => {
+    oldBrandSnapshotRef.current = snapshotCurrentBrand()
     clearResearch(domain)
     setCachedTimestamp(null)
     setCacheSource(null)
     setSource(null)
     setArchiveTimestamp(null)
     setPendingBrand(null)
-    captureOnlyRef.current = true  // result goes to pendingBrand, not the form
+    captureOnlyRef.current = true
     runResearch(undefined, true)
   }
 
   /** User uploaded their own screenshot — run research again with that image */
   const handleUserScreenshotUpload = async (dataUrl) => {
+    oldBrandSnapshotRef.current = snapshotCurrentBrand()
     clearResearch(domain)
     setCachedTimestamp(null)
     setCacheSource(null)
     setSource(null)
     setArchiveTimestamp(null)
     setPendingBrand(null)
-    captureOnlyRef.current = true  // result goes to pendingBrand, not the form
+    captureOnlyRef.current = true
     setUploadingScreenshot(true)
     try {
       await runResearch(undefined, true, dataUrl)
@@ -580,77 +596,23 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
     )
   }
 
-  // Diff panel fields — compares current form state vs pending brand from API
-  const renderDiff = () => {
-    if (!pendingBrand || researchState === 'researching') return null
-    const fields = [
-      { key: 'name',        label: 'Nazwa marki',    oldVal: brand.name,           newVal: pendingBrand.name,                     type: null  },
-      { key: 'primary',     label: 'Kolor główny',   oldVal: brand.primary,        newVal: pendingBrand.colors?.primary,          type: 'color' },
-      { key: 'accent',      label: 'Akcent / CTA',   oldVal: brand.accent,         newVal: pendingBrand.colors?.accent,           type: 'color' },
-      { key: 'industry',    label: 'Branża',          oldVal: deepBrand.industry,   newVal: pendingBrand.industry,                 type: null  },
-      { key: 'productType', label: 'Co sprzedają',   oldVal: deepBrand.productType, newVal: pendingBrand.productType,             type: null  },
-      { key: 'visualStyle', label: 'Styl wizualny',  oldVal: brand.style,          newVal: pendingBrand.visualStyle,              type: null  },
-      { key: 'tone',        label: 'Ton komunikacji', oldVal: deepBrand.tone,       newVal: pendingBrand.tone,                    type: null  },
-      { key: 'usp',         label: 'USP',             oldVal: brand.usp,            newVal: pendingBrand.usp,                     type: null  },
-    ]
-    const changes = fields.filter(f => f.newVal && f.oldVal !== f.newVal)
-
-    return (
-      <div className="border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/30">
-          <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">
-            Research gotowy —{' '}
-            {changes.length > 0 ? `${changes.length} pól zmienionych` : 'brak zmian w kluczowych polach'}
-          </div>
-        </div>
-        {changes.length > 0 && (
-          <div className="px-4 py-3 space-y-2.5 max-h-56 overflow-y-auto bg-white dark:bg-gray-900">
-            {changes.map(f => (
-              <div key={f.key}>
-                <div className="text-[10px] uppercase tracking-wide font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{f.label}</div>
-                <div className="flex items-start gap-2 text-xs">
-                  <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500 line-through truncate max-w-[44%]">
-                    {f.type === 'color' && f.oldVal && <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: f.oldVal }} />}
-                    {f.oldVal || '—'}
-                  </span>
-                  <span className="text-gray-300 dark:text-gray-600 flex-shrink-0">→</span>
-                  <span className="flex items-center gap-1 font-medium text-gray-800 dark:text-gray-200 truncate max-w-[44%]">
-                    {f.type === 'color' && f.newVal && <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: f.newVal }} />}
-                    {f.newVal}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="px-4 py-2.5 border-t border-blue-100 dark:border-blue-800/50 flex items-center gap-2 bg-blue-50/50 dark:bg-blue-950/20">
-          <button
-            type="button"
-            onClick={() => {
-              applyBrandData(pendingBrand)
-              captureOnlyRef.current = false
-              setPendingBrand(null)
-            }}
-            className="text-xs px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
-          >
-            Akceptuj zmiany
-          </button>
-          <button
-            type="button"
-            onClick={() => { captureOnlyRef.current = false; setPendingBrand(null) }}
-            className="text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-400 transition-colors"
-          >
-            Odrzuć
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {renderBanner()}
-      {renderDiff()}
+
+      {pendingBrand && researchState !== 'researching' && (
+        <ResearchDiff
+          key={JSON.stringify(pendingBrand).slice(0, 40)}
+          oldBrand={oldBrandSnapshotRef.current}
+          newBrand={pendingBrand}
+          onAccept={(editedBrand) => {
+            applyBrandData(editedBrand)
+            captureOnlyRef.current = false
+            setPendingBrand(null)
+          }}
+          onReject={() => { captureOnlyRef.current = false; setPendingBrand(null) }}
+        />
+      )}
 
       {/* Uploader — zawsze dostępny, ale różnie eksponowany */}
       {isUnreliableSource ? (
