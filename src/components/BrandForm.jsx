@@ -77,13 +77,16 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [visualOpen, setVisualOpen] = useState(false)
 
-  // Research progress stepper — advances through realistic timing estimates
+  // Research progress stepper — advances through realistic timing estimates.
+  // Past steps use a neutral gray dash (not green) — we don't know which ones
+  // actually succeeded until the API responds. Green is only used post-success.
   const [researchStep, setResearchStep] = useState(0)
   const RESEARCH_STEPS = [
-    { label: 'Pobieranie strony',    detail: 'próba bezpośredniego fetchu HTML',          after: 0 },
-    { label: 'Screenshotone',        detail: 'render wizualny przez headless browser',     after: 8500 },
-    { label: 'Wayback Machine',      detail: 'archiwalna wersja strony (archive.org)',     after: 17000 },
-    { label: 'Claude analizuje',     detail: 'wyciąganie danych brandowych z treści',      after: 25000 },
+    { label: 'Pobieranie strony', detail: 'bezpośredni fetch HTML',              source: 'fresh',      after: 0     },
+    { label: 'Jina Reader',       detail: 'bypass Cloudflare, headless fetch',   source: 'jina',       after: 7000  },
+    { label: 'Screenshotone',     detail: 'headless browser screenshot',         source: 'screenshot', after: 13000 },
+    { label: 'Wayback Machine',   detail: 'archiwalna wersja (archive.org)',      source: 'wayback',    after: 18000 },
+    { label: 'Claude analizuje',  detail: 'wyciąganie danych brandowych',        source: null,         after: 22000 },
   ]
   useEffect(() => {
     if (researchState !== 'researching') { setResearchStep(0); return }
@@ -324,16 +327,16 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
         {/* Step-by-step progress */}
         <div className="mt-4 inline-flex flex-col gap-2 text-left">
           {RESEARCH_STEPS.map((step, i) => {
-            const isDone    = i < researchStep
+            const isPast    = i < researchStep
             const isActive  = i === researchStep
             const isPending = i > researchStep
             return (
               <div key={i} className={`flex items-start gap-2.5 text-xs transition-opacity duration-500 ${isPending ? 'opacity-30' : 'opacity-100'}`}>
-                {/* Icon */}
+                {/* Icon — gray dash for past (not green, we don't know outcome yet) */}
                 <span className="mt-0.5 w-4 flex-shrink-0 flex justify-center">
-                  {isDone ? (
-                    <svg className="w-4 h-4 text-green-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 8l3.5 3.5L13 4.5"/>
+                  {isPast ? (
+                    <svg className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M4 8h8"/>
                     </svg>
                   ) : isActive ? (
                     <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 animate-spin" />
@@ -342,7 +345,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
                   )}
                 </span>
                 {/* Label */}
-                <span className={`font-medium ${isDone ? 'text-gray-400 dark:text-gray-500' : isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                <span className={`font-medium ${isPast ? 'text-gray-400 dark:text-gray-500' : isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
                   {step.label}
                 </span>
                 {/* Detail — only for active step */}

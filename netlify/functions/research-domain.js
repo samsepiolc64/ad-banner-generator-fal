@@ -529,7 +529,7 @@ export default async (req) => {
     } else {
       // Step 1: Try to fetch the website (multiple URL variants, timeout)
       fetchResult = await tryFetchVariants(domain)
-      html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
+      html = fetchResult?.html ? fetchResult.html.slice(0, 15000) : null
       if (html) source = 'fresh'
 
       // Step 2: Jina.ai Reader — free, no key, bypasses most bot protection.
@@ -538,7 +538,7 @@ export default async (req) => {
         console.log('[flow] HTML failed — trying Jina.ai reader')
         const jinaText = await tryJinaReader(normalizedDomain).catch(() => null)
         if (jinaText) {
-          html = jinaText.slice(0, 25000)
+          html = jinaText.slice(0, 15000)
           source = 'jina'
           console.log('[flow] Jina.ai succeeded')
         }
@@ -567,7 +567,7 @@ export default async (req) => {
         console.log('[flow] trying Wayback Machine')
         const waybackResult = await tryWaybackMachine(normalizedDomain).catch(() => null)
         if (waybackResult) {
-          html = waybackResult.html.slice(0, 25000)
+          html = waybackResult.html.slice(0, 15000)
           archiveInfo = { archiveUrl: waybackResult.archiveUrl, timestamp: waybackResult.timestamp }
           source = 'wayback'
           console.log('[flow] using Wayback snapshot')
@@ -724,14 +724,10 @@ ${SCHEMA_INSTRUCTIONS}`,
     }
 
     // Step 4: Send to Claude
-    // Screenshot-only modes use Haiku — much faster (5–12s vs 30–60s for Sonnet)
-    // which fits within Netlify's ~26s synchronous function limit. Sonnet is used
-    // for HTML analysis where the larger context window and reasoning matter more.
-    const isScreenshotMode = source === 'user-screenshot' || source === 'screenshot'
-    const model = isScreenshotMode ? 'claude-haiku-4-5' : 'claude-sonnet-4-5'
-    // Haiku needs fewer tokens — visual schema response is typically 2-3k tokens.
-    // Sonnet gets 8192 because long HTML + Polish prose fields can hit 5-6k tokens.
-    const maxTokens = isScreenshotMode ? 4096 : 8192
+    // Always use Haiku — fits within Netlify's ~26s gateway limit (5-12s vs 30-60s for Sonnet).
+    // Haiku is sufficient for brand extraction from HTML text and screenshot analysis.
+    const model = 'claude-haiku-4-5'
+    const maxTokens = 4096
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

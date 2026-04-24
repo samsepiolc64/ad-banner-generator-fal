@@ -2,8 +2,121 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
 import { getCost, formatCost } from '../lib/clientCosts'
-import { TEAM_MEMBERS_UNIQUE, CAMPAIGN_GOALS } from '../lib/teamMembers'
+import { TEAM_MEMBERS_UNIQUE } from '../lib/teamMembers'
 import ScreenshotUploader from './ScreenshotUploader'
+
+const RESEARCH_STEPS = [
+  { label: 'Pobieranie strony', detail: 'bezpośredni fetch HTML',              after: 0     },
+  { label: 'Jina Reader',       detail: 'bypass Cloudflare, headless fetch',   after: 7000  },
+  { label: 'Screenshotone',     detail: 'headless browser screenshot',         after: 13000 },
+  { label: 'Wayback Machine',   detail: 'archiwalna wersja (archive.org)',      after: 18000 },
+  { label: 'Claude analizuje',  detail: 'wyciąganie danych brandowych',        after: 22000 },
+]
+
+const DIFF_FIELDS = [
+  { key: 'name',        label: 'Nazwa marki',    get: b => b?.name },
+  { key: 'primary',     label: 'Kolor główny',   get: b => b?.colors?.primary,   type: 'color' },
+  { key: 'accent',      label: 'Akcent / CTA',   get: b => b?.colors?.accent,    type: 'color' },
+  { key: 'industry',    label: 'Branża',          get: b => b?.industry },
+  { key: 'productType', label: 'Co sprzedają',   get: b => b?.productType },
+  { key: 'visualStyle', label: 'Styl wizualny',  get: b => b?.visualStyle },
+  { key: 'tone',        label: 'Ton komunikacji', get: b => b?.tone },
+  { key: 'usp',         label: 'USP',             get: b => b?.usp },
+]
+
+function ResearchProgress({ step }) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3 space-y-1.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Trwa research…</div>
+      {RESEARCH_STEPS.map((s, i) => {
+        const isPast   = i < step
+        const isActive = i === step
+        return (
+          <div key={i} className={`flex items-center gap-2 text-xs ${i > step ? 'opacity-30' : ''}`}>
+            <span className="w-4 flex-shrink-0 flex justify-center">
+              {isPast ? (
+                <svg className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M4 8h8"/>
+                </svg>
+              ) : isActive ? (
+                <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 animate-spin" />
+              ) : (
+                <span className="inline-block w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+              )}
+            </span>
+            <span className={isActive ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}>
+              {s.label}
+            </span>
+            {isActive && <span className="text-gray-400 dark:text-gray-500">— {s.detail}</span>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function BrandDiff({ oldBrand, newBrand, onAccept, onReject }) {
+  const changes = DIFF_FIELDS.filter(f => {
+    const o = f.get(oldBrand)
+    const n = f.get(newBrand)
+    return n && o !== n
+  })
+
+  return (
+    <div className="border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/30 flex items-center justify-between">
+        <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+          Research gotowy —{' '}
+          {changes.length > 0 ? `${changes.length} pól zmienionych` : 'brak zmian w kluczowych polach'}
+        </div>
+      </div>
+
+      {changes.length > 0 && (
+        <div className="px-4 py-3 space-y-2.5 max-h-56 overflow-y-auto bg-white dark:bg-gray-900">
+          {changes.map(f => {
+            const oldVal = f.get(oldBrand)
+            const newVal = f.get(newBrand)
+            return (
+              <div key={f.key}>
+                <div className="text-[10px] uppercase tracking-wide font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{f.label}</div>
+                <div className="flex items-start gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500 line-through truncate max-w-[44%]">
+                    {f.type === 'color' && oldVal && (
+                      <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: oldVal }} />
+                    )}
+                    {oldVal || '—'}
+                  </span>
+                  <span className="text-gray-300 dark:text-gray-600 flex-shrink-0">→</span>
+                  <span className="flex items-center gap-1 font-medium text-gray-800 dark:text-gray-200 truncate max-w-[44%]">
+                    {f.type === 'color' && newVal && (
+                      <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: newVal }} />
+                    )}
+                    {newVal}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="px-4 py-2.5 border-t border-blue-100 dark:border-blue-800/50 flex items-center gap-2 bg-blue-50/50 dark:bg-blue-950/20">
+        <button
+          onClick={onAccept}
+          className="text-xs px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
+        >
+          Akceptuj zmiany
+        </button>
+        <button
+          onClick={onReject}
+          className="text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-400 transition-colors"
+        >
+          Odrzuć
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—'
@@ -140,9 +253,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
 
   // Inline editing state
   const [editingOpiekun, setEditingOpiekun] = useState(false)
-  const [editingCel, setEditingCel] = useState(false)
   const [opiekunDraft, setOpiekunDraft] = useState(client.opiekun || '')
-  const [celDraft, setCelDraft] = useState(client.cel_kampanii || '')
   const [savingMeta, setSavingMeta] = useState(false)
 
   useEffect(() => {
@@ -151,6 +262,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [moreOpen])
+  const [refreshStep, setRefreshStep] = useState(0)
+  const [pendingBrand, setPendingBrand] = useState(null)
   const [refreshDone, setRefreshDone] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -222,6 +335,11 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
     e.stopPropagation()
     setRefreshing(true)
     setRefreshDone(false)
+    setPendingBrand(null)
+    setRefreshStep(0)
+    const timers = RESEARCH_STEPS
+      .map((s, i) => i > 0 ? setTimeout(() => setRefreshStep(i), s.after) : null)
+      .filter(Boolean)
     try {
       const res = await fetch('/.netlify/functions/research-domain', {
         method: 'POST',
@@ -230,12 +348,12 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      onRefreshed(domain, data.brand)
-      setRefreshDone(true)
-      setTimeout(() => setRefreshDone(false), 3000)
+      setPendingBrand(data.brand)
     } catch (err) {
       console.error('Refresh failed:', err)
     } finally {
+      timers.forEach(clearTimeout)
+      setRefreshStep(0)
       setRefreshing(false)
     }
   }
@@ -243,7 +361,12 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
   const handleRefreshWithScreenshot = useCallback(async (dataUrl) => {
     setUploadingScreenshot(true)
     setRefreshDone(false)
+    setPendingBrand(null)
     setScreenshotError('')
+    setRefreshStep(0)
+    const timers = RESEARCH_STEPS
+      .map((s, i) => i > 0 ? setTimeout(() => setRefreshStep(i), s.after) : null)
+      .filter(Boolean)
     try {
       // Compress screenshot before sending — raw PNG screenshots can exceed
       // Netlify's 6 MB body limit and slow down Claude Vision analysis.
@@ -259,7 +382,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
           canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
           resolve(canvas.toDataURL('image/jpeg', 0.75))
         }
-        img.onerror = () => resolve(dataUrl) // fallback: send original if canvas fails
+        img.onerror = () => resolve(dataUrl)
         img.src = dataUrl
       })
 
@@ -271,17 +394,17 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
       if (!res.ok) throw new Error(`Błąd serwera (HTTP ${res.status}). Spróbuj ponownie.`)
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      onRefreshed(domain, data.brand)
-      setRefreshDone(true)
       setScreenshotOpen(false)
-      setTimeout(() => setRefreshDone(false), 4000)
+      setPendingBrand(data.brand)
     } catch (err) {
       console.error('Screenshot refresh failed:', err)
       setScreenshotError(err.message || 'Wystąpił nieznany błąd. Spróbuj ponownie.')
     } finally {
+      timers.forEach(clearTimeout)
+      setRefreshStep(0)
       setUploadingScreenshot(false)
     }
-  }, [domain, onRefreshed])
+  }, [domain])
 
   return (
     <div>
@@ -397,7 +520,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
         <div className="px-6 md:px-10 lg:px-16 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 space-y-4">
 
           {/* === META KLIENTA === */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Domena */}
             <div className="bg-white dark:bg-gray-800/60 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Domena</div>
@@ -434,37 +557,6 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                 </div>
               )}
             </div>
-
-            {/* Cel kampanii */}
-            <div className="bg-white dark:bg-gray-800/60 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Cel kampanii</div>
-              {editingCel ? (
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={celDraft}
-                    onChange={(e) => setCelDraft(e.target.value)}
-                    className="flex-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 focus:outline-none focus:border-gray-400"
-                    autoFocus
-                  >
-                    <option value="">— brak —</option>
-                    {CAMPAIGN_GOALS.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={async () => { await saveMeta('cel_kampanii', celDraft); setEditingCel(false) }}
-                    disabled={savingMeta}
-                    className="text-[11px] px-2 py-1 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 font-semibold disabled:opacity-50"
-                  >✓</button>
-                  <button onClick={() => { setCelDraft(client.cel_kampanii || ''); setEditingCel(false) }} className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500">✕</button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{client.cel_kampanii || <span className="text-gray-400 dark:text-gray-500 italic">nie ustawiono</span>}</span>
-                  <button onClick={() => setEditingCel(true)} className="text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex-shrink-0">Edytuj</button>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* === DANE MARKI (zwijane) === */}
@@ -485,98 +577,119 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
           </div>
 
           {/* === DOLNE PRZYCISKI === */}
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing || uploadingScreenshot}
-              className="inline-flex items-center gap-1.5 text-xs border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-xl px-3 py-1.5 font-medium hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed"
-            >
-              {refreshing ? (
-                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-                </svg>
-              ) : refreshDone ? (
-                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-green-500">
-                  <path d="M2 6l3 3 5-5"/>
-                </svg>
-              ) : (
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                  <path d="M12 7A5 5 0 1 1 9 2.6"/>
-                  <path d="M9 1v3h3"/>
-                </svg>
-              )}
-              {refreshDone ? 'Zaktualizowano' : refreshing ? 'Odświeżam…' : 'Odśwież dane marki'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setScreenshotOpen((v) => !v); setScreenshotError('') }}
-              disabled={refreshing || uploadingScreenshot}
-              className={`inline-flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 font-medium transition-colors disabled:cursor-not-allowed
-                ${screenshotOpen
-                  ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                  : 'border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
-              title="Odśwież dane marki na podstawie własnego screenshotu strony"
-            >
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                <rect x="1" y="2.5" width="12" height="9" rx="1.5"/>
-                <circle cx="7" cy="7" r="2"/>
-                <path d="M4.5 2.5V2a.75.75 0 0 1 .75-.75h3.5A.75.75 0 0 1 9.5 2v.5"/>
-              </svg>
-              Ze screenshotem
-            </button>
-            </div>
+          <div className="space-y-3 pt-1">
 
-            {!confirmDelete ? (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-              >
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                  <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M3.5 3.5l.5 8h6l.5-8"/>
-                  <path d="M6 6v4M8 6v4"/>
-                </svg>
-                Usuń klienta
-              </button>
-            ) : (
+            {/* Action row */}
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Usunąć <strong className="text-gray-700 dark:text-gray-300">{domain}</strong>?</span>
-                <button type="button" onClick={() => setConfirmDelete(false)} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors">Anuluj</button>
-                <button type="button" onClick={handleDelete} disabled={deleting} className="text-xs px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                  {deleting ? 'Usuwam…' : 'Usuń'}
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={refreshing || uploadingScreenshot}
+                  className="inline-flex items-center gap-1.5 text-xs border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-xl px-3 py-1.5 font-medium hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {refreshing ? (
+                    <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                    </svg>
+                  ) : refreshDone ? (
+                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-green-500">
+                      <path d="M2 6l3 3 5-5"/>
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <path d="M12 7A5 5 0 1 1 9 2.6"/>
+                      <path d="M9 1v3h3"/>
+                    </svg>
+                  )}
+                  {refreshDone ? 'Zaktualizowano' : refreshing ? 'Odświeżam…' : 'Odśwież dane marki'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setScreenshotOpen((v) => !v); setScreenshotError('') }}
+                  disabled={refreshing || uploadingScreenshot}
+                  className={`inline-flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50
+                    ${screenshotOpen
+                      ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                      : 'border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                >
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                    <rect x="1" y="2.5" width="12" height="9" rx="1.5"/>
+                    <circle cx="7" cy="7" r="2"/>
+                    <path d="M4.5 2.5V2a.75.75 0 0 1 .75-.75h3.5A.75.75 0 0 1 9.5 2v.5"/>
+                  </svg>
+                  Ze screenshotem
                 </button>
               </div>
-            )}
-          </div>
 
-          {/* Screenshot uploader — shows when "Ze screenshotem" is clicked */}
-          {screenshotOpen && (
-            <div className="border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/20 rounded-xl p-3">
-              <div className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">
-                Wgraj screenshot strony klienta
-              </div>
-              <div className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mb-3">
-                Claude przeanalizuje go wzrokowo i zaktualizuje dane marki. Możesz wkleić (Ctrl+V), przeciągnąć plik lub kliknąć poniżej.
-              </div>
-              <ScreenshotUploader
-                onUpload={handleRefreshWithScreenshot}
-                isUploading={uploadingScreenshot}
-              />
-              {screenshotError && (
-                <div className="mt-2 flex items-start gap-2 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
-                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5">
-                    <circle cx="7" cy="7" r="6"/>
-                    <path d="M7 4.5v3M7 9.5v.5"/>
+              {!confirmDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                >
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                    <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M3.5 3.5l.5 8h6l.5-8"/>
+                    <path d="M6 6v4M8 6v4"/>
                   </svg>
-                  <span>{screenshotError}</span>
+                  Usuń klienta
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Usunąć <strong className="text-gray-700 dark:text-gray-300">{domain}</strong>?</span>
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors">Anuluj</button>
+                  <button type="button" onClick={handleDelete} disabled={deleting} className="text-xs px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    {deleting ? 'Usuwam…' : 'Usuń'}
+                  </button>
                 </div>
               )}
             </div>
-          )}
+
+            {/* Research progress — visible during refresh */}
+            {(refreshing || uploadingScreenshot) && (
+              <ResearchProgress step={refreshStep} />
+            )}
+
+            {/* Diff view — appears after refresh, before user accepts */}
+            {pendingBrand && !refreshing && !uploadingScreenshot && (
+              <BrandDiff
+                oldBrand={client.brand_data}
+                newBrand={pendingBrand}
+                onAccept={() => {
+                  onRefreshed(domain, pendingBrand)
+                  setPendingBrand(null)
+                  setRefreshDone(true)
+                  setTimeout(() => setRefreshDone(false), 3000)
+                }}
+                onReject={() => setPendingBrand(null)}
+              />
+            )}
+
+            {/* Screenshot uploader */}
+            {screenshotOpen && (
+              <div className="border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/20 rounded-xl p-3">
+                <div className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">
+                  Wgraj screenshot strony klienta
+                </div>
+                <div className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mb-3">
+                  Claude przeanalizuje go wzrokowo i zaktualizuje dane marki. Możesz wkleić (Ctrl+V), przeciągnąć plik lub kliknąć poniżej.
+                </div>
+                <ScreenshotUploader
+                  onUpload={handleRefreshWithScreenshot}
+                  isUploading={uploadingScreenshot}
+                />
+                {screenshotError && (
+                  <div className="mt-2 flex items-start gap-2 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5">
+                      <circle cx="7" cy="7" r="6"/>
+                      <path d="M7 4.5v3M7 9.5v.5"/>
+                    </svg>
+                    <span>{screenshotError}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
