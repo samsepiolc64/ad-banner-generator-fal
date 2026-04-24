@@ -405,6 +405,35 @@ async function tryScreenshotone(domain, apiKey) {
 }
 
 /**
+ * Jina.ai Reader API — free, no key, headless-browser-backed, bypasses most
+ * bot protection including Cloudflare. Returns clean markdown text of the page.
+ * Docs: https://jina.ai/reader/
+ */
+async function tryJinaReader(domain) {
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const url = `https://r.jina.ai/https://${clean}`
+  try {
+    console.log(`[jina] fetching ${url}`)
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'text/plain',
+        'X-Return-Format': 'text',
+        'X-No-Cache': 'true',
+      },
+      signal: AbortSignal.timeout(12000),
+    })
+    if (!res.ok) { console.warn(`[jina] HTTP ${res.status}`); return null }
+    const text = await res.text()
+    if (text.length < 400) { console.warn('[jina] response too short'); return null }
+    console.log(`[jina] got ${text.length} chars`)
+    return text
+  } catch (e) {
+    console.warn('[jina] exception:', e.message)
+    return null
+  }
+}
+
+/**
  * Try URL variants IN PARALLEL — whichever succeeds first wins.
  * Max wall time: ~8s (not 60s like sequential). If all fail quickly,
  * we skip HTML fetch and let Claude infer from domain name alone.
@@ -503,7 +532,19 @@ export default async (req) => {
       html = fetchResult?.html ? fetchResult.html.slice(0, 25000) : null
       if (html) source = 'fresh'
 
-      // Step 2: If HTML fetch failed, try Screenshotone (visual fallback).
+      // Step 2: Jina.ai Reader — free, no key, bypasses most bot protection.
+      // Returns clean page text even for JS-heavy and Cloudflare-protected sites.
+      if (!html) {
+        console.log('[flow] HTML failed — trying Jina.ai reader')
+        const jinaText = await tryJinaReader(normalizedDomain).catch(() => null)
+        if (jinaText) {
+          html = jinaText.slice(0, 25000)
+          source = 'jina'
+          console.log('[flow] Jina.ai succeeded')
+        }
+      }
+
+      // Step 3: If HTML fetch failed, try Screenshotone (visual fallback).
       // This catches Cloudflare-protected sites where direct fetch returns a WAF
       // challenge page. Screenshotone renders the real page in a headless browser.
       if (!html) {
@@ -521,7 +562,7 @@ export default async (req) => {
         }
       }
 
-      // Step 3: If still no data, try Wayback Machine archived snapshot.
+      // Step 4: If still no data, try Wayback Machine archived snapshot.
       if (!html && !screenshotDataUrl) {
         console.log('[flow] trying Wayback Machine')
         const waybackResult = await tryWaybackMachine(normalizedDomain).catch(() => null)
