@@ -6,7 +6,7 @@ import {
   extractJsonObject,
   extractTechnicalHints,
   normalizeDomain,
-} from './research-domain.js'
+} from '../netlify/functions/research-domain.js'
 
 // ─── normalizeDomain ──────────────────────────────────────────────────────────
 
