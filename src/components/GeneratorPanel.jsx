@@ -55,6 +55,12 @@ function extractUrl(text) {
   return m ? m[0] : null
 }
 
+/** True only for direct image URLs (jpg/png/webp/gif/avif) — webpage URLs must NOT go to fal.ai */
+function isImageUrl(url) {
+  if (!url) return false
+  return /\.(jpe?g|png|webp|gif|avif|bmp|svg)(\?.*)?$/i.test(url.split('?')[0])
+}
+
 /**
  * Replace ad copy texts (headline + CTA) in an already-built prompt string.
  * Targets the fixed patterns emitted by promptBuilder.js — single-line or two-part hierarchy.
@@ -239,8 +245,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
-    // productImage prop (base64 dataURL) takes priority over URL embedded in notes
-    const productRefUrl = !productImage ? extractUrl(notes) : null
+    // productImage prop (base64 dataURL) takes priority over URL embedded in notes.
+    // Only treat the URL as an image ref if it points to an actual image file —
+    // webpage URLs must never go to fal.ai as image_urls (causes 502).
+    const rawNotesUrl = !productImage ? extractUrl(notes) : null
+    const productRefUrl = (rawNotesUrl && isImageUrl(rawNotesUrl)) ? rawNotesUrl : null
     const hasProductRef = !!productImage || !!productRefUrl
     const hasRef = hasLogo || hasProductRef
 

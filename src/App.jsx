@@ -102,6 +102,7 @@ export default function App() {
   const [brandData, setBrandData] = useState(null)
   const [logoDataUrl, setLogoDataUrl] = useState(null)
   const [generatorFormats, setGeneratorFormats] = useState([])
+  const [resolvedNotes, setResolvedNotes] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copyGenStatus, setCopyGenStatus] = useState('idle')
   const [clients, setClients] = useState([])
@@ -151,6 +152,7 @@ export default function App() {
     setBrandData(null)
     setLogoDataUrl(null)
     setGeneratorFormats([])
+    setResolvedNotes(null)
     setCopyGenStatus('idle')
     setSelectedModule(null)
   }
@@ -190,6 +192,7 @@ export default function App() {
     setBrandData(null)
     setLogoDataUrl(null)
     setGeneratorFormats([])
+    setResolvedNotes(null)
     setCopyGenStatus('idle')
   }
 
@@ -280,9 +283,9 @@ export default function App() {
     }
 
     // Jeśli notes zawiera URL, pobierz treść strony i zastąp URL tekstem
-    let resolvedNotes = campaignData.notes || null
-    if (resolvedNotes) {
-      const urlMatch = resolvedNotes.match(/https?:\/\/[^\s]+/)
+    let notesForPrompt = campaignData.notes || null
+    if (notesForPrompt) {
+      const urlMatch = notesForPrompt.match(/https?:\/\/[^\s]+/)
       if (urlMatch) {
         try {
           const urlRes = await fetch('/.netlify/functions/fetch-url-content', {
@@ -293,7 +296,7 @@ export default function App() {
           if (urlRes.ok) {
             const urlData = await urlRes.json()
             if (urlData.content) {
-              resolvedNotes = resolvedNotes.replace(
+              notesForPrompt = notesForPrompt.replace(
                 urlMatch[0],
                 `\n[Treść strony ${urlMatch[0]} — źródło: ${urlData.source}]:\n${urlData.content}\n`
               )
@@ -304,6 +307,7 @@ export default function App() {
         }
       }
     }
+    setResolvedNotes(notesForPrompt)
 
     const allFormats = []
     for (const fmt of selectedFormats) {
@@ -318,7 +322,7 @@ export default function App() {
           hasProductImage: !!campaignData.productImage,
           cta,
           compInsight,
-          notes: resolvedNotes,
+          notes: notesForPrompt,
           modelInfo,
           campaignChannels: campaignData.channels,
         })
@@ -557,7 +561,7 @@ export default function App() {
                               logoDataUrl={logoDataUrl}
                               brandName={brandData?.name}
                               domain={campaignData?.domain}
-                              notes={campaignData?.notes}
+                              notes={resolvedNotes ?? campaignData?.notes}
                               productImage={campaignData?.productImage || null}
                               falMode={falMode}
                             />
