@@ -90,6 +90,7 @@ export default async (req) => {
 
     const safeDomain = domain
       .replace(/https?:\/\//g, '')
+      .replace(/^www\./i, '')
       .replace(/[/:?*"<>|\\]/g, '_')
       .replace(/_+$/g, '')
 
