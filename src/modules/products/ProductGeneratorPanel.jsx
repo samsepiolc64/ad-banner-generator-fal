@@ -3,6 +3,17 @@ import { resolveModel, costPerImage } from '../../lib/modelRouting'
 import { cropToAspect, compressToJpeg } from '../../lib/imageUtils'
 import { addCost } from '../../lib/clientCosts'
 
+async function runPool(fns, limit = 3) {
+  let idx = 0
+  async function worker() {
+    while (idx < fns.length) {
+      const i = idx++
+      await fns[i]().catch(() => {})
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, worker))
+}
+
 async function uploadToDrive(blob, filename, sessionFolderId) {
   const base64 = await new Promise((resolve) => {
     const reader = new FileReader()
@@ -151,7 +162,7 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
     }
 
     const pending = formats.filter((f) => statuses[f.id]?.status !== 'done')
-    await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
+    await runPool(pending.map((fmt) => () => generateOne(fmt, controller.signal)))
     setRunning(false)
   }
 

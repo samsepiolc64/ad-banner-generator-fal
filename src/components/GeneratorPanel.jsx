@@ -3,6 +3,17 @@ import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
 import { addCost } from '../lib/clientCosts'
 
+async function runPool(fns, limit = 3) {
+  let idx = 0
+  async function worker() {
+    while (idx < fns.length) {
+      const i = idx++
+      await fns[i]().catch(() => {})
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, worker))
+}
+
 // Used when a real logo WILL be composited after generation — reserve a clean corner
 const LOGO_BLOCK_WITH_LOGO = `LOGO RULES — CRITICAL, read carefully:
 
@@ -469,7 +480,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       }
     }
 
-    await Promise.allSettled(pending.map((fmt) => generateOne(fmt, controller.signal)))
+    await runPool(pending.map((fmt) => () => generateOne(fmt, controller.signal)))
 
     setRunning(false)
   }
