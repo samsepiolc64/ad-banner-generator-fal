@@ -374,7 +374,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       // In edit mode the original banner (passed as reference) already has the logo
       // baked in, and NB Pro /edit reproduces it. Re-running compositeLogoOnBanner
       // here would stamp a SECOND logo on top.
+      let noLogoBlob = null
       if (hasLogo && !isEditMode) {
+        noLogoBlob = await compressToJpeg(srcBlob)
         srcBlob = await compositeLogoOnBanner(srcBlob, logoDataUrl, fmt.width, fmt.height)
       }
 
@@ -433,6 +435,28 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const sessionFolderId = driveFolderRef.current?.sessionFolderId
       if (sessionFolderId) {
         uploadToDrive(blob, filename, sessionFolderId).catch(() => {})
+      }
+
+      // Save pre-logo version to "bez logo" subfolder
+      if (noLogoBlob) {
+        if (folderHandleRef.current) {
+          try {
+            const noLogoDir = await folderHandleRef.current.getDirectoryHandle('bez logo', { create: true })
+            const fh2 = await noLogoDir.getFileHandle(filename, { create: true })
+            const w2 = await fh2.createWritable()
+            await w2.write(noLogoBlob)
+            await w2.close()
+          } catch {}
+        } else {
+          const a2 = document.createElement('a')
+          a2.href = URL.createObjectURL(noLogoBlob)
+          a2.download = `bez_logo_${filename}`
+          a2.click()
+        }
+        const noLogoFolderId = driveFolderRef.current?.noLogoFolderId
+        if (noLogoFolderId) {
+          uploadToDrive(noLogoBlob, filename, noLogoFolderId).catch(() => {})
+        }
       }
 
       updateStatus(fmt.id, { status: 'done' })

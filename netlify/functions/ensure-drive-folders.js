@@ -98,9 +98,10 @@ export default async (req) => {
     // Sequential — domain folder first, then session subfolder inside it
     const domainFolderId = await getOrCreateFolder(token, safeDomain, rootFolderId)
     const sessionFolderId = await getOrCreateFolder(token, sessionFolder, domainFolderId)
+    const noLogoFolderId = await getOrCreateFolder(token, 'bez logo', sessionFolderId)
 
     return new Response(
-      JSON.stringify({ domainFolderId, sessionFolderId }),
+      JSON.stringify({ domainFolderId, sessionFolderId, noLogoFolderId }),
       { status: 200 }
     )
   } catch (err) {
