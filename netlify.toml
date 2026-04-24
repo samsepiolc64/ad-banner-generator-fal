@@ -27,6 +27,9 @@
 [functions."remove-bg"]
   timeout = 30
 
+[functions."fetch-url-content"]
+  timeout = 25
+
 [functions."add-cost"]
   timeout = 10
 

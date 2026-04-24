@@ -279,6 +279,32 @@ export default function App() {
       compInsight = parts.join(' ')
     }
 
+    // Jeśli notes zawiera URL, pobierz treść strony i zastąp URL tekstem
+    let resolvedNotes = campaignData.notes || null
+    if (resolvedNotes) {
+      const urlMatch = resolvedNotes.match(/https?:\/\/[^\s]+/)
+      if (urlMatch) {
+        try {
+          const urlRes = await fetch('/.netlify/functions/fetch-url-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: urlMatch[0] }),
+          })
+          if (urlRes.ok) {
+            const urlData = await urlRes.json()
+            if (urlData.content) {
+              resolvedNotes = resolvedNotes.replace(
+                urlMatch[0],
+                `\n[Treść strony ${urlMatch[0]} — źródło: ${urlData.source}]:\n${urlData.content}\n`
+              )
+            }
+          }
+        } catch {
+          // Jeśli fetch się nie uda, zostawiamy URL jako tekst
+        }
+      }
+    }
+
     const allFormats = []
     for (const fmt of selectedFormats) {
       for (let v = 0; v < variantCount; v++) {
@@ -292,7 +318,7 @@ export default function App() {
           hasProductImage: !!campaignData.productImage,
           cta,
           compInsight,
-          notes: campaignData.notes || null,
+          notes: resolvedNotes,
           modelInfo,
           campaignChannels: campaignData.channels,
         })
