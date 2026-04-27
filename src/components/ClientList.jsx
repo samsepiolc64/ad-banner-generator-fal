@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { Check, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Check, X, ChevronUp, ChevronDown, Layers, Image as ImageIcon, MoreHorizontal } from 'lucide-react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
 import { getCost, formatCost } from '../lib/clientCosts'
@@ -363,17 +363,19 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
         {/* Przyciski */}
         <div className="flex items-center gap-2 flex-shrink-0">
 
-          {/* Brand + Drive — widoczne na sm+, na mniejszych w "···" */}
+          {/* Karta klienta — widoczne md+ */}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className={`hidden sm:inline-flex text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors
+            className={`hidden md:inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors
               ${open
                 ? 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
                 : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}`}
           >
-            <span className="inline-flex items-center gap-1">Karta klienta {open ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}</span>
+            Karta klienta {open ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}
           </button>
+
+          {/* Google Drive — widoczne sm+ */}
           <button
             type="button"
             onClick={handleOpenDrive}
@@ -391,40 +393,45 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                 <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H11a1 1 0 0 1 1 1V11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5Z"/>
               </svg>
             )}
-            {driveMissing ? 'Brak folderu' : 'Drive'}
+            {driveMissing ? 'Brak folderu' : 'Google Drive'}
           </button>
 
-          {/* ··· dropdown — tylko na małych ekranach */}
-          <div className="relative sm:hidden" ref={moreRef}>
+          {/* ··· dropdown — widoczne poniżej md; zawiera Karta klienta zawsze + Drive poniżej sm */}
+          <div className="relative md:hidden" ref={moreRef}>
             <button
               type="button"
               onClick={() => setMoreOpen((v) => !v)}
-              className="text-xs px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:text-gray-700 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors font-bold tracking-wider"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:text-gray-700 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors"
             >
-              ···
+              <MoreHorizontal size={14} strokeWidth={2} aria-hidden />
             </button>
             {moreOpen && (
-              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 min-w-[130px]">
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 min-w-[150px]">
                 <button
                   type="button"
                   onClick={() => { setOpen((v) => !v); setMoreOpen(false) }}
-                  className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
                 >
-                  <span className="inline-flex items-center gap-1">Karta klienta {open ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}</span>
+                  {open ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}
+                  Karta klienta
                 </button>
+                {/* Drive — tylko poniżej sm, bo sm+ jest widoczny osobno */}
                 <button
                   type="button"
                   onClick={() => { handleOpenDrive(); setMoreOpen(false) }}
                   disabled={driveLoading}
-                  className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  className="sm:hidden w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
                 >
-                  {driveMissing ? 'Brak folderu' : 'Drive'}
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                    <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H11a1 1 0 0 1 1 1V11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5Z"/>
+                  </svg>
+                  {driveMissing ? 'Brak folderu' : 'Google Drive'}
                 </button>
               </div>
             )}
           </div>
 
-          {/* Przyciski modułów — zawsze widoczne, krótsze etykiety na xs */}
+          {/* Przyciski modułów — zawsze widoczne, z ikonkami, skrócone etykiety poniżej sm */}
           {CLIENT_MODULES.map((mod, idx) => (
             <button
               key={mod.id}
@@ -432,7 +439,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
               onClick={() => mod.available && onStartFlow(domain, client.brand_data, mod.id, client.opiekun || '')}
               disabled={!mod.available}
               title={mod.available ? mod.description : `${mod.label} — wkrótce`}
-              className={`text-xs px-3 sm:px-4 py-1.5 rounded-xl font-semibold transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl font-semibold transition-colors whitespace-nowrap ${
                 !mod.available
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
                   : idx === 0
@@ -440,8 +447,11 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                     : 'border border-gray-200 text-gray-700 hover:border-gray-400 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500'
               }`}
             >
-              <span className="sm:hidden">{mod.label.split(' ')[0]} {mod.available ? '→' : ''}</span>
-              <span className="hidden sm:inline">{mod.label} {mod.available && idx === 0 ? '→' : ''}</span>
+              {mod.id === 'banners'
+                ? <Layers size={14} strokeWidth={1.8} aria-hidden />
+                : <ImageIcon size={14} strokeWidth={1.8} aria-hidden />}
+              <span className="hidden sm:inline">{mod.label}</span>
+              <span className="sm:hidden">{mod.id === 'banners' ? 'Banery' : 'Grafiki'}</span>
             </button>
           ))}
         </div>
