@@ -538,6 +538,72 @@ export function fileToPngDataUrl(file, maxWidth = 600, options = {}) {
 }
 
 /**
+ * Inject an XMP description into a JPEG blob (binary APP1 segment injection).
+ * The description ends up in dc:description — readable by Lightroom, Bridge,
+ * Photoshop, and other XMP-aware tools. Google Drive Details panel may also
+ * surface it. No external library required — pure JPEG binary manipulation.
+ *
+ * Returns a new Blob with XMP embedded. On any error returns the original blob.
+ */
+export async function injectXmpDescription(blob, description) {
+  try {
+    const buffer = await blob.arrayBuffer()
+    const data = new Uint8Array(buffer)
+
+    // Verify JPEG SOI marker
+    if (data.length < 4 || data[0] !== 0xFF || data[1] !== 0xD8) return blob
+
+    // Escape special XML characters
+    const safe = description
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
+
+    const xmpXml =
+      '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>' +
+      '<x:xmpmeta xmlns:x="adobe:ns:meta/">' +
+      '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' +
+      '<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">' +
+      '<dc:description><rdf:Alt><rdf:li xml:lang="x-default">' + safe + '</rdf:li></rdf:Alt></dc:description>' +
+      '</rdf:Description></rdf:RDF></x:xmpmeta>' +
+      '<?xpacket end="w"?>'
+
+    const enc = new TextEncoder()
+    const identifier = enc.encode('http://ns.adobe.com/xap/1.0/\0') // 29 bytes incl. null
+    const xmpBytes = enc.encode(xmpXml)
+
+    // APP1 length = 2 (length field itself) + identifier + xmp content
+    const segLen = 2 + identifier.length + xmpBytes.length
+    if (segLen > 65533) return blob // XMP too large — skip silently
+
+    // Build APP1 segment: FF E1 + 2-byte length + identifier + xmp
+    const seg = new Uint8Array(2 + 2 + identifier.length + xmpBytes.length)
+    seg[0] = 0xFF; seg[1] = 0xE1
+    seg[2] = (segLen >> 8) & 0xFF; seg[3] = segLen & 0xFF
+    seg.set(identifier, 4)
+    seg.set(xmpBytes, 4 + identifier.length)
+
+    // Insert after SOI (2 bytes) + optional APP0 segment (FF E0)
+    let insertAt = 2
+    if (data[2] === 0xFF && data[3] === 0xE0) {
+      const app0Len = (data[4] << 8) | data[5] // includes the 2 length bytes
+      insertAt = 2 + 2 + app0Len               // skip marker(2) + length_value
+    }
+
+    const result = new Uint8Array(data.length + seg.length)
+    result.set(data.subarray(0, insertAt))
+    result.set(seg, insertAt)
+    result.set(data.subarray(insertAt), insertAt + seg.length)
+
+    return new Blob([result], { type: 'image/jpeg' })
+  } catch {
+    return blob // never crash — return original if anything fails
+  }
+}
+
+/**
  * Replace the background of an existing PNG data URL with AI-removed version.
  * Calls the Netlify function which proxies to fal.ai's rembg.
  */

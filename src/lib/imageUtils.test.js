@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { hasTransparency, removeBackgroundFloodFill } from './imageUtils.js'
+import { hasTransparency, removeBackgroundFloodFill, injectXmpDescription } from './imageUtils.js'
 
 // ─── Canvas mock helpers ──────────────────────────────────────────────────────
 
@@ -145,5 +145,106 @@ describe('removeBackgroundFloodFill', () => {
     const cvs = solidCanvas(2, 2, 255, 255, 255, 255)
     const { canvas } = removeBackgroundFloodFill(cvs)
     assert.strictEqual(canvas, cvs)
+  })
+})
+
+// ─── injectXmpDescription ─────────────────────────────────────────────────────
+
+/** Minimal valid JPEG: SOI + EOI */
+function minimalJpeg() {
+  return new Blob([new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])], { type: 'image/jpeg' })
+}
+
+/** JPEG with APP0 (JFIF) segment */
+function jpegWithApp0() {
+  const payload = new Uint8Array([0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00])
+  const len = 2 + payload.length // length field includes itself
+  const bytes = [
+    0xFF, 0xD8,                          // SOI
+    0xFF, 0xE0,                          // APP0 marker
+    (len >> 8) & 0xFF, len & 0xFF,       // APP0 length
+    ...payload,                          // JFIF data
+    0xFF, 0xD9,                          // EOI
+  ]
+  return new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })
+}
+
+/** Read a Blob as Uint8Array */
+async function blobBytes(blob) {
+  return new Uint8Array(await blob.arrayBuffer())
+}
+
+/** Find the first occurrence of a byte sequence in a Uint8Array */
+function findBytes(arr, needle) {
+  outer: for (let i = 0; i <= arr.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (arr[i + j] !== needle[j]) continue outer
+    }
+    return i
+  }
+  return -1
+}
+
+describe('injectXmpDescription', () => {
+  it('returns original blob when input is not a JPEG', async () => {
+    const notJpeg = new Blob([new Uint8Array([0x00, 0x01, 0x02])], { type: 'image/jpeg' })
+    const result = await injectXmpDescription(notJpeg, 'test')
+    assert.strictEqual(result, notJpeg)
+  })
+
+  it('injects APP1 marker (FF E1) right after SOI in a minimal JPEG', async () => {
+    const result = await injectXmpDescription(minimalJpeg(), 'test description')
+    const bytes = await blobBytes(result)
+    // SOI still at 0-1
+    assert.strictEqual(bytes[0], 0xFF)
+    assert.strictEqual(bytes[1], 0xD8)
+    // APP1 marker immediately after SOI
+    assert.strictEqual(bytes[2], 0xFF)
+    assert.strictEqual(bytes[3], 0xE1)
+  })
+
+  it('result is larger than the original (XMP segment was inserted)', async () => {
+    const orig = minimalJpeg()
+    const result = await injectXmpDescription(orig, 'hello')
+    assert.ok(result.size > orig.size)
+  })
+
+  it('embeds the XMP namespace identifier in the segment', async () => {
+    const result = await injectXmpDescription(minimalJpeg(), 'test')
+    const bytes = await blobBytes(result)
+    const identifier = new TextEncoder().encode('http://ns.adobe.com/xap/1.0/')
+    assert.ok(findBytes(bytes, identifier) !== -1, 'XMP identifier not found')
+  })
+
+  it('embeds the description text in the XMP payload', async () => {
+    const result = await injectXmpDescription(minimalJpeg(), 'Baner filtracji wody')
+    const bytes = await blobBytes(result)
+    const desc = new TextEncoder().encode('Baner filtracji wody')
+    assert.ok(findBytes(bytes, desc) !== -1, 'description text not found in XMP')
+  })
+
+  it('escapes XML special characters in description', async () => {
+    const result = await injectXmpDescription(minimalJpeg(), 'a & b <c> "d"')
+    const bytes = await blobBytes(result)
+    const escaped = new TextEncoder().encode('a &amp; b &lt;c&gt; &quot;d&quot;')
+    assert.ok(findBytes(bytes, escaped) !== -1, 'escaped entities not found')
+  })
+
+  it('inserts APP1 AFTER APP0 when APP0 is present', async () => {
+    const result = await injectXmpDescription(jpegWithApp0(), 'desc')
+    const bytes = await blobBytes(result)
+    // APP0 marker at offset 2
+    assert.strictEqual(bytes[2], 0xFF)
+    assert.strictEqual(bytes[3], 0xE0)
+    // APP1 must come AFTER the APP0 segment, not at offset 2
+    const app0Len = (bytes[4] << 8) | bytes[5]
+    const app1Offset = 2 + 2 + app0Len
+    assert.strictEqual(bytes[app1Offset], 0xFF)
+    assert.strictEqual(bytes[app1Offset + 1], 0xE1)
+  })
+
+  it('result type is image/jpeg', async () => {
+    const result = await injectXmpDescription(minimalJpeg(), 'test')
+    assert.strictEqual(result.type, 'image/jpeg')
   })
 })

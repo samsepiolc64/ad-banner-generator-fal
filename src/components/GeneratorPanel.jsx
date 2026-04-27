@@ -13,7 +13,7 @@ import {
   Square,
 } from 'lucide-react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
-import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
+import { cropToAspect, compressToJpeg, compositeLogoOnBanner, injectXmpDescription } from '../lib/imageUtils'
 import { addCost } from '../lib/clientCosts'
 
 async function runPool(fns, limit = 3) {
@@ -395,12 +395,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         srcBlob = await compositeLogoOnBanner(srcBlob, logoDataUrl, fmt.width, fmt.height)
       }
 
-      const blob = await compressToJpeg(srcBlob)
+      let blob = await compressToJpeg(srcBlob)
       // Edit mode cost = NB Pro $0.15 + Haiku Vision ~$0.003 (only on first edit; subsequent
       // edits of the same banner reuse the cached description).
       addCost(domain, costPerImage(isEditMode ? 'nbpro' : model.type))
-      const previewUrl = URL.createObjectURL(blob)
-      setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
@@ -413,6 +411,36 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const filename = isEditMode
         ? `${safeDomain}_${fmtSlug}_edytowany.jpg`
         : originalKey
+
+      // --- AI caption: awaited before save so the text is embedded in XMP metadata ---
+      // The caption is stored in dc:description (XMP APP1 segment) inside the JPEG binary.
+      // XMP-aware tools (Lightroom, Bridge, Photoshop, Windows Explorer details pane) will
+      // surface it. Google Drive Details panel may also display it.
+      let captionText = null
+      if (!isEditMode) {
+        try {
+          const captionDataUrl = await blobToDataUrl(blob)
+          const captionRes = await fetch('/.netlify/functions/describe-banner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: captionDataUrl, mediaType: 'image/jpeg', mode: 'caption' }),
+          })
+          if (captionRes.ok) {
+            const captionData = await captionRes.json()
+            captionText = captionData?.caption || null
+          }
+        } catch {}
+
+        if (captionText) {
+          // Embed into main blob and the no-logo version
+          blob = await injectXmpDescription(blob, captionText)
+          if (noLogoBlob) noLogoBlob = await injectXmpDescription(noLogoBlob, captionText)
+          setCaptions((prev) => ({ ...prev, [fmt.id]: captionText }))
+        }
+      }
+
+      const previewUrl = URL.createObjectURL(blob)
+      setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
       // Save prompt and texts under the KEY that matches the UI row (always originalKey).
       promptsMapRef.current[originalKey] = finalPrompt
@@ -476,19 +504,6 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)
-
-      // Fire-and-forget: AI caption describing what's on the banner
-      if (!isEditMode) {
-        const captionDataUrl = await blobToDataUrl(blob)
-        fetch('/.netlify/functions/describe-banner', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: captionDataUrl, mediaType: 'image/jpeg', mode: 'caption' }),
-        })
-          .then((r) => r.ok ? r.json() : null)
-          .then((data) => { if (data?.caption) setCaptions((prev) => ({ ...prev, [fmt.id]: data.caption })) })
-          .catch(() => {})
-      }
     } catch (e) {
       const msg = e.name === 'AbortError' ? 'Timeout — za długo' : e.message
       updateStatus(fmt.id, { status: 'error', message: msg })
