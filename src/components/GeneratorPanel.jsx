@@ -95,6 +95,33 @@ function replaceAdCopyInPrompt(prompt, headline, cta) {
 }
 
 /**
+ * Replace ad copy texts in a GPT Image 2 prompt string.
+ * Targets the patterns emitted by gptImage2PromptBuilder.js.
+ */
+function replaceAdCopyInGptPrompt(prompt, headline, cta) {
+  const parts = headline.split('\n').map((s) => s.trim()).filter(Boolean)
+  const primary = parts[0] || ''
+  const secondary = parts[1] || null
+
+  let result = prompt
+  if (secondary) {
+    // Two-line: PRIMARY HEADLINE (...): "text" + SECONDARY LINE ...: "text"
+    result = result.replace(/- PRIMARY HEADLINE \([^)]*\): "[^"]*"/, `- PRIMARY HEADLINE (largest, heaviest, dominant): "${primary}"`)
+    result = result.replace(/- SECONDARY LINE [^:]*: "[^"]*"/, `- SECONDARY LINE directly below: "${secondary}"`)
+  } else if (/- PRIMARY HEADLINE/.test(result)) {
+    // Was two-line originally — keep structure, clear secondary
+    result = result.replace(/- PRIMARY HEADLINE \([^)]*\): "[^"]*"/, `- PRIMARY HEADLINE (largest, heaviest, dominant): "${primary}"`)
+    result = result.replace(/- SECONDARY LINE [^:]*: "[^"]*"/, '')
+  } else {
+    // Single line: HEADLINE (...): "text"
+    result = result.replace(/- HEADLINE \([^)]*\): "[^"]*"/, `- HEADLINE (large, bold): "${primary}"`)
+  }
+  // CTA: - CTA BUTTON with text "..." — rest of line unchanged
+  result = result.replace(/- CTA BUTTON with text "[^"]*"/, `- CTA BUTTON with text "${cta}"`)
+  return result
+}
+
+/**
  * Build an NB Pro /edit prompt from a structured JSON description of the
  * original banner (produced by Claude Vision via describe-banner.js) PLUS
  * the new text values the user wants. The JSON carries every visual attribute
@@ -327,6 +354,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         description, textOverrides.headline, textOverrides.cta, isStories, isTikTokVertical
       )
       submitImageUrls = [origDataUrl]
+    } else if (isGptImage2 && textOverrides) {
+      // GPT Image 2 text update: replace text values in the stored original prompt, then regenerate t2i.
+      // No img2img reference — composition may vary slightly vs. original.
+      const safeDomainForGpt = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
+      const fmtSlugForGpt = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
+      const origKey = `${safeDomainForGpt}_${fmtSlugForGpt}.jpg`
+      const storedPrompt = promptsMapRef.current[origKey]
+      if (!storedPrompt) throw new Error('Brak oryginalnego promptu — zregeneruj baner najpierw.')
+      finalPrompt = replaceAdCopyInGptPrompt(storedPrompt, textOverrides.headline, textOverrides.cta)
+      submitImageUrls = []
     } else if (isGptImage2) {
       // GPT Image 2: prompt already built by gptImage2PromptBuilder — no placeholders to replace.
       // No reference images sent to fal.ai (t2i only). Logo will be composited locally after generation.
@@ -756,21 +793,18 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                       {isPromptOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}
                       Prompt
                     </button>
-                    {/* Zmień teksty — only available for Nano Banana (NB Pro /edit feature) */}
-                    {imageModel !== 'gpt-image-2' && (
-                      <button
-                        type="button"
-                        onClick={() => toggleTextsEditor(filename)}
-                        className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors
-                          ${isTextsOpen
-                            ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
-                          }`}
-                      >
-                        {isTextsOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <Pencil size={12} strokeWidth={1.8} aria-hidden />}
-                        Zmień teksty
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleTextsEditor(filename)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors
+                        ${isTextsOpen
+                          ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
+                          : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                        }`}
+                    >
+                      {isTextsOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <Pencil size={12} strokeWidth={1.8} aria-hidden />}
+                      Zmień teksty
+                    </button>
                   </div>
                 )}
               </div>
@@ -853,7 +887,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                   </button>
 
                   <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    Tylko teksty zostaną podmienione — styl, układ i grafika pozostają bez zmian.
+                    {imageModel === 'gpt-image-2'
+                      ? 'Prompt zostanie zaktualizowany z nowymi tekstami i baner wygenerowany ponownie. Kompozycja może się nieznacznie różnić.'
+                      : 'Tylko teksty zostaną podmienione — styl, układ i grafika pozostają bez zmian.'}
                   </p>
                 </div>
               )}
