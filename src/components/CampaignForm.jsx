@@ -38,24 +38,24 @@ const SECTIONS = [
     id: 'message',
     title: 'Co?',
     subtitle: 'Cel, hasło i CTA',
-    fields: ['goal', 'headline', 'cta', 'productImage'],
+    fields: ['goal', 'headline', 'cta'],
     isComplete: (f) => !!f.goal,
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
       const ct = f.ctaType === 'custom' ? (f.cta || 'własne CTA') : 'CTA auto'
-      const img = f.productImage ? ' · z produktem' : ''
-      return [f.goal, hl, ct].filter(Boolean).join(' — ') + img
+      return [f.goal, hl, ct].filter(Boolean).join(' — ')
     },
   },
   {
     id: 'settings',
     title: 'Ile?',
     subtitle: 'Warianty i uwagi',
-    fields: ['variants', 'notes'],
+    fields: ['variants', 'notes', 'productImage'],
     isComplete: (f) => !!f.variants,
     summary: (f) => {
       const v = `${f.variants} wariant${f.variants > 1 ? 'y' : ''}`
-      return f.notes ? `${v} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : v
+      const img = f.productImage ? ' · z produktem' : ''
+      return (f.notes ? `${v} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : v) + img
     },
   },
 ]

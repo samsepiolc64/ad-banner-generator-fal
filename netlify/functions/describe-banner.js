@@ -15,23 +15,29 @@
  */
 function extractJsonObject(text) {
   if (!text) return null
-  const start = text.indexOf('{')
-  if (start === -1) return null
-  let depth = 0, inString = false, escape = false
-  for (let i = start; i < text.length; i++) {
-    const c = text[i]
-    if (escape) { escape = false; continue }
-    if (c === '\\' && inString) { escape = true; continue }
-    if (c === '"') { inString = !inString; continue }
-    if (inString) continue
-    if (c === '{') depth++
-    else if (c === '}') {
-      depth--
-      if (depth === 0) return text.slice(start, i + 1)
+  let pos = 0
+  while (pos < text.length) {
+    const start = text.indexOf('{', pos)
+    if (start === -1) return null
+    let depth = 0, inString = false, escape = false, end = -1
+    for (let i = start; i < text.length; i++) {
+      const c = text[i]
+      if (escape) { escape = false; continue }
+      if (c === '\\' && inString) { escape = true; continue }
+      if (c === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (c === '{') depth++
+      else if (c === '}') { depth--; if (depth === 0) { end = i; break } }
     }
+    if (end === -1) return null
+    const candidate = text.slice(start, end + 1)
+    try { JSON.parse(candidate); return candidate } catch {}
+    pos = start + 1
   }
   return null
 }
+
+const CAPTION_PROMPT = `Opisz w 1-2 zdaniach po polsku co widzisz na tym banerze reklamowym. Opisz główną scenę, główny obiekt/temat i nastrój. Bądź konkretny i zwięzły. Odpowiedz tylko samym opisem, bez żadnych wstępów.`
 
 const SCHEMA_INSTRUCTIONS = `Return a JSON object (no markdown fences) describing this advertising banner in enough detail that another AI model could recreate it almost identically. Follow this exact schema:
 
@@ -83,7 +89,8 @@ export default async (req) => {
 
   try {
     const body = await req.json()
-    const { imageBase64, mediaType } = body
+    const { imageBase64, mediaType, mode } = body
+    const isCaption = mode === 'caption'
 
     if (!imageBase64) {
       return new Response(
@@ -104,7 +111,7 @@ export default async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 3072,
+        max_tokens: isCaption ? 256 : 3072,
         messages: [
           {
             role: 'user',
@@ -115,7 +122,9 @@ export default async (req) => {
               },
               {
                 type: 'text',
-                text: `You are an expert advertising art director. Analyze this banner image and extract a complete structured description.\n\n${SCHEMA_INSTRUCTIONS}`,
+                text: isCaption
+                  ? CAPTION_PROMPT
+                  : `You are an expert advertising art director. Analyze this banner image and extract a complete structured description.\n\n${SCHEMA_INSTRUCTIONS}`,
               },
             ],
           },
@@ -132,12 +141,22 @@ export default async (req) => {
     }
 
     const claudeData = await claudeRes.json()
-    const text = claudeData.content?.[0]?.text || ''
-    const jsonStr = extractJsonObject(text)
+    const responseText = claudeData.content?.[0]?.text || ''
+
+    // Caption mode — return plain text
+    if (isCaption) {
+      return new Response(
+        JSON.stringify({ caption: responseText.trim() }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Full describe mode — parse JSON
+    const jsonStr = extractJsonObject(responseText)
 
     if (!jsonStr) {
       return new Response(
-        JSON.stringify({ error: 'Could not parse Claude response', raw: text.slice(0, 300) }),
+        JSON.stringify({ error: 'Could not parse Claude response', raw: responseText.slice(0, 300) }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }

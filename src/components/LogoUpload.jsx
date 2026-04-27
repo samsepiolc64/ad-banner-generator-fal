@@ -14,7 +14,7 @@ import { fileToPngDataUrl, removeBackgroundAI } from '../lib/imageUtils'
  */
 export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
   // Tryb domyślny: 'brand' jeśli jest logo z researchu, inaczej 'upload'
-  const [mode, setMode] = useState(() => brandLogoDataUrl ? 'brand' : 'upload')
+  const [mode, setMode] = useState(() => brandLogoDataUrl ? 'brand' : 'none')
 
   // Stan dla trybu 'upload'
   const [uploadedUrl, setUploadedUrl] = useState(null)

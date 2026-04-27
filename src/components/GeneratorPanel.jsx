@@ -200,6 +200,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const [expandedTexts, setExpandedTexts] = useState({})
   // Current form values in text editors (filename → { primary, secondary, cta })
   const [editingTexts, setEditingTexts] = useState({})
+  // AI captions (fmt.id → string) — generated fire-and-forget after each banner completes
+  const [captions, setCaptions] = useState({})
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -474,6 +476,19 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)
+
+      // Fire-and-forget: AI caption describing what's on the banner
+      if (!isEditMode) {
+        const captionDataUrl = await blobToDataUrl(blob)
+        fetch('/.netlify/functions/describe-banner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: captionDataUrl, mediaType: 'image/jpeg', mode: 'caption' }),
+        })
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => { if (data?.caption) setCaptions((prev) => ({ ...prev, [fmt.id]: data.caption })) })
+          .catch(() => {})
+      }
     } catch (e) {
       const msg = e.name === 'AbortError' ? 'Timeout — za długo' : e.message
       updateStatus(fmt.id, { status: 'error', message: msg })
@@ -503,6 +518,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     setExpandedPrompts({})
     setExpandedTexts({})
     setEditingTexts({})
+    setCaptions({})
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -601,12 +617,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         </span>
       </div>
 
-      {/* Format list */}
-      <div className="flex flex-col gap-2 mb-4">
+      {/* Format grid — responsive: auto-fill cards, fixed min-width */}
+      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
         {formats.map((fmt) => {
           const st = statuses[fmt.id]
           const model = resolveModel(fmt)
           const preview = previews[fmt.id]
+          const caption = captions[fmt.id]
           const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
           const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
           const filename = `${safeDomain}_${fmtSlug}.jpg`
@@ -620,95 +637,109 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           return (
             <div
               key={fmt.id}
-              className={`rounded-xl overflow-hidden transition-colors
-                ${st.status === 'done' ? 'bg-brand-green-light dark:bg-green-950/30' : ''}
-                ${st.status === 'error' ? 'bg-brand-red-light dark:bg-red-950/30' : ''}
-                ${st.status === 'generating' ? 'bg-orange-50 dark:bg-orange-950/30' : ''}
-                ${st.status === 'idle' ? 'bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800' : ''}`}
+              className={`rounded-xl overflow-hidden transition-colors border
+                ${st.status === 'done' ? 'border-brand-green/30 bg-brand-green-light dark:bg-green-950/30' : ''}
+                ${st.status === 'error' ? 'border-brand-red/30 bg-brand-red-light dark:bg-red-950/30' : ''}
+                ${st.status === 'generating' ? 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30' : ''}
+                ${st.status === 'idle' ? 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900/50' : ''}`}
             >
-              {/* Main row */}
-              <div className="p-3 flex items-center gap-3.5">
-                {/* Thumbnail */}
-                <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-600">
-                  {preview ? (
-                    <img src={preview} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon size={24} strokeWidth={1.6} aria-hidden />
-                  )}
-                </div>
+              {/* Thumbnail — fixed height 160px, fills card width */}
+              <div className="relative w-full h-40 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                {preview ? (
+                  <img src={preview} alt={fmt.label} className="w-full h-full object-contain" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-gray-300 dark:text-gray-600">
+                    {st.status === 'generating'
+                      ? <Zap size={28} strokeWidth={1.6} className="text-brand-orange animate-pulse" aria-hidden />
+                      : <ImageIcon size={28} strokeWidth={1.6} aria-hidden />}
+                  </div>
+                )}
+                {/* Caption overlay — bottom strip */}
+                {caption && (
+                  <div className="absolute bottom-0 inset-x-0 bg-black/55 px-2.5 py-1.5">
+                    <p className="text-white text-[11px] leading-snug line-clamp-2">{caption}</p>
+                  </div>
+                )}
+              </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                    {fmt.width}×{fmt.height}px
-                    {model.needsResize ? ` (${model.ar}→resize)` : ''}
+              {/* Card body */}
+              <div className="p-3">
+                {/* Label + size + status */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                      {fmt.width}×{fmt.height}px{model.needsResize ? ` · ${model.ar}→crop` : ''}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    {st.status === 'done' && (
+                      <span className="inline-flex items-center gap-1 text-brand-green text-xs font-semibold whitespace-nowrap">
+                        <CheckCircle2 size={14} strokeWidth={1.8} aria-hidden /> zapisano
+                      </span>
+                    )}
+                    {st.status === 'generating' && (
+                      <span className="inline-flex items-center gap-1 text-brand-orange text-xs font-semibold whitespace-nowrap">
+                        <Zap size={14} strokeWidth={1.8} aria-hidden /> generowanie...
+                      </span>
+                    )}
+                    {st.status === 'idle' && (
+                      <span className="inline-flex items-center gap-1 text-gray-300 dark:text-gray-600 text-xs whitespace-nowrap">
+                        <Clock size={14} strokeWidth={1.8} aria-hidden /> oczekuje
+                      </span>
+                    )}
+                    {st.status === 'error' && (
+                      <span className="inline-flex items-center gap-1 text-brand-red text-xs" title={st.message}>
+                        <XCircle size={14} strokeWidth={1.8} aria-hidden className="flex-shrink-0" />
+                        <span className="truncate max-w-[100px]">błąd</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Status + action buttons */}
-                <div className="flex-shrink-0 flex items-center gap-2">
-                  {st.status === 'done' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => togglePrompt(filename)}
-                        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
-                          ${isPromptOpen
-                            ? 'border-blue-400 text-blue-500 bg-blue-50 dark:bg-blue-950/40'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
-                          }`}
-                      >
-                        {isPromptOpen ? <ChevronUp size={14} strokeWidth={1.8} aria-hidden /> : <ChevronDown size={14} strokeWidth={1.8} aria-hidden />}
-                        Prompt
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleTextsEditor(filename)}
-                        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
-                          ${isTextsOpen
-                            ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
-                          }`}
-                      >
-                        {isTextsOpen ? <ChevronUp size={14} strokeWidth={1.8} aria-hidden /> : <Pencil size={14} strokeWidth={1.8} aria-hidden />}
-                        {isTextsOpen ? 'Teksty' : 'Zmień teksty'}
-                      </button>
-                      <span className="inline-flex items-center gap-1.5 text-brand-green font-semibold whitespace-nowrap">
-                        <CheckCircle2 size={16} strokeWidth={1.8} aria-hidden />
-                        zapisano
-                      </span>
-                    </>
-                  )}
-                  {st.status === 'error' && (
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="inline-flex items-center gap-1.5 text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>
-                        <XCircle size={14} strokeWidth={1.8} aria-hidden className="flex-shrink-0" />
-                        <span className="truncate">{st.message?.slice(0, 50)}</span>
-                      </span>
-                      <button
-                        onClick={() => retryOne(fmt)}
-                        disabled={running}
-                        className="inline-flex items-center gap-1.5 text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                      >
-                        <RotateCcw size={12} strokeWidth={2} aria-hidden />
-                        Ponów
-                      </button>
-                    </div>
-                  )}
-                  {st.status === 'generating' && (
-                    <span className="inline-flex items-center gap-1.5 text-brand-orange font-semibold whitespace-nowrap">
-                      <Zap size={14} strokeWidth={1.8} aria-hidden />
-                      generowanie...
-                    </span>
-                  )}
-                  {st.status === 'idle' && (
-                    <span className="inline-flex items-center gap-1.5 text-gray-300 dark:text-gray-600 whitespace-nowrap">
-                      <Clock size={14} strokeWidth={1.8} aria-hidden />
-                      oczekuje
-                    </span>
-                  )}
-                </div>
+                {/* Error detail + retry */}
+                {st.status === 'error' && (
+                  <div className="mb-2">
+                    <p className="text-brand-red text-[11px] leading-tight mb-1.5" title={st.message}>{st.message?.slice(0, 80)}</p>
+                    <button
+                      onClick={() => retryOne(fmt)}
+                      disabled={running}
+                      className="inline-flex items-center gap-1.5 text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <RotateCcw size={12} strokeWidth={2} aria-hidden /> Ponów
+                    </button>
+                  </div>
+                )}
+
+                {/* Prompt + Zmień teksty buttons (done only) */}
+                {st.status === 'done' && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => togglePrompt(filename)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors
+                        ${isPromptOpen
+                          ? 'border-blue-400 text-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                          : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                        }`}
+                    >
+                      {isPromptOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}
+                      Prompt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleTextsEditor(filename)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors
+                        ${isTextsOpen
+                          ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
+                          : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                        }`}
+                    >
+                      {isTextsOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <Pencil size={12} strokeWidth={1.8} aria-hidden />}
+                      Zmień teksty
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Expandable: prompt viewer */}
