@@ -644,7 +644,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 ${st.status === 'idle' ? 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900/50' : ''}`}
             >
               {/* Thumbnail — fixed height 160px, fills card width */}
-              <div className="relative w-full h-40 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+              <div className="relative w-full h-80 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                 {preview ? (
                   <img src={preview} alt={fmt.label} className="w-full h-full object-contain" />
                 ) : (
