@@ -84,20 +84,28 @@ function brandMatchesDomain(brandName, domain) {
  */
 function extractJsonObject(text) {
   if (!text) return null
-  const start = text.indexOf('{')
-  if (start === -1) return null
-  let depth = 0, inString = false, escape = false
-  for (let i = start; i < text.length; i++) {
-    const c = text[i]
-    if (escape) { escape = false; continue }
-    if (c === '\\' && inString) { escape = true; continue }
-    if (c === '"') { inString = !inString; continue }
-    if (inString) continue
-    if (c === '{') depth++
-    else if (c === '}') {
-      depth--
-      if (depth === 0) return text.slice(start, i + 1)
+  let pos = 0
+  while (pos < text.length) {
+    const start = text.indexOf('{', pos)
+    if (start === -1) return null
+    let depth = 0, inString = false, escape = false
+    let end = -1
+    for (let i = start; i < text.length; i++) {
+      const c = text[i]
+      if (escape) { escape = false; continue }
+      if (c === '\\' && inString) { escape = true; continue }
+      if (c === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (c === '{') depth++
+      else if (c === '}') {
+        depth--
+        if (depth === 0) { end = i; break }
+      }
     }
+    if (end === -1) return null // unclosed brace — give up
+    const candidate = text.slice(start, end + 1)
+    try { JSON.parse(candidate); return candidate } catch {}
+    pos = start + 1 // not valid JSON — try next '{'
   }
   return null
 }

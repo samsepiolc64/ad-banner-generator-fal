@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { X } from 'lucide-react'
 import CampaignForm from './components/CampaignForm'
 import BrandForm from './components/BrandForm'
 import LogoUpload from './components/LogoUpload'
@@ -287,6 +288,9 @@ export default function App() {
 
     // Jeśli notes zawiera URL — rozpoznaj czy to obrazek czy strona
     let notesForPrompt = campaignData.notes || null
+    // notesForFalAi = notes bez URL i bez scraped content — tylko tekst użytkownika.
+    // Fal.ai (image generation) nie przetworzy 5000 znaków treści strony i failuje z 502.
+    let notesForFalAi = notesForPrompt
     let detectedImageUrl = null
     if (notesForPrompt) {
       const urlMatch = notesForPrompt.match(/https?:\/\/[^\s]+/)
@@ -313,8 +317,11 @@ export default function App() {
           // Obrazek → przekaż do fal.ai jako referencję, usuń z notes
           detectedImageUrl = url
           notesForPrompt = notesForPrompt.replace(url, '').trim() || null
+          notesForFalAi = notesForPrompt
         } else {
-          // Strona → pobierz treść dla Claude
+          // Strona → URL zawsze usuwamy z fal.ai promptu (model image-gen tego nie przetworzy)
+          notesForFalAi = notesForFalAi.replace(url, '').trim() || null
+          // Pobierz treść strony jako dodatkowy kontekst (dla budowania nagłówków)
           try {
             const urlRes = await fetch('/.netlify/functions/fetch-url-content', {
               method: 'POST',
@@ -350,7 +357,7 @@ export default function App() {
           hasProductImage: !!campaignData.productImage,
           cta,
           compInsight,
-          notes: notesForPrompt,
+          notes: notesForFalAi,
           modelInfo,
           campaignChannels: campaignData.channels,
         })
@@ -425,9 +432,9 @@ export default function App() {
               <button
                 type="button"
                 onClick={goHome}
-                className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm transition-colors"
+                className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm transition-colors inline-flex items-center gap-1.5"
               >
-                ✕ Anuluj
+                <X size={14} strokeWidth={2} aria-hidden /> Anuluj
               </button>
             )}
           </div>

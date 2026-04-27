@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { Check, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { normalizeDomain, firstLetter } from '../lib/domain'
 import { CLIENT_MODULES } from '../lib/clientModules'
 import { getCost, formatCost } from '../lib/clientCosts'
@@ -371,7 +372,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                 ? 'bg-gray-100 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
                 : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}`}
           >
-            Karta klienta {open ? '▲' : '▾'}
+            <span className="inline-flex items-center gap-1">Karta klienta {open ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}</span>
           </button>
           <button
             type="button"
@@ -409,7 +410,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                   onClick={() => { setOpen((v) => !v); setMoreOpen(false) }}
                   className="w-full text-left text-xs px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                  Karta klienta {open ? '▲' : '▾'}
+                  <span className="inline-flex items-center gap-1">Karta klienta {open ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}</span>
                 </button>
                 <button
                   type="button"
@@ -478,8 +479,8 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
                     onClick={async () => { await saveMeta('opiekun', opiekunDraft); setEditingOpiekun(false) }}
                     disabled={savingMeta}
                     className="text-[11px] px-2 py-1 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 font-semibold disabled:opacity-50"
-                  >✓</button>
-                  <button onClick={() => { setOpiekunDraft(client.opiekun || ''); setEditingOpiekun(false) }} className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500">✕</button>
+                  ><Check size={14} strokeWidth={2.4} aria-hidden /></button>
+                  <button onClick={() => { setOpiekunDraft(client.opiekun || ''); setEditingOpiekun(false) }} className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500"><X size={14} strokeWidth={2.4} aria-hidden /></button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
@@ -498,7 +499,7 @@ function ClientRow({ client, onStartFlow, onRefreshed, onDeleted, onMetaUpdated 
               className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
             >
               <span>Dane marki</span>
-              <span>{brandOpen ? '▲' : '▾'}</span>
+              <span>{brandOpen ? <ChevronUp size={14} strokeWidth={2} aria-hidden /> : <ChevronDown size={14} strokeWidth={2} aria-hidden />}</span>
             </button>
             {brandOpen && (
               <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-700/50">
@@ -716,10 +717,10 @@ export default function ClientList({ clients = [], loading = false, onNew, onSta
             <button
               type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               aria-label="Wyczyść"
             >
-              ✕
+              <X size={14} strokeWidth={2} aria-hidden />
             </button>
           )}
         </div>

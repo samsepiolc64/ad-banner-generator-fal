@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { loadResearch, saveResearch, clearResearch, formatAge } from '../lib/researchCache'
 import ScreenshotUploader from './ScreenshotUploader'
 import ResearchDiff from './ResearchDiff'
@@ -454,7 +455,7 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
             <path d="M8 5v3l2 1.5"/>
           </svg>
         ),
-        title: `⚠ Research z archiwum (Wayback Machine)`,
+        title: `Research z archiwum (Wayback Machine)`,
         body: archiveTimestamp
           ? `Strona zablokowała pobieranie, więc Claude użył historycznego snapshota z ${formatArchiveDate(archiveTimestamp) || 'archiwum'}. Dane brandowe (kolory, fonty) zwykle są stabilne, ale oferta/hasła mogły się zmienić. Jeśli coś wygląda nie tak — wgraj świeży screenshot poniżej.`
           : `Strona zablokowała pobieranie, więc Claude użył historycznego snapshota z archiwum internetu. Dane brandowe zwykle są stabilne, ale warto zweryfikować.`,
@@ -586,9 +587,9 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
             <button
               type="button"
               onClick={() => setDetailsOpen(v => !v)}
-              className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-0.5"
+              className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-0.5 inline-flex items-center gap-1"
             >
-              {detailsOpen ? '▲ Zwiń szczegóły' : `▾ Pokaż szczegóły (${secondary.length})`}
+              {detailsOpen ? <><ChevronUp size={10} strokeWidth={2} aria-hidden /> Zwiń szczegóły</> : <><ChevronDown size={10} strokeWidth={2} aria-hidden /> Pokaż szczegóły ({secondary.length})</>}
             </button>
           </>
         )}

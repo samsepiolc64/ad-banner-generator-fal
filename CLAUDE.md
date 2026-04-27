@@ -69,6 +69,41 @@ Prompty budowane w `promptBuilder.js` zawierają sekcje:
 - Brak testów (jeszcze)
 - Brak state managementu poza useState/useCallback
 
+## Ikony — konwencja
+
+**Wszystkie ikony w UI muszą być płaskie, jednokolorowe SVG** (nie kolorowe emoji ani znaki ASCII jak ▼ ▲ ↻ ⏹ ✕ ✓).
+
+- Biblioteka: `lucide-react` (zainstalowana)
+- Sidebar i `lib/modules.jsx` używają inline SVG w tym samym stylu — nie zmieniaj
+- Kolor: `currentColor` — ikona dziedziczy kolor po tekście (zachowaj `text-brand-green`/`text-brand-red`/`text-brand-orange` na rodzicu, by zachować semantykę statusu)
+- Standard rozmiarów:
+  - `size={12}` — bardzo małe inline (chevron, X w przyciskach `text-[10/11px]`)
+  - `size={14}` — inline w przyciskach `text-xs`
+  - `size={16}` — standardowe akcje (`text-sm`)
+  - `size={18}` — duże CTA (główny przycisk akcji)
+  - `size={20–24}` — placeholdery/thumbnaile
+- Standard `strokeWidth`: `1.6`–`1.8` dla zwykłych, `2`+ dla małych/grubych akcentów
+- Wyrównanie z tekstem: `inline-flex items-center gap-1.5` (lub `gap-1` dla bardzo małych, `gap-2` dla CTA)
+- Dostępność: `aria-hidden` przy ikonach dekoracyjnych obok tekstu; `flex-shrink-0` w pojemnikach, gdzie tekst może się skracać
+- Mapowanie najczęstszych ikon:
+  - `CheckCircle2` — sukces / `done`
+  - `XCircle` — błąd / `error`
+  - `Zap` — generowanie / aktywna akcja
+  - `Clock` — `idle` / oczekuje
+  - `RotateCcw` — retry / regeneruj
+  - `Square` (z `fill="currentColor"`) — stop
+  - `ChevronUp/Down` — toggle sekcji
+  - `X` — zamknij / usuń / anuluj
+  - `Check` — confirm
+  - `Folder` / `FolderOpen` — wybór folderu / drag&drop
+  - `ImageIcon` — placeholder grafiki
+  - `Pencil` — edytuj
+  - `Sparkles` — operacja AI
+  - `AlertTriangle` — ostrzeżenie
+  - `Info` — informacja
+
+**Nie dodawaj** kolorowych emoji (📁 📷 ✅ ❌ ⚡ 🧠 ⚠️ itp.) ani znaków ASCII jako ikon w nowym kodzie.
+
 ## Zmienne środowiskowe
 
 | Zmienna | Wymagana | Opis |

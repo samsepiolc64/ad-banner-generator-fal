@@ -1,4 +1,14 @@
 import { useState, useRef } from 'react'
+import {
+  Folder,
+  Image as ImageIcon,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Zap,
+  Clock,
+  Square,
+} from 'lucide-react'
 import { resolveModel, costPerImage } from '../../lib/modelRouting'
 import { cropToAspect, compressToJpeg } from '../../lib/imageUtils'
 import { addCost } from '../../lib/clientCosts'
@@ -183,8 +193,8 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
       </div>
 
       <div className="bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl p-3.5 mb-3 flex items-center gap-3.5">
-        <button onClick={pickFolder} className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap hover:bg-gray-800 transition-colors">
-          📁 Wybierz folder
+        <button onClick={pickFolder} className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
+          <Folder size={16} strokeWidth={1.8} aria-hidden /> Wybierz folder
         </button>
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {folderName
@@ -205,37 +215,46 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
               ${st.status === 'idle' ? 'bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800' : ''}`}
             >
               <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl text-gray-300 dark:text-gray-600">
-                {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : '📷'}
+                {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={24} strokeWidth={1.6} aria-hidden />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{fmt.width}×{fmt.height}px</div>
               </div>
               <div className="flex-shrink-0 text-sm text-right">
-                {st.status === 'done' && <span className="text-brand-green font-semibold whitespace-nowrap">✅ zapisano</span>}
+                {st.status === 'done' && <span className="text-brand-green font-semibold whitespace-nowrap inline-flex items-center gap-1.5"><CheckCircle2 size={16} strokeWidth={1.8} aria-hidden /> zapisano</span>}
                 {st.status === 'error' && (
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>❌ {st.message?.slice(0, 50)}</span>
-                    <button onClick={() => retryOne(fmt)} disabled={running} className="text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">↻ Ponów</button>
+                    <span className="text-brand-red text-xs max-w-[200px] text-right leading-tight inline-flex items-center gap-1.5" title={st.message}><XCircle size={14} strokeWidth={1.8} className="flex-shrink-0" aria-hidden /> <span className="truncate">{st.message?.slice(0, 50)}</span></span>
+                    <button onClick={() => retryOne(fmt)} disabled={running} className="text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap inline-flex items-center gap-1.5"><RotateCcw size={12} strokeWidth={2} aria-hidden /> Ponów</button>
                   </div>
                 )}
-                {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap">⚡ generowanie...</span>}
-                {st.status === 'idle' && <span className="text-gray-300 dark:text-gray-600 whitespace-nowrap">⏳ oczekuje</span>}
+                {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap inline-flex items-center gap-1.5"><Zap size={14} strokeWidth={1.8} aria-hidden /> generowanie...</span>}
+                {st.status === 'idle' && <span className="text-gray-300 dark:text-gray-600 whitespace-nowrap inline-flex items-center gap-1.5"><Clock size={14} strokeWidth={1.8} aria-hidden /> oczekuje</span>}
               </div>
             </div>
           )
         })}
       </div>
 
-      <button
-        onClick={running ? stopGeneration : generateAll}
-        disabled={(!folderName && fsaOk) || allDone}
-        className={`w-full rounded-xl py-4 text-base font-bold transition-colors
-          ${running ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'}
-          disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed`}
-      >
-        {running ? '⏹ Zatrzymaj generowanie' : allDone ? '✅ Wszystkie wygenerowane' : errorCount > 0 ? `↻ Ponów nieudane (${errorCount})` : `⚡ Generuj wszystkie (${totalFormats} grafik)`}
-      </button>
+      {(() => {
+        let btnIcon, btnText
+        if (running) { btnIcon = <Square size={18} strokeWidth={2} fill="currentColor" aria-hidden />; btnText = 'Zatrzymaj generowanie' }
+        else if (allDone) { btnIcon = <CheckCircle2 size={18} strokeWidth={2} aria-hidden />; btnText = 'Wszystkie wygenerowane' }
+        else if (errorCount > 0) { btnIcon = <RotateCcw size={18} strokeWidth={2} aria-hidden />; btnText = `Ponów nieudane (${errorCount})` }
+        else { btnIcon = <Zap size={18} strokeWidth={2} aria-hidden />; btnText = `Generuj wszystkie (${totalFormats} grafik)` }
+        return (
+          <button
+            onClick={running ? stopGeneration : generateAll}
+            disabled={(!folderName && fsaOk) || allDone}
+            className={`w-full rounded-xl py-4 text-base font-bold transition-colors inline-flex items-center justify-center gap-2
+              ${running ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'}
+              disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed`}
+          >
+            {btnIcon} {btnText}
+          </button>
+        )
+      })()}
     </div>
   )
 }

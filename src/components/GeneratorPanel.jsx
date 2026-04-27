@@ -1,4 +1,17 @@
 import { useState, useRef } from 'react'
+import {
+  Folder,
+  Image as ImageIcon,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Zap,
+  Clock,
+  Square,
+} from 'lucide-react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner } from '../lib/imageUtils'
 import { addCost } from '../lib/clientCosts'
@@ -574,9 +587,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       <div className="bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-xl p-3.5 mb-3 flex items-center gap-3.5">
         <button
           onClick={pickFolder}
-          className="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap hover:bg-gray-800 transition-colors"
+          className="inline-flex items-center gap-2 bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap hover:bg-gray-800 transition-colors"
         >
-          📁 Wybierz folder
+          <Folder size={16} strokeWidth={1.8} aria-hidden />
+          Wybierz folder
         </button>
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {folderName ? (
@@ -615,11 +629,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
               {/* Main row */}
               <div className="p-3 flex items-center gap-3.5">
                 {/* Thumbnail */}
-                <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl text-gray-300 dark:text-gray-600">
+                <div className="w-14 h-14 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-600">
                   {preview ? (
                     <img src={preview} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    '📷'
+                    <ImageIcon size={24} strokeWidth={1.6} aria-hidden />
                   )}
                 </div>
 
@@ -639,44 +653,61 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                       <button
                         type="button"
                         onClick={() => togglePrompt(filename)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
+                        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
                           ${isPromptOpen
                             ? 'border-blue-400 text-blue-500 bg-blue-50 dark:bg-blue-950/40'
                             : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
                           }`}
                       >
-                        {isPromptOpen ? '▲ Prompt' : '▼ Prompt'}
+                        {isPromptOpen ? <ChevronUp size={14} strokeWidth={1.8} aria-hidden /> : <ChevronDown size={14} strokeWidth={1.8} aria-hidden />}
+                        Prompt
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleTextsEditor(filename)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
+                        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap
                           ${isTextsOpen
                             ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
                             : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
                           }`}
                       >
-                        {isTextsOpen ? '▲ Teksty' : '✏️ Zmień teksty'}
+                        {isTextsOpen ? <ChevronUp size={14} strokeWidth={1.8} aria-hidden /> : <Pencil size={14} strokeWidth={1.8} aria-hidden />}
+                        {isTextsOpen ? 'Teksty' : 'Zmień teksty'}
                       </button>
-                      <span className="text-brand-green font-semibold whitespace-nowrap">✅ zapisano</span>
+                      <span className="inline-flex items-center gap-1.5 text-brand-green font-semibold whitespace-nowrap">
+                        <CheckCircle2 size={16} strokeWidth={1.8} aria-hidden />
+                        zapisano
+                      </span>
                     </>
                   )}
                   {st.status === 'error' && (
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>
-                        ❌ {st.message?.slice(0, 50)}
+                      <span className="inline-flex items-center gap-1.5 text-brand-red text-xs max-w-[200px] text-right leading-tight" title={st.message}>
+                        <XCircle size={14} strokeWidth={1.8} aria-hidden className="flex-shrink-0" />
+                        <span className="truncate">{st.message?.slice(0, 50)}</span>
                       </span>
                       <button
                         onClick={() => retryOne(fmt)}
                         disabled={running}
-                        className="text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 text-xs bg-gray-900 text-white rounded-lg px-2.5 py-1 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                       >
-                        ↻ Ponów
+                        <RotateCcw size={12} strokeWidth={2} aria-hidden />
+                        Ponów
                       </button>
                     </div>
                   )}
-                  {st.status === 'generating' && <span className="text-brand-orange font-semibold whitespace-nowrap">⚡ generowanie...</span>}
-                  {st.status === 'idle' && <span className="text-gray-300 dark:text-gray-600 whitespace-nowrap">⏳ oczekuje</span>}
+                  {st.status === 'generating' && (
+                    <span className="inline-flex items-center gap-1.5 text-brand-orange font-semibold whitespace-nowrap">
+                      <Zap size={14} strokeWidth={1.8} aria-hidden />
+                      generowanie...
+                    </span>
+                  )}
+                  {st.status === 'idle' && (
+                    <span className="inline-flex items-center gap-1.5 text-gray-300 dark:text-gray-600 whitespace-nowrap">
+                      <Clock size={14} strokeWidth={1.8} aria-hidden />
+                      oczekuje
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -751,9 +782,10 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                       retryOne(fmt, { headline, cta: ed.cta })
                     }}
                     disabled={running || !ed.primary.trim()}
-                    className="w-full text-sm font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg px-4 py-2.5 hover:bg-gray-700 dark:hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="inline-flex items-center justify-center gap-2 w-full text-sm font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg px-4 py-2.5 hover:bg-gray-700 dark:hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
-                    ↻ Regeneruj z nowymi tekstami
+                    <RotateCcw size={16} strokeWidth={1.8} aria-hidden />
+                    Regeneruj z nowymi tekstami
                   </button>
 
                   <p className="text-[10px] text-gray-400 dark:text-gray-500">
@@ -770,18 +802,25 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       {(() => {
         const errorCount = Object.values(statuses).filter((s) => s.status === 'error').length
         const allDone = Object.values(statuses).every((s) => s.status === 'done')
-        const btnLabel = running
-          ? '⏹ Zatrzymaj generowanie'
-          : allDone
-          ? '✅ Wszystkie wygenerowane'
-          : errorCount > 0
-          ? `↻ Ponów nieudane (${errorCount})`
-          : `⚡ Generuj wszystkie (${totalFormats} grafik)`
+        let btnIcon, btnText
+        if (running) {
+          btnIcon = <Square size={18} strokeWidth={2} fill="currentColor" aria-hidden />
+          btnText = 'Zatrzymaj generowanie'
+        } else if (allDone) {
+          btnIcon = <CheckCircle2 size={18} strokeWidth={2} aria-hidden />
+          btnText = 'Wszystkie wygenerowane'
+        } else if (errorCount > 0) {
+          btnIcon = <RotateCcw size={18} strokeWidth={2} aria-hidden />
+          btnText = `Ponów nieudane (${errorCount})`
+        } else {
+          btnIcon = <Zap size={18} strokeWidth={2} aria-hidden />
+          btnText = `Generuj wszystkie (${totalFormats} grafik)`
+        }
         return (
           <button
             onClick={running ? stopGeneration : generateAll}
             disabled={(!folderName && fsaOk) || allDone}
-            className={`w-full rounded-xl py-4 text-base font-bold transition-colors
+            className={`inline-flex items-center justify-center gap-2 w-full rounded-xl py-4 text-base font-bold transition-colors
               ${running
                 ? 'bg-red-600 text-white hover:bg-red-700'
                 : allDone
@@ -789,7 +828,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed'
               }`}
           >
-            {btnLabel}
+            {btnIcon}
+            {btnText}
           </button>
         )
       })()}

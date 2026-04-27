@@ -43,7 +43,7 @@ const SECTIONS = [
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
       const ct = f.ctaType === 'custom' ? (f.cta || 'własne CTA') : 'CTA auto'
-      const img = f.productImage ? ' · 📷 produkt' : ''
+      const img = f.productImage ? ' · z produktem' : ''
       return [f.goal, hl, ct].filter(Boolean).join(' — ') + img
     },
   },

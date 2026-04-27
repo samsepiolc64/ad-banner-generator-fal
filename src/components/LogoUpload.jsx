@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { CheckCircle2, FolderOpen, AlertTriangle, Info, Sparkles, XCircle, X } from 'lucide-react'
 import { fileToPngDataUrl, removeBackgroundAI } from '../lib/imageUtils'
 
 /**
@@ -93,12 +94,13 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
 
   const getStatusBadge = () => {
     if (!bgStatus) return null
-    if (bgStatus.source === 'ai') return { text: '🧠 Tło usunięte przez AI', color: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50' }
-    if (bgStatus.source === 'local' && bgStatus.reason === 'flood-fill') return { text: '✅ Tło usunięte lokalnie', color: 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50' }
-    if (bgStatus.reason === 'svg') return { text: '✅ SVG — przezroczyste tło', color: 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50' }
-    if (bgStatus.reason === 'already-has-alpha') return { text: '✅ PNG z przezroczystością', color: 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50' }
-    if (bgStatus.reason === 'non-uniform-background') return { text: '⚠️ Tło złożone — użyj AI', color: 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50' }
-    return { text: 'ℹ️ Tło nie usunięte', color: 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800' }
+    const iconProps = { size: 12, strokeWidth: 1.8, 'aria-hidden': true }
+    if (bgStatus.source === 'ai') return { icon: <Sparkles {...iconProps} />, text: 'Tło usunięte przez AI', color: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50' }
+    if (bgStatus.source === 'local' && bgStatus.reason === 'flood-fill') return { icon: <CheckCircle2 {...iconProps} />, text: 'Tło usunięte lokalnie', color: 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50' }
+    if (bgStatus.reason === 'svg') return { icon: <CheckCircle2 {...iconProps} />, text: 'SVG — przezroczyste tło', color: 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50' }
+    if (bgStatus.reason === 'already-has-alpha') return { icon: <CheckCircle2 {...iconProps} />, text: 'PNG z przezroczystością', color: 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50' }
+    if (bgStatus.reason === 'non-uniform-background') return { icon: <AlertTriangle {...iconProps} />, text: 'Tło złożone — użyj AI', color: 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50' }
+    return { icon: <Info {...iconProps} />, text: 'Tło nie usunięte', color: 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800' }
   }
 
   const statusBadge = getStatusBadge()
@@ -139,7 +141,7 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
       {/* Tryb: Z brandu */}
       {mode === 'brand' && brandLogoDataUrl && (
         <div className="border-2 border-brand-green rounded-lg p-3 flex items-center gap-3 bg-brand-green-light dark:bg-brand-green-light/10">
-          <span className="text-xl flex-shrink-0">✅</span>
+          <CheckCircle2 size={20} strokeWidth={1.8} className="flex-shrink-0 text-brand-green" aria-hidden />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-gray-900 dark:text-white">Logo ze strony klienta</div>
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Pobrane automatycznie podczas researchu</div>
@@ -177,7 +179,7 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
                 onChange={(e) => processFile(e.target.files[0])}
                 className="hidden"
               />
-              <span className="text-xl flex-shrink-0">📂</span>
+              <FolderOpen size={20} strokeWidth={1.8} className="flex-shrink-0 text-gray-500 dark:text-gray-400" aria-hidden />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-gray-900 dark:text-white">Wgraj logo — drag & drop lub kliknij</div>
                 <div className="text-xs text-gray-400 dark:text-gray-500">SVG / PNG / JPG · tło usuwamy automatycznie przy wgraniu</div>
@@ -186,12 +188,12 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
           ) : (
             <>
               <div className="border-2 border-brand-green rounded-lg p-3 flex items-center gap-3 bg-brand-green-light dark:bg-brand-green-light/10">
-                <span className="text-xl flex-shrink-0">✅</span>
+                <CheckCircle2 size={20} strokeWidth={1.8} className="flex-shrink-0 text-brand-green" aria-hidden />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fileName}</div>
                   {statusBadge && (
-                    <div className={`inline-block text-[11px] font-medium mt-0.5 px-1.5 py-0.5 rounded ${statusBadge.color}`}>
-                      {statusBadge.text}
+                    <div className={`inline-flex items-center gap-1 text-[11px] font-medium mt-0.5 px-1.5 py-0.5 rounded ${statusBadge.color}`}>
+                      {statusBadge.icon} {statusBadge.text}
                     </div>
                   )}
                 </div>
@@ -217,16 +219,16 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
                   <button
                     onClick={handleAiRemove}
                     disabled={aiRemoving}
-                    className="text-xs bg-purple-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-purple-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
+                    className="text-xs bg-purple-600 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-purple-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
                   >
-                    {aiRemoving ? '🧠 Usuwam tło...' : '🧠 Usuń tło AI (~$0.005)'}
+                    <Sparkles size={14} strokeWidth={1.8} aria-hidden /> {aiRemoving ? 'Usuwam tło...' : 'Usuń tło AI (~$0.005)'}
                   </button>
-                  {aiError && <div className="text-xs text-red-600 mt-1.5">❌ {aiError}</div>}
+                  {aiError && <div className="text-xs text-red-600 mt-1.5 inline-flex items-center gap-1.5"><XCircle size={14} strokeWidth={1.8} aria-hidden /> {aiError}</div>}
                 </div>
               )}
 
-              <button onClick={clearUpload} className="text-xs text-red-600 mt-2 hover:underline">
-                ✕ Usuń logo
+              <button onClick={clearUpload} className="text-xs text-red-600 mt-2 hover:underline inline-flex items-center gap-1">
+                <X size={12} strokeWidth={2} aria-hidden /> Usuń logo
               </button>
             </>
           )}

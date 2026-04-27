@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 
 export default function ProductForm({ initial, onSubmit }) {
   const [tab, setTab] = useState('upload') // 'upload' | 'url'
@@ -73,9 +74,9 @@ export default function ProductForm({ initial, onSubmit }) {
               <button
                 type="button"
                 onClick={() => setImage(null)}
-                className="mt-3 text-xs text-gray-500 hover:text-red-500 transition-colors"
+                className="mt-3 text-xs text-gray-500 hover:text-red-500 transition-colors inline-flex items-center gap-1"
               >
-                ✕ Usuń zdjęcie
+                <X size={12} strokeWidth={2} aria-hidden /> Usuń zdjęcie
               </button>
             </div>
           ) : (
