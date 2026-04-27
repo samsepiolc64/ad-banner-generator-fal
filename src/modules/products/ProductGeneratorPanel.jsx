@@ -260,8 +260,12 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
             onClick={running ? stopGeneration : generateAll}
             disabled={(!folderName && fsaOk) || allDone}
             className={`w-full rounded-xl py-4 text-base font-bold transition-colors inline-flex items-center justify-center gap-2
-              ${running ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'}
-              disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed`}
+              ${running
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : allDone
+                ? 'bg-green-600 text-white cursor-default'
+                : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed'
+              }`}
           >
             {btnIcon} {btnText}
           </button>
