@@ -49,13 +49,14 @@ const SECTIONS = [
   {
     id: 'settings',
     title: 'Ile?',
-    subtitle: 'Warianty i uwagi',
-    fields: ['variants', 'notes', 'productImage'],
+    subtitle: 'Warianty, model AI i uwagi',
+    fields: ['variants', 'imageModel', 'notes', 'productImage'],
     isComplete: (f) => !!f.variants,
     summary: (f) => {
       const v = `${f.variants} wariant${f.variants > 1 ? 'y' : ''}`
+      const m = f.imageModel === 'gpt-image-2' ? ' · GPT Image 2' : ' · Nano Banana 2'
       const img = f.productImage ? ' · z produktem' : ''
-      return (f.notes ? `${v} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : v) + img
+      return (f.notes ? `${v}${m} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : `${v}${m}`) + img
     },
   },
 ]
@@ -82,6 +83,7 @@ export default function CampaignForm({
     ctaType: 'auto',
     cta: '',
     variants: 2,
+    imageModel: 'nanobanan',
     notes: '',
     productImage: null,  // base64 data URL of product reference photo (optional)
   }))
@@ -396,6 +398,7 @@ function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
     headline:     'Hasło reklamowe',
     cta:          'Tekst CTA (przycisk)',
     variants:     'Warianty A/B na każdy format',
+    imageModel:   'Model AI do generowania grafik',
     notes:        'Dodatkowe uwagi (opcjonalnie)',
     productImage: 'Zdjęcie produktu (opcjonalnie)',
   }[field]
@@ -553,6 +556,45 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
             <button key={n} type="button" onClick={() => update('variants', n)}
               className={`pill ${form.variants === n ? 'pill-active' : ''}`}>
               {n}
+            </button>
+          ))}
+        </div>
+      )
+
+    case 'imageModel':
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              id: 'nanobanan',
+              name: 'Nano Banana 2',
+              badge: 'Domyślny',
+              desc: 'FLUX · sprawdzony, szybki',
+              price: '$0.08–0.15 / grafika',
+            },
+            {
+              id: 'gpt-image-2',
+              name: 'GPT Image 2',
+              badge: 'OpenAI',
+              desc: 'Tekst w grafice, naturalny język',
+              price: '$0.15–0.41 / grafika',
+            },
+          ].map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => update('imageModel', m.id)}
+              className={`text-left p-3 rounded-xl border transition-colors
+                ${form.imageModel === m.id
+                  ? 'border-gray-900 bg-gray-50 dark:border-white dark:bg-gray-800'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'}`}
+            >
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">{m.name}</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0">{m.badge}</span>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{m.desc}</div>
+              <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{m.price}</div>
             </button>
           ))}
         </div>

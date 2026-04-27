@@ -71,6 +71,7 @@ export default function SceneForm({
   const [model, setModel] = useState(initial?.model || { gender: 'female', ageRange: 'adult', hairColor: 'brunette', skinTone: 'medium' })
   const [setting, setSetting] = useState(initial?.setting || '')
   const [mood, setMood] = useState(initial?.mood || '')
+  const [imageModel, setImageModel] = useState(initial?.imageModel || 'nanobanan')
 
   const toggleFormat = (id) => {
     onFormatsChange(selectedFormats.includes(id)
@@ -83,7 +84,7 @@ export default function SceneForm({
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!canSubmit) return
-    onSubmit({ style, includeModel, model, setting: setting.trim(), mood: mood.trim() })
+    onSubmit({ style, includeModel, model, setting: setting.trim(), mood: mood.trim(), imageModel })
   }
 
   return (
@@ -212,6 +213,46 @@ export default function SceneForm({
         <div className="flex gap-1.5">
           {VARIANT_COUNTS.map((n) => (
             <Pill key={n} active={variantCount === n} onClick={() => onVariantCountChange(n)}>{n}</Pill>
+          ))}
+        </div>
+      </div>
+
+      {/* Model AI */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Model AI do generowania grafik</label>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              id: 'nanobanan',
+              name: 'Nano Banana 2',
+              badge: 'Domyślny',
+              desc: 'FLUX · sprawdzony, szybki',
+              price: '$0.08–0.15 / grafika',
+            },
+            {
+              id: 'gpt-image-2',
+              name: 'GPT Image 2',
+              badge: 'OpenAI',
+              desc: 'Tekst w grafice, naturalny język',
+              price: '$0.15–0.41 / grafika',
+            },
+          ].map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setImageModel(m.id)}
+              className={`text-left p-3 rounded-xl border transition-colors
+                ${imageModel === m.id
+                  ? 'border-gray-900 bg-gray-50 dark:border-white dark:bg-gray-800'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'}`}
+            >
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">{m.name}</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0">{m.badge}</span>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{m.desc}</div>
+              <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{m.price}</div>
+            </button>
           ))}
         </div>
       </div>
