@@ -618,7 +618,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       </div>
 
       {/* Format grid — responsive: auto-fill cards, fixed min-width */}
-      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))' }}>
         {formats.map((fmt) => {
           const st = statuses[fmt.id]
           const model = resolveModel(fmt)

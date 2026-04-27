@@ -88,7 +88,7 @@ export default function App() {
     localStorage.setItem('theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
-  const [falMode, setFalMode] = useState('test')
+  const [falMode, setFalMode] = useState('prod')
 
   const [panelOpen, setPanelOpen] = useState(false)
   const [flowKey, setFlowKey] = useState(0)
