@@ -51,30 +51,28 @@ const CHANNEL_REQUIREMENTS = {
 - No QR codes
 - TEXT COVERAGE HARD LIMIT (Google policy): all text elements combined — headline, CTA, any body copy — must cover no more than one fifth of the total image surface; imagery and visuals must dominate`,
   meta: `-- Meta Ads (Feed) --
-- SAFE ZONES: the top strip (roughly one seventh of image height) and the bottom strip (roughly one fifth of image height) must be free of all text, logos, and key visuals — Meta platform UI overlaps these areas on mobile
-- All remaining key elements should have generous breathing room from every edge
+- COMPOSITION: the very top and very bottom of the image must show only background or scene — no text, no logo, no CTA anywhere near the top or bottom edges; platform UI covers these areas on mobile
+- Place headline, product, and CTA in the central portion of the image with generous breathing room from every edge
 - Keep text minimal — fewer words, larger type; imagery must dominate; ads with heavy text are penalized in delivery
 - No Facebook, Instagram, or any social platform interface elements
-- CTA button placed in the lower portion of the composition, clearly above the bottom safe zone`,
+- CTA button placed in the lower-center portion of the composition, well clear of the bottom edge`,
   'meta-stories': `-- Meta Ads | Stories / Reels (9:16) --
 - NO CTA button anywhere in the image — none whatsoever
 - DO NOT render any social platform UI, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or send/reply boxes — the final image must be pure ad creative with zero interface elements
-- SAFE ZONES — these areas must be completely blank (solid background color only, no product, no text, no visuals):
-  · Top strip: leave the top ~14% of the image height completely empty
-  · Bottom strip: leave the bottom ~33% of the image height completely empty
-  · Left and right: leave a thin margin (~5%) on each side completely empty
-- Place ALL content — headline, visuals, product — in the central vertical portion of the image between the top and bottom safe zones
-- Headline: centered horizontally, placed in the upper part of the central safe area
+- COMPOSITION: concentrate all content (headline, product, visuals) in the middle portion of the frame — the top portion and the large bottom portion of the image must show only pure background or scene, with no text, product, or design element whatsoever
+- The bottom third of the image must be entirely clean background — this is critical; platform controls overlap this area
+- Small breathing room on left and right edges — keep all content away from the sides
+- Headline: centered horizontally, placed in the upper-center area of the image
 - Design for immediate impact — the message must be understood within one second`,
   programmatic: `-- Programmatic Display --
-- Keep all content well within the canvas with clear margins from every edge — ads appear at many sizes and cropping must never cut content
+- Keep all content well within the canvas with generous breathing room from every edge — ads appear at many sizes and cropping must never cut content
 - Legibility at small display sizes is the top priority: use large, bold text; avoid thin strokes, fine details, or small decorative elements that disappear when scaled down
 - High contrast between all text and background is mandatory
 - CTA button must be clearly visible and the action immediately obvious
 - Avoid overly complex compositions — simple, bold visuals perform best across placements`,
   linkedin: `-- LinkedIn Ads --
 - Professional, business-oriented visual tone — this is a B2B platform; avoid overly casual, playful, or consumer-lifestyle aesthetics
-- SAFE ZONES: leave a thin margin on all four edges; LinkedIn feed UI overlaps side margins on mobile
+- COMPOSITION: keep all content well away from every edge of the image — LinkedIn feed UI overlaps the sides on mobile; generous breathing room on all sides
 - The message must be immediately clear to a professional scrolling their feed — lead with the value proposition
 - Text is more acceptable on LinkedIn than on Meta — a concise headline + short descriptor is appropriate, but keep it clean and readable
 - No personal social platform UI (no LinkedIn interface elements, no profile picture mocks, no connection count mockups)
@@ -82,11 +80,11 @@ const CHANNEL_REQUIREMENTS = {
 - Typography: clean, professional sans-serif; avoid decorative or script fonts
 - Overall feel: credible, premium, business-ready`,
   tiktok: `-- TikTok Ads (Static Image) --
-- SAFE ZONES — TikTok UI is very aggressive; these areas MUST be completely empty:
-  · Bottom strip: roughly the bottom 35% of the image is covered by TikTok controls (like/comment/share buttons, sound icon, caption)
-  · Top strip: roughly the top 10% of the image is covered by the top bar
-  · Right strip: roughly the right 15% of the image is covered by action buttons column
-- Place ALL content — headline, product, CTA — in the LEFT-CENTER area of the image, between the top and bottom safe zones, away from the right edge
+- COMPOSITION — TikTok UI covers large areas of the frame; place ALL content strictly in the LEFT-CENTER area of the image:
+  · The large bottom portion of the image must be clean background — TikTok controls (buttons, caption) cover this area
+  · The very top of the image must be clean background — top bar covers it
+  · The right side of the image must be clean background — action buttons column covers it
+  · ALL headline, product, and visuals must be confined to the left-center zone of the frame, well clear of bottom, top, and right edges
 - Visual style: bold, energetic, high-contrast, youth-oriented; design for immediate thumb-stopping impact
 - Large, bold headline — designed to be read in under 1 second
 - NO CTA button text in the image — TikTok overlays its own CTA
