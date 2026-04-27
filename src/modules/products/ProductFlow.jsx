@@ -4,6 +4,7 @@ import ProductForm from './ProductForm'
 import SceneForm from './SceneForm'
 import ProductGeneratorPanel from './ProductGeneratorPanel'
 import { buildProductPrompt } from '../../lib/productPromptBuilder'
+import { buildGptImage2ProductPrompt } from '../../lib/gptImage2ProductPromptBuilder'
 import { PRODUCT_FORMATS, PRODUCT_FORMATS_DEFAULT } from '../../lib/productFormats'
 import { normalizeDomain } from '../../lib/domain'
 import { TEAM_MEMBERS_UNIQUE } from '../../lib/teamMembers'
@@ -113,8 +114,11 @@ export default function ProductFlow({
     const formats = PRODUCT_FORMATS.filter((f) => selectedFormats.includes(f.id))
     const items = []
     for (const fmt of formats) {
+      const isGptImage2 = s.imageModel === 'gpt-image-2'
       for (let v = 0; v < variantCount; v++) {
-        const prompt = buildProductPrompt({ product, scene: s, format: fmt, brand })
+        const prompt = isGptImage2
+          ? buildGptImage2ProductPrompt({ product, scene: s, format: fmt, brand })
+          : buildProductPrompt({ product, scene: s, format: fmt, brand })
         items.push({
           id: `${fmt.id}-v${v + 1}`,
           label: `${fmt.label} · V${v + 1}`,
@@ -123,7 +127,7 @@ export default function ProductFlow({
           ar: fmt.ar,
           channel: fmt.channel,
           prompt,
-          referenceImage: product.image,
+          referenceImage: isGptImage2 ? null : product.image,
         })
       }
     }
@@ -245,6 +249,7 @@ export default function ProductFlow({
                     domain={domain}
                     falMode={falMode}
                     sessionFolder={sessionFolder}
+                    imageModel={scene.imageModel || 'nanobanan'}
                   />
                 )}
               </div>

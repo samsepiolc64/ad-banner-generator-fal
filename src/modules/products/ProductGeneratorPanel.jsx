@@ -37,7 +37,7 @@ async function uploadToDrive(blob, filename, sessionFolderId) {
   })
 }
 
-export default function ProductGeneratorPanel({ formats, brandName, domain, falMode = 'test', sessionFolder }) {
+export default function ProductGeneratorPanel({ formats, brandName, domain, falMode = 'test', sessionFolder, imageModel = 'nanobanan' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -87,20 +87,31 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
 
   const generateOne = async (fmt, signal) => {
     updateStatus(fmt.id, { status: 'generating' })
+    const isGptImage2 = imageModel === 'gpt-image-2'
     const model = resolveModel(fmt)
 
     try {
       const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: fmt.prompt,
-          ar: model.ar,
-          modelType: model.type,
-          useLogo: true,
-          logoDataUrl: [fmt.referenceImage],
-          falMode,
-        }),
+        body: JSON.stringify(isGptImage2
+          ? {
+              // GPT Image 2: t2i only, width+height, no reference image
+              prompt: fmt.prompt,
+              width: fmt.width,
+              height: fmt.height,
+              modelType: 'gpt-image-2',
+              falMode,
+            }
+          : {
+              // Nano Banana: /edit with product reference image
+              prompt: fmt.prompt,
+              ar: model.ar,
+              modelType: model.type,
+              useLogo: true,
+              logoDataUrl: [fmt.referenceImage],
+              falMode,
+            }),
         signal,
       })
       if (!submitRes.ok) throw new Error(`Submit error: HTTP ${submitRes.status}`)
@@ -110,9 +121,10 @@ export default function ProductGeneratorPanel({ formats, brandName, domain, falM
       const imgUrl = await pollForResult(submitData.status_url, submitData.response_url, signal)
 
       let srcBlob = await (await fetch(imgUrl)).blob()
-      if (model.needsResize) srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
+      // GPT Image 2 generates exact dimensions — no crop needed.
+      if (!isGptImage2 && model.needsResize) srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       const blob = await compressToJpeg(srcBlob)
-      addCost(domain, costPerImage(model.type))
+      addCost(domain, costPerImage(isGptImage2 ? 'gpt-image-2' : model.type))
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 

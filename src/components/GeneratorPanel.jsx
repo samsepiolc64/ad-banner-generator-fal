@@ -168,7 +168,7 @@ async function uploadToDrive(blob, filename, sessionFolderId, mimeType = 'image/
   })
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, falMode = 'test' }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, falMode = 'test', imageModel = 'nanobanan' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -258,6 +258,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const generateOne = async (fmt, signal, textOverrides = null) => {
     updateStatus(fmt.id, { status: 'generating' })
 
+    const isGptImage2 = imageModel === 'gpt-image-2'
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
     // productImage (base64) > notesImageUrl (confirmed image URL from App.jsx probe) > fallback extension check
@@ -283,7 +284,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     // --- TEXT-EDIT MODE (img2img): send original banner as reference + focused prompt ---
     // Used when textOverrides provided — preserves visual composition, swaps text only.
-    const isEditMode = !!textOverrides
+    // Not available for GPT Image 2 (NB Pro /edit feature only).
+    const isEditMode = !isGptImage2 && !!textOverrides
     const isStories = fmt.channel === 'meta' && (fmt.ar === '9:16' || (fmt.height > fmt.width && fmt.height / fmt.width > 1.5))
     const isTikTokVertical = fmt.channel === 'tiktok'
 
@@ -325,6 +327,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         description, textOverrides.headline, textOverrides.cta, isStories, isTikTokVertical
       )
       submitImageUrls = [origDataUrl]
+    } else if (isGptImage2) {
+      // GPT Image 2: prompt already built by gptImage2PromptBuilder — no placeholders to replace.
+      // No reference images sent to fal.ai (t2i only). Logo will be composited locally after generation.
+      finalPrompt = fmt.prompt
+      submitImageUrls = []
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
@@ -348,17 +355,25 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const submitRes = await fetch('/.netlify/functions/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: finalPrompt,
-          ar: model.ar,
-          // Text-edit mode: use NB Pro /edit (renders Polish text correctly)
-          // with original as reference + JSON-driven prompt + original seed.
-          modelType: isEditMode ? 'nbpro' : model.type,
-          useLogo: submitImageUrls.length > 0,
-          logoDataUrl: submitImageUrls.length > 0 ? submitImageUrls : undefined,
-          falMode,
-          ...(reusedseed != null ? { seed: reusedseed } : {}),
-        }),
+        body: JSON.stringify(isGptImage2
+          ? {
+              // GPT Image 2: width+height instead of ar, no reference images, no seed
+              prompt: finalPrompt,
+              width: fmt.width,
+              height: fmt.height,
+              modelType: 'gpt-image-2',
+              falMode,
+            }
+          : {
+              // Nano Banana 2 / Pro
+              prompt: finalPrompt,
+              ar: model.ar,
+              modelType: isEditMode ? 'nbpro' : model.type,
+              useLogo: submitImageUrls.length > 0,
+              logoDataUrl: submitImageUrls.length > 0 ? submitImageUrls : undefined,
+              falMode,
+              ...(reusedseed != null ? { seed: reusedseed } : {}),
+            }),
         signal,
       })
 
@@ -382,7 +397,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       // Step 3: Fetch, resize, composite logo (pixel-perfect), compress, save
       let srcBlob = await (await fetch(imgUrl)).blob()
 
-      if (model.needsResize) {
+      // GPT Image 2 generates exact pixel dimensions — no crop needed.
+      // Nano Banana Pro may need center-crop for non-native AR formats.
+      if (!isGptImage2 && model.needsResize) {
         srcBlob = await cropToAspect(srcBlob, fmt.width, fmt.height)
       }
 
@@ -398,7 +415,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       let blob = await compressToJpeg(srcBlob)
       // Edit mode cost = NB Pro $0.15 + Haiku Vision ~$0.003 (only on first edit; subsequent
       // edits of the same banner reuse the cached description).
-      addCost(domain, costPerImage(isEditMode ? 'nbpro' : model.type))
+      const effectiveModelType = isGptImage2 ? 'gpt-image-2' : (isEditMode ? 'nbpro' : model.type)
+      addCost(domain, costPerImage(effectiveModelType))
 
       const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
       const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
@@ -738,18 +756,21 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                       {isPromptOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}
                       Prompt
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleTextsEditor(filename)}
-                      className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors
-                        ${isTextsOpen
-                          ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
-                          : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
-                        }`}
-                    >
-                      {isTextsOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <Pencil size={12} strokeWidth={1.8} aria-hidden />}
-                      Zmień teksty
-                    </button>
+                    {/* Zmień teksty — only available for Nano Banana (NB Pro /edit feature) */}
+                    {imageModel !== 'gpt-image-2' && (
+                      <button
+                        type="button"
+                        onClick={() => toggleTextsEditor(filename)}
+                        className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors
+                          ${isTextsOpen
+                            ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                          }`}
+                      >
+                        {isTextsOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <Pencil size={12} strokeWidth={1.8} aria-hidden />}
+                        Zmień teksty
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

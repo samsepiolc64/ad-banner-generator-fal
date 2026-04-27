@@ -50,7 +50,9 @@ export function resolveModel(fmt) {
 
 /** Cost per image for a given model type */
 export function costPerImage(modelType) {
-  return modelType === 'nb2' ? 0.08 : 0.15
+  if (modelType === 'nb2') return 0.08
+  if (modelType === 'gpt-image-2') return 0.20
+  return 0.15 // nbpro
 }
 
 /** Calculate total estimated cost for a list of formats */

@@ -18,6 +18,7 @@ function makeSessionFolder(moduleLabel) {
 }
 import { ALL_FORMATS } from './lib/formats'
 import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
+import { buildGptImage2Prompt } from './lib/gptImage2PromptBuilder'
 import { resolveModel } from './lib/modelRouting'
 import { normalizeDomain } from './lib/domain'
 
@@ -349,18 +350,31 @@ export default function App() {
       for (let v = 0; v < variantCount; v++) {
         const variantName = VARIANT_MATRIX[v % VARIANT_MATRIX.length].name
         const modelInfo = resolveModel(fmt)
-        const prompt = buildPrompt({
-          format: fmt,
-          variantIndex: v,
-          brand: { ...brand, campaignGoal: campaignData.goal },
-          headline: headlines[v] || headlines[0],
-          hasProductImage: !!campaignData.productImage,
-          cta,
-          compInsight,
-          notes: notesForFalAi,
-          modelInfo,
-          campaignChannels: campaignData.channels,
-        })
+        const isGptImage2 = campaignData.imageModel === 'gpt-image-2'
+        const prompt = isGptImage2
+          ? buildGptImage2Prompt({
+              format: fmt,
+              variantIndex: v,
+              brand: { ...brand, campaignGoal: campaignData.goal },
+              headline: headlines[v] || headlines[0],
+              hasProductImage: !!campaignData.productImage,
+              cta,
+              compInsight,
+              notes: notesForFalAi,
+              campaignChannels: campaignData.channels,
+            })
+          : buildPrompt({
+              format: fmt,
+              variantIndex: v,
+              brand: { ...brand, campaignGoal: campaignData.goal },
+              headline: headlines[v] || headlines[0],
+              hasProductImage: !!campaignData.productImage,
+              cta,
+              compInsight,
+              notes: notesForFalAi,
+              modelInfo,
+              campaignChannels: campaignData.channels,
+            })
         allFormats.push({
           id: `${fmt.id}-v${v + 1}`,
           label: `${fmt.label} · V${v + 1} — ${variantName}`,
@@ -600,6 +614,7 @@ export default function App() {
                               productImage={campaignData?.productImage || null}
                               notesImageUrl={notesImageUrl}
                               falMode={falMode}
+                              imageModel={campaignData?.imageModel || 'nanobanan'}
                             />
                           </>
                         )}

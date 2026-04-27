@@ -12,6 +12,9 @@ const ENDPOINTS = {
     t2i: 'https://queue.fal.run/fal-ai/nano-banana-pro',
     edit: 'https://queue.fal.run/fal-ai/nano-banana-pro/edit',
   },
+  'gpt-image-2': {
+    t2i: 'https://queue.fal.run/fal-ai/gpt-image-2',
+  },
 }
 
 export default async (req) => {
@@ -24,7 +27,7 @@ export default async (req) => {
 
   try {
     const body = await req.json()
-    const { prompt, ar, modelType, useLogo, logoDataUrl, falMode, seed } = body
+    const { prompt, ar, width, height, modelType, useLogo, logoDataUrl, falMode, seed } = body
 
     const FAL_API_KEY = falMode === 'prod'
       ? (process.env.FAL_PROD_API_KEY || process.env.FAL_API_KEY)
@@ -37,24 +40,52 @@ export default async (req) => {
       )
     }
 
-    if (!prompt || !ar || !modelType) {
+    const isGptImage2 = modelType === 'gpt-image-2'
+
+    if (!prompt || !modelType) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: prompt, ar, modelType' }),
+        JSON.stringify({ error: 'Missing required fields: prompt, modelType' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+    if (!isGptImage2 && !ar) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required field: ar (for Nano Banana models)' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+    if (isGptImage2 && (!width || !height)) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: width, height (for GPT Image 2)' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const endpoints = ENDPOINTS[modelType] || ENDPOINTS.nbpro
-    const endpoint = useLogo ? endpoints.edit : endpoints.t2i
+    let endpoint, falBody
 
-    // logoDataUrl may be a single string or an array of URLs/data-URLs
-    const imageUrls = useLogo
-      ? (Array.isArray(logoDataUrl) ? logoDataUrl : [logoDataUrl]).filter(Boolean)
-      : []
+    if (isGptImage2) {
+      // GPT Image 2: t2i only, uses image_size { width, height }, no seed, no image_urls
+      endpoint = ENDPOINTS['gpt-image-2'].t2i
+      falBody = {
+        prompt,
+        image_size: { width: Number(width), height: Number(height) },
+        quality: 'high',
+        output_format: 'jpeg',
+      }
+    } else {
+      // Nano Banana 2 / Pro: aspect_ratio + optional image_urls + optional seed
+      const endpoints = ENDPOINTS[modelType] || ENDPOINTS.nbpro
+      endpoint = useLogo ? endpoints.edit : endpoints.t2i
 
-    const falBody = imageUrls.length > 0
-      ? { prompt, aspect_ratio: ar, image_urls: imageUrls, ...(seed != null ? { seed } : {}) }
-      : { prompt, aspect_ratio: ar, ...(seed != null ? { seed } : {}) }
+      // logoDataUrl may be a single string or an array of URLs/data-URLs
+      const imageUrls = useLogo
+        ? (Array.isArray(logoDataUrl) ? logoDataUrl : [logoDataUrl]).filter(Boolean)
+        : []
+
+      falBody = imageUrls.length > 0
+        ? { prompt, aspect_ratio: ar, image_urls: imageUrls, ...(seed != null ? { seed } : {}) }
+        : { prompt, aspect_ratio: ar, ...(seed != null ? { seed } : {}) }
+    }
 
     const falRes = await fetch(endpoint, {
       method: 'POST',
