@@ -682,10 +682,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 {/* Label + size + status */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}</div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {fmt.width}×{fmt.height}px{model.needsResize ? ` · ${model.ar}→crop` : ''}
-                    </div>
+                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">{fmt.label}{model.needsResize ? <span className="font-normal text-gray-400 dark:text-gray-500"> · {model.ar}→crop</span> : ''}</div>
                   </div>
                   <div className="flex-shrink-0">
                     {st.status === 'done' && (
