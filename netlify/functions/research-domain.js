@@ -760,26 +760,49 @@ ${SCHEMA_INSTRUCTIONS}`,
       const approxBytes = Math.floor(base64Data.length * 0.75)
       console.log(`[vision] source=${source} media=${mediaType} size=${approxBytes} bytes (~${Math.round(approxBytes/1024)} KB)`)
 
-      const sourceNote = source === 'user-screenshot'
-        ? 'The user MANUALLY UPLOADED this screenshot of their website because automated fetches failed. This is the AUTHORITATIVE view — trust it over any other signal.'
-        : 'This screenshot was automatically captured via a headless browser (Screenshotone) because direct HTML fetch failed. This shows the REAL rendered page — trust it as the authoritative visual source.'
+      if (source === 'user-screenshot') {
+        // User manually uploaded their own site screenshot — trusted source,
+        // skip the verbose anti-hallucination / grounding preamble to stay
+        // well within Netlify's function timeout (~26s on Pro).
+        claudeMessages = [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64Data },
+            },
+            {
+              type: 'text',
+              text: `You are a senior brand strategist analyzing a website screenshot to extract brand DNA for advertising creatives.
 
-      claudeMessages = [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64Data },
-          },
-          {
-            type: 'text',
-            text: `You are a senior brand strategist and visual designer analyzing a screenshot to extract brand DNA for advertising creatives.
+This screenshot was manually uploaded by the website owner — treat every visible element as authoritative.
 
-${sourceNote}
+Website domain: ${domain}
+
+Analyze the screenshot carefully and output the JSON directly (no preamble needed). Base every field on what you can see — colors, typography, imagery style, CTA buttons, layout, mood.
+
+${SCHEMA_INSTRUCTIONS}`,
+            },
+          ],
+        }]
+      } else {
+        // Screenshotone auto-capture — include full grounding/anti-hallucination prompt
+        claudeMessages = [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64Data },
+            },
+            {
+              type: 'text',
+              text: `You are a senior brand strategist and visual designer analyzing a screenshot to extract brand DNA for advertising creatives.
+
+This screenshot was automatically captured via a headless browser (Screenshotone) because direct HTML fetch failed. This shows the REAL rendered page — trust it as the authoritative visual source.
 
 ⚠ CRITICAL ANTI-HALLUCINATION RULES ⚠
 1. BRAND NAME rule (strict): The brand name is almost always the domain body with a capital letter — for "${domain}" that means "${brandNameFromDomain(domain)}". Only override this if the LOGO in the screenshot clearly displays a DIFFERENT brand name (e.g. domain is "pzu.pl" but logo says "Powszechny Zakład Ubezpieczeń"). NEVER invent creative/phonetic interpretations of the domain (e.g. "aleszale" is NOT "Ależ Żale" — it's just "Aleszale").
-2. PRODUCT/INDUSTRY rule: Industry and product type MUST come from what you SEE in the screenshot (product photos, category menu, hero content), NOT from how the domain sounds. Polish domain names are often folk-etymology traps (e.g. "aleszale.pl" has NOTHING to do with grief/complaints — look at the products shown).
+2. PRODUCT/INDUSTRY rule: Industry and product type MUST come from what you SEE in the screenshot (product photos, category menu, hero content), NOT from how the domain sounds. Polish domain names are often folk-etymology traps.
 3. EVIDENCE rule: Every descriptive field must be grounded in visible pixels. If you cannot see evidence for a field, write a minimal neutral value rather than guessing from the domain.
 4. COLOR rule: Extract hex codes from what you see — dominant menu bar color, CTA button color, background color. Do NOT default to generic "corporate blue/orange" unless those colors are actually visible.
 
@@ -789,26 +812,22 @@ Before the JSON, write a brief "VISUAL EVIDENCE:" block listing concretely what 
 - Main navigation/menu items (copy them exactly)
 - Visible product names or categories (copy 3-5 examples)
 - Dominant UI colors (describe them: "deep burgundy menu bar", "olive-green promo badge", etc.)
-- CTA button colors and labels (e.g. "green WYPRZEDAŻ!!! badges")
+- CTA button colors and labels
 - Hero image subject/mood
 - Any headlines or slogans visible
 
 STEP 2 — JSON:
-After the VISUAL EVIDENCE block, output the JSON object. EVERY field in the JSON MUST be derived directly from your evidence:
-- "name": use the EXACT logo text you described (e.g. if evidence says logo = "aleszale.pl", then name = "aleszale.pl" — DO NOT split words, DO NOT reinterpret).
-- "colors.primary": the dominant menu/nav color you described (e.g. if evidence = "deep burgundy menu bar" → primary must be a burgundy hex like #8B2142, NOT #222222 or generic dark).
-- "colors.accent" / "ctaColor": the CTA button color you described (e.g. if evidence = "green WYPRZEDAŻ badges" → accent must be a green hex, NOT orange or blue).
-- "productType": list the PRODUCTS you saw (e.g. "chusty, kapelusze, skarpety, czapki" — NOT generic categories).
-- "industry": derive from visible products, in Polish (e.g. "akcesoria odzieżowe e-commerce" — NOT inferred from domain).
+After the VISUAL EVIDENCE block, output the JSON object. EVERY field in the JSON MUST be derived directly from your evidence.
 
-If your JSON contradicts your evidence (e.g. evidence says burgundy + green, but JSON has blue + orange), YOU HAVE FAILED and the output will be rejected.
+If your JSON contradicts your evidence, YOU HAVE FAILED and the output will be rejected.
 
 ${SCHEMA_INSTRUCTIONS}
 
 FINAL REMINDER: Copy the logo text VERBATIM into "name". Translate visible colors into hex codes matching those colors. The domain is a label, not a clue.`,
-          },
-        ],
-      }]
+            },
+          ],
+        }]
+      }
     } else {
       // Mode C: domain-name inference only
       claudeMessages = [{
@@ -831,6 +850,10 @@ ${SCHEMA_INSTRUCTIONS}`,
     const model = 'claude-haiku-4-5'
     const maxTokens = 4096
 
+    // Hard 50s timeout on the Claude API call — leaves 10s buffer before the
+    // function's 60s Netlify limit. If Claude Vision takes too long (large image
+    // + complex prompt) we return a clean descriptive error instead of an opaque
+    // 504 gateway timeout from Netlify's proxy.
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -843,6 +866,7 @@ ${SCHEMA_INSTRUCTIONS}`,
         max_tokens: maxTokens,
         messages: claudeMessages,
       }),
+      signal: AbortSignal.timeout(50000),
     })
 
     if (!claudeRes.ok) {
