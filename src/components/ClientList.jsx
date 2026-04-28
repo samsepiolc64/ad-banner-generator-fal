@@ -141,6 +141,12 @@ function BrandPanel({ brand }) {
             <div className="text-gray-700 dark:text-gray-300">{brand.tone}</div>
           </div>
         )}
+        {brand.typography && (
+          <div className="max-w-sm">
+            <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Typografia</span>
+            <div className="text-gray-700 dark:text-gray-300">{brand.typography}</div>
+          </div>
+        )}
       </div>
 
       {/* Konkurenci */}
