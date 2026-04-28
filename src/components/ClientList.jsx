@@ -8,11 +8,11 @@ import ScreenshotUploader from './ScreenshotUploader'
 import ResearchDiff from './ResearchDiff'
 
 const RESEARCH_STEPS = [
-  { label: 'Pobieranie strony', detail: 'bezpośredni fetch HTML',              after: 0     },
-  { label: 'Jina Reader',       detail: 'bypass Cloudflare, headless fetch',   after: 7000  },
-  { label: 'Screenshotone',     detail: 'headless browser screenshot',         after: 13000 },
-  { label: 'Wayback Machine',   detail: 'archiwalna wersja (archive.org)',      after: 18000 },
-  { label: 'Claude analizuje',  detail: 'wyciąganie danych brandowych',        after: 22000 },
+  { label: 'Pobieranie strony', detail: 'bezpośredni fetch + Google referer',  after: 0     },
+  { label: 'Jina Reader',       detail: 'bypass Cloudflare, headless fetch',   after: 9000  },
+  { label: 'Screenshotone',     detail: 'headless browser screenshot',         after: 17000 },
+  { label: 'Wayback Machine',   detail: 'CDX snapshot + archiwum archive.org', after: 26000 },
+  { label: 'Claude analizuje',  detail: 'wyciąganie danych brandowych',        after: 37000 },
 ]
 
 

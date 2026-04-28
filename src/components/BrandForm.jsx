@@ -89,11 +89,11 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
   // actually succeeded until the API responds. Green is only used post-success.
   const [researchStep, setResearchStep] = useState(0)
   const RESEARCH_STEPS = [
-    { label: 'Pobieranie strony', detail: 'bezpośredni fetch HTML',              source: 'fresh',      after: 0     },
-    { label: 'Jina Reader',       detail: 'bypass Cloudflare, headless fetch',   source: 'jina',       after: 7000  },
-    { label: 'Screenshotone',     detail: 'headless browser screenshot',         source: 'screenshot', after: 13000 },
-    { label: 'Wayback Machine',   detail: 'archiwalna wersja (archive.org)',      source: 'wayback',    after: 18000 },
-    { label: 'Claude analizuje',  detail: 'wyciąganie danych brandowych',        source: null,         after: 22000 },
+    { label: 'Pobieranie strony', detail: 'bezpośredni fetch + Google referer',  source: 'fresh',      after: 0     },
+    { label: 'Jina Reader',       detail: 'bypass Cloudflare, headless fetch',   source: 'jina',       after: 9000  },
+    { label: 'Screenshotone',     detail: 'headless browser screenshot',         source: 'screenshot', after: 17000 },
+    { label: 'Wayback Machine',   detail: 'CDX snapshot + archiwum archive.org', source: 'wayback',    after: 26000 },
+    { label: 'Claude analizuje',  detail: 'wyciąganie danych brandowych',        source: null,         after: 37000 },
   ]
   useEffect(() => {
     if (researchState !== 'researching') { setResearchStep(0); return }
