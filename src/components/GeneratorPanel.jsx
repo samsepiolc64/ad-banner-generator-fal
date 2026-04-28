@@ -948,7 +948,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 ? 'bg-red-600 text-white hover:bg-red-700'
                 : allDone
                 ? 'bg-green-600 text-white cursor-default'
-                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed'
+                : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500 disabled:cursor-not-allowed'
               }`}
           >
             {btnIcon}

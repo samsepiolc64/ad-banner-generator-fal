@@ -71,6 +71,10 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       competitors: initialBrand.competitors || [],
       competitorInsight: initialBrand.competitorInsight || '',
       differentiationDirective: initialBrand.differentiationDirective || '',
+      colorPalette: initialBrand.colorPalette || [],
+      compositionStyle: initialBrand.compositionStyle || '',
+      imageryType: initialBrand.imageryType || '',
+      lightingMood: initialBrand.lightingMood || '',
     }
   })
   const [cachedTimestamp, setCachedTimestamp] = useState(null)
@@ -127,6 +131,10 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       competitors: b.competitors || [],
       competitorInsight: b.competitorInsight || '',
       differentiationDirective: b.differentiationDirective || '',
+      colorPalette: b.colorPalette || [],
+      compositionStyle: b.compositionStyle || '',
+      imageryType: b.imageryType || '',
+      lightingMood: b.lightingMood || '',
     })
     setLogoUrl(b.logoUrl || null)
     setLogoDataUrl(b.logoDataUrl || null)
@@ -242,6 +250,10 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       competitors: initialBrand.competitors || [],
       competitorInsight: initialBrand.competitorInsight || '',
       differentiationDirective: initialBrand.differentiationDirective || '',
+      colorPalette: initialBrand.colorPalette || [],
+      compositionStyle: initialBrand.compositionStyle || '',
+      imageryType: initialBrand.imageryType || '',
+      lightingMood: initialBrand.lightingMood || '',
     })
     if (initialBrand.logoUrl) setLogoUrl(initialBrand.logoUrl)
     if (initialBrand.logoDataUrl) setLogoDataUrl(initialBrand.logoDataUrl)
@@ -567,6 +579,13 @@ export default function BrandForm({ domain, onSubmit, isLoading, initialBrand = 
       },
       deepBrand.competitorInsight && { label: 'KRAJOBRAZ', val: deepBrand.competitorInsight },
       deepBrand.differentiationDirective && { label: 'ODRÓŻNIENIE', val: deepBrand.differentiationDirective },
+      deepBrand.colorPalette?.length && {
+        label: 'PALETA',
+        val: deepBrand.colorPalette.map(c => `${c.hex} (${c.role})`).join(', '),
+      },
+      deepBrand.compositionStyle && { label: 'KOMPOZYCJA', val: deepBrand.compositionStyle },
+      deepBrand.imageryType && { label: 'ZDJĘCIA', val: deepBrand.imageryType },
+      deepBrand.lightingMood && { label: 'ŚWIATŁO', val: deepBrand.lightingMood },
     ].filter(Boolean)
 
     if (!primary.length && !secondary.length) return null
