@@ -387,6 +387,7 @@ export default function App() {
           height: fmt.height,
           ar: fmt.ar,
           channel: fmt.channel,
+          variantName,
           prompt,
           headline: headlines[i] || headlines[0],
           cta,

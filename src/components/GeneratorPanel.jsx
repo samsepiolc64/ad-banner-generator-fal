@@ -16,6 +16,32 @@ import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner, injectXmpDescription } from '../lib/imageUtils'
 import { addCost } from '../lib/clientCosts'
 
+/** Zamienia string na bezpieczny slug do nazwy pliku (ASCII, bez spacji). */
+function toSlug(str) {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // strip diacritics (é→e etc.)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+/**
+ * Buduje nazwę pliku JPEG dla bannera.
+ * Format: {domena}_{szerokość}x{wysokość}_{wariant-slug}[_edytowany].jpg
+ * Przykład: verseo.pl_1200x628_hero-lifestyle.jpg
+ */
+function makeFilename(domain, fmt, { edit = false } = {}) {
+  const safeDomain = (domain || '')
+    .replace(/https?:\/\//g, '')
+    .replace(/^www\./, '')
+    .replace(/[/:?*"<>|\\]/g, '_')
+    .replace(/_+$/g, '')
+  const size = `${fmt.width}x${fmt.height}`
+  const variant = toSlug(fmt.variantName || '')
+  const base = variant ? `${safeDomain}_${size}_${variant}` : `${safeDomain}_${size}`
+  return edit ? `${base}_edytowany.jpg` : `${base}.jpg`
+}
+
 async function runPool(fns, limit = 3) {
   let idx = 0
   async function worker() {
@@ -324,9 +350,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       // JSON → we substitute new text content → NB Pro /edit regenerates from scratch
       // with the original as a visual reference image. NB Pro renders Polish
       // diacritics (ą, ę, ś, ć, ź, ż, ł, ó, ń) correctly.
-      const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-      const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
-      const origFilename = `${safeDomain}_${fmtSlug}.jpg`
+      const origFilename = makeFilename(domain, fmt)
       const origBlob = originalBlobsRef.current[origFilename]
       if (!origBlob) throw new Error('Brak oryginalnego banera do edycji — zregeneruj go najpierw.')
       const origDataUrl = await blobToDataUrl(origBlob)
@@ -357,9 +381,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     } else if (isGptImage2 && textOverrides) {
       // GPT Image 2 text update: replace text values in the stored original prompt, then regenerate t2i.
       // No img2img reference — composition may vary slightly vs. original.
-      const safeDomainForGpt = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-      const fmtSlugForGpt = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
-      const origKey = `${safeDomainForGpt}_${fmtSlugForGpt}.jpg`
+      const origKey = makeFilename(domain, fmt)
       const storedPrompt = promptsMapRef.current[origKey]
       if (!storedPrompt) throw new Error('Brak oryginalnego promptu — zregeneruj baner najpierw.')
       finalPrompt = replaceAdCopyInGptPrompt(storedPrompt, textOverrides.headline, textOverrides.cta)
@@ -382,9 +404,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     }
 
     // Reuse the original seed for text-edit regeneration (improves visual similarity)
-    const safeDomainForSeed = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-    const fmtSlugForSeed = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
-    const filenameForSeed = `${safeDomainForSeed}_${fmtSlugForSeed}.jpg`
+    const filenameForSeed = makeFilename(domain, fmt)
     const reusedseed = isEditMode ? (seedMapRef.current[filenameForSeed] ?? null) : null
 
     try {
@@ -455,17 +475,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       const effectiveModelType = isGptImage2 ? 'gpt-image-2' : (isEditMode ? 'nbpro' : model.type)
       addCost(domain, costPerImage(effectiveModelType))
 
-      const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-      const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
       // Original (unedited) filename — always used as the KEY for our maps so
       // the edit workflow always references the ORIGINAL banner, not a chain
       // of accumulating edits (which would compound text degradation).
-      const originalKey = `${safeDomain}_${fmtSlug}.jpg`
+      const originalKey = makeFilename(domain, fmt)
       // Actual filename saved to disk. Edited versions get "_edytowany" suffix
       // (and overwrite previous edits on repeated text changes).
-      const filename = isEditMode
-        ? `${safeDomain}_${fmtSlug}_edytowany.jpg`
-        : originalKey
+      const filename = isEditMode ? makeFilename(domain, fmt, { edit: true }) : originalKey
 
       // --- AI caption: awaited before save so the text is embedded in XMP metadata ---
       // The caption is stored in dc:description (XMP APP1 segment) inside the JPEG binary.
@@ -694,9 +710,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           const model = resolveModel(fmt)
           const preview = previews[fmt.id]
           const caption = captions[fmt.id]
-          const safeDomain = domain.replace(/https?:\/\//g, '').replace(/[/:?*"<>|\\]/g, '_').replace(/_+$/g, '')
-          const fmtSlug = fmt.id.replace(/^(meta|gdn|programmatic)-/, '')
-          const filename = `${safeDomain}_${fmtSlug}.jpg`
+          const filename = makeFilename(domain, fmt)
           const promptText = promptsMapRef.current[filename]
           const isPromptOpen = !!expandedPrompts[filename]
           const isTextsOpen = !!expandedTexts[filename]
