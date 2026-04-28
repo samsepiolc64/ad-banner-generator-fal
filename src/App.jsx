@@ -619,6 +619,7 @@ export default function App() {
                               notes={resolvedNotes ?? campaignData?.notes}
                               productImage={campaignData?.productImage || null}
                               notesImageUrl={notesImageUrl}
+                              styleReferenceImages={campaignData?.styleReferenceImages || []}
                               falMode={falMode}
                               imageModel={campaignData?.imageModel || 'nanobanan'}
                             />

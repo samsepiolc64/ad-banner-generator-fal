@@ -297,6 +297,60 @@ describe('GDN channel requirements', () => {
   })
 })
 
+// ─── Color mandate ────────────────────────────────────────────────────────────
+
+describe('color mandate', () => {
+  it('includes COLOR MANDATE — NON-NEGOTIABLE block', () => {
+    contains(makePrompt(), 'COLOR MANDATE — NON-NEGOTIABLE')
+  })
+
+  it('includes primary brand color hex in COLOR SYSTEM', () => {
+    contains(makePrompt(), '#1a1a2e')
+  })
+
+  it('includes full colorPalette block when brand.colorPalette is provided', () => {
+    const prompt = makePrompt({
+      brand: {
+        ...BASE_BRAND,
+        colorPalette: [
+          { hex: '#1a1a2e', role: 'tło strony' },
+          { hex: '#e94560', role: 'przyciski CTA' },
+        ],
+      },
+    })
+    contains(prompt, 'FULL COLOR PALETTE')
+    contains(prompt, '#1a1a2e → tło strony')
+    contains(prompt, '#e94560 → przyciski CTA')
+  })
+
+  it('includes compositionStyle when provided', () => {
+    const prompt = makePrompt({ brand: { ...BASE_BRAND, compositionStyle: 'centrowany produkt na białym tle' } })
+    contains(prompt, 'centrowany produkt na białym tle')
+  })
+
+  it('includes imageryType when provided', () => {
+    const prompt = makePrompt({ brand: { ...BASE_BRAND, imageryType: 'studio product photography' } })
+    contains(prompt, 'studio product photography')
+  })
+
+  it('includes lightingMood when provided', () => {
+    const prompt = makePrompt({ brand: { ...BASE_BRAND, lightingMood: 'bright airy high-key' } })
+    contains(prompt, 'bright airy high-key')
+  })
+
+  it('Typograficzny Bold variant includes COLOR-CRITICAL note with primary hex', () => {
+    const prompt = makePrompt({ variantIndex: 5 })
+    contains(prompt, 'COLOR-CRITICAL')
+    contains(prompt, '#1a1a2e')
+  })
+
+  it('Gradient Premium variant includes COLOR-CRITICAL gradient note', () => {
+    const prompt = makePrompt({ variantIndex: 6 })
+    contains(prompt, 'COLOR-CRITICAL')
+    contains(prompt, '#1a1a2e → #16213e')
+  })
+})
+
 // ─── Modern editorial mandate ─────────────────────────────────────────────────
 
 describe('modern editorial mandate', () => {

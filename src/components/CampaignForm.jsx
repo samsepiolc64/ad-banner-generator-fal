@@ -71,7 +71,7 @@ const SECTIONS = [
     id: 'settings',
     title: 'Ile?',
     subtitle: 'Warianty, model AI i uwagi',
-    fields: ['variants', 'imageModel', 'notes', 'productImage'],
+    fields: ['variants', 'imageModel', 'styleReferenceImages', 'notes', 'productImage'],
     isComplete: (f) => f.variants.length > 0,
     summary: (f) => {
       const count = f.variants.length
@@ -79,7 +79,8 @@ const SECTIONS = [
       const v = count === 0 ? 'brak wariantów' : `${count} wariant${count === 1 ? '' : count < 5 ? 'y' : 'ów'} · ${names.join(', ')}`
       const m = f.imageModel === 'gpt-image-2' ? ' · GPT Image 2' : ' · Nano Banana 2'
       const img = f.productImage ? ' · z produktem' : ''
-      return (f.notes ? `${v}${m} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : `${v}${m}`) + img
+      const refs = f.styleReferenceImages?.length ? ` · ${f.styleReferenceImages.length} ref. banerów` : ''
+      return (f.notes ? `${v}${m} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : `${v}${m}`) + img + refs
     },
   },
 ]
@@ -108,7 +109,8 @@ export default function CampaignForm({
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
     imageModel: 'nanobanan',
     notes: '',
-    productImage: null,  // base64 data URL of product reference photo (optional)
+    productImage: null,        // base64 data URL of product reference photo (optional)
+    styleReferenceImages: [],  // base64 data URLs — existing client banners as style reference (max 2)
   }))
   const [activeSection, setActiveSection] = useState(0)
   const [maxSection, setMaxSection] = useState(0)
@@ -434,6 +436,88 @@ function ProductImagePicker({ value, onChange }) {
   )
 }
 
+/**
+ * Picker na 1-2 zdjęcia referencyjne — istniejące banery klienta.
+ * Przekazane do fal.ai jako pierwsze obrazy referencyjne (ustalają styl wizualny).
+ */
+function StyleReferenceImagesPicker({ values, onChange }) {
+  const [error, setError] = useState('')
+  const inputRef = useRef(null)
+  const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
+  const MAX_IMAGES = 2
+
+  const processFile = useCallback((file) => {
+    setError('')
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setError('Plik musi być obrazem (PNG, JPG, WebP).'); return }
+    if (file.size > MAX_SIZE) { setError('Za duży (max 4 MB).'); return }
+    if (values.length >= MAX_IMAGES) { setError(`Maksymalnie ${MAX_IMAGES} zdjęcia referencyjne.`); return }
+    const reader = new FileReader()
+    reader.onload = (e) => onChange([...values, e.target.result])
+    reader.onerror = () => setError('Nie udało się odczytać pliku.')
+    reader.readAsDataURL(file)
+  }, [values, onChange])
+
+  const removeImage = (idx) => onChange(values.filter((_, i) => i !== idx))
+
+  return (
+    <div className="space-y-2">
+      {values.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {values.map((src, idx) => (
+            <div key={idx} className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center gap-2 p-2 pr-1">
+              <img src={src} alt={`Referencja ${idx + 1}`} className="w-14 h-14 object-contain rounded-lg flex-shrink-0 bg-white dark:bg-gray-800" />
+              <div className="flex-1 min-w-0 pr-1">
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Baner #{idx + 1}</div>
+                <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">
+                  Wzorzec stylu
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeImage(idx)}
+                className="flex-shrink-0 text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
+                title="Usuń"
+              >
+                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4">
+                  <path d="M2 2l10 10M12 2L2 12"/>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {values.length < MAX_IMAGES && (
+        <div>
+          <div
+            onClick={() => inputRef.current?.click()}
+            className="cursor-pointer rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-900/50"
+          >
+            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">
+              {values.length === 0 ? 'Przeciągnij baner klienta lub kliknij' : 'Dodaj drugi baner (opcjonalnie)'}
+            </div>
+            <div className="text-[11px] text-gray-400 dark:text-gray-500">
+              PNG, JPG, WebP · max 4 MB · {MAX_IMAGES - values.length} pozostał{MAX_IMAGES - values.length === 1 ? 'e' : 'e'}
+            </div>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = '' }}
+            />
+          </div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5 leading-tight">
+            Model użyje tych banerów jako referencję stylu — kolorystykę, układ i estetykę.
+          </div>
+        </div>
+      )}
+      {error && <div className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</div>}
+    </div>
+  )
+}
+
 function Field({ field, form, update, toggleArray, toggleChannel, toggleVariant, domainRef }) {
   const label = {
     domain:       'Domena klienta',
@@ -444,9 +528,10 @@ function Field({ field, form, update, toggleArray, toggleChannel, toggleVariant,
     headline:     'Hasło reklamowe',
     cta:          'Tekst CTA (przycisk)',
     variants:     'Warianty kreatywne',
-    imageModel:   'Model AI do generowania grafik',
-    notes:        'Dodatkowe uwagi (opcjonalnie)',
-    productImage: 'Zdjęcie produktu (opcjonalnie)',
+    imageModel:            'Model AI do generowania grafik',
+    styleReferenceImages:  'Przykładowe banery klienta — referencja stylu (opcjonalnie)',
+    notes:                 'Dodatkowe uwagi (opcjonalnie)',
+    productImage:          'Zdjęcie produktu (opcjonalnie)',
   }[field]
 
   return (
@@ -706,6 +791,14 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
             </button>
           ))}
         </div>
+      )
+
+    case 'styleReferenceImages':
+      return (
+        <StyleReferenceImagesPicker
+          values={form.styleReferenceImages || []}
+          onChange={(v) => update('styleReferenceImages', v)}
+        />
       )
 
     case 'productImage':

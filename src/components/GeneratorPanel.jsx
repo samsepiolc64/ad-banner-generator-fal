@@ -221,7 +221,7 @@ async function uploadToDrive(blob, filename, sessionFolderId, mimeType = 'image/
   })
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, falMode = 'test', imageModel = 'nanobanan' }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, styleReferenceImages = [], falMode = 'test', imageModel = 'nanobanan' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -330,9 +330,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Always suppress fal.ai from rendering the brand name as floating text.
     const brandNameSuppress = `\n\n⚠️ BRAND NAME TEXT — ABSOLUTE PROHIBITION: do NOT render "${brandName}" or any variation of this name as visible text ANYWHERE in this image outside of product labels/packaging. No brand wordmark as a floating element. No brand name as headline, subtitle, caption, or decorative element. No brand signature in any corner. Communicate brand identity ONLY through visual style: colors, photography, and motifs — NEVER through rendering the brand name as standalone text.`
 
+    // Style reference instruction — injected when existing client banners are supplied.
+    const styleRefCount = styleReferenceImages?.length || 0
+    const styleRefBlock = styleRefCount > 0
+      ? `\n\nSTYLE REFERENCE IMAGE${styleRefCount > 1 ? 'S' : ''} — CRITICAL VISUAL DIRECTION:\nThe first ${styleRefCount} reference image${styleRefCount > 1 ? 's are' : ' is'} the client's EXISTING ad creative${styleRefCount > 1 ? 's' : ''} — use ${styleRefCount > 1 ? 'them' : 'it'} as the authoritative style template:\n- Match the overall color palette and color proportions exactly\n- Match the visual mood, photographic style, and composition approach\n- Match the typography character (weight, scale, placement style)\n- The new banner must feel like it belongs to the same campaign family\nDo NOT copy layout or text — only extract the visual DNA (colors, mood, aesthetic treatment).`
+      : ''
+
     // Product reference instruction — injected when a reference image is supplied.
+    const productRefImg = styleRefCount > 0 ? styleRefCount + 1 : 1  // product image index in the array
     const productRefBlock = hasProductRef
-      ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nThe FIRST reference image supplied is the EXACT product to feature. Reproduce it with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and any graphic elements on the surface\n- Exact size relationships between parts\nDo NOT redesign, simplify, or reinterpret the product. It must be a faithful, photographic-quality reproduction of the reference.`
+      ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nReference image #${productRefImg} is the EXACT product to feature. Reproduce it with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and any graphic elements on the surface\n- Exact size relationships between parts\nDo NOT redesign, simplify, or reinterpret the product. It must be a faithful, photographic-quality reproduction of the reference.`
       : ''
 
     // --- TEXT-EDIT MODE (img2img): send original banner as reference + focused prompt ---
@@ -394,10 +401,12 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
-      finalPrompt = (basePrompt + productRefBlock)
+      finalPrompt = (basePrompt + styleRefBlock + productRefBlock)
         .replace('{{LOGO_BLOCK}}', logoBlock)
         .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
       submitImageUrls = []
+      // ORDER: style references first (set visual tone) → product (fidelity) → logo (composited locally)
+      if (styleReferenceImages?.length) submitImageUrls.push(...styleReferenceImages)
       if (productImage) submitImageUrls.push(productImage)
       else if (productRefUrl) submitImageUrls.push(productRefUrl)
       if (hasLogo) submitImageUrls.push(logoDataUrl)

@@ -176,15 +176,24 @@ export function buildGptImage2Prompt({
   }
 
   // Build brand DNA
+  const colorPaletteLines = brand.colorPalette?.length
+    ? brand.colorPalette.map((c) => `  ${c.hex} → ${c.role}`)
+    : []
+
   const brandCtx = [
     `Primary brand color: ${brand.colors?.primary || '#000000'} — use for dominant backgrounds, hero areas, and primary brand elements.`,
     `Secondary color: ${brand.colors?.secondary || '#ffffff'} — use for supporting sections and text areas.`,
     `Accent / CTA color: ${ctaHex} — use for the CTA button and highlight accents.`,
     brand.colorUsagePattern ? `Color usage pattern: ${brand.colorUsagePattern}.` : null,
+    colorPaletteLines.length ? `Full color palette — use all of these, not just the primary:\n${colorPaletteLines.join('\n')}` : null,
+    `⚡ COLOR MANDATE — NON-NEGOTIABLE: Only use the brand colors listed above. Any generic blue, default orange, or color not listed is a creative failure. Every background, gradient, and decorative element must come from this palette exclusively.`,
     `Typography: ${typographyLine}.`,
     brand.tone ? `Brand tone: ${brand.tone}.` : null,
     brand.brandPersonality ? `Brand personality: ${brand.brandPersonality}.` : null,
     `Visual style: ${brand.visualStyle || brand.style || 'minimalist, premium feel'}.`,
+    brand.compositionStyle ? `Composition style: ${brand.compositionStyle}.` : null,
+    brand.imageryType ? `Imagery type: ${brand.imageryType}.` : null,
+    brand.lightingMood ? `Lighting/mood: ${brand.lightingMood}.` : null,
     brand.photoStyle ? `Photography direction: ${brand.photoStyle}.` : null,
     brand.visualMotifs ? `Brand visual motifs to incorporate: ${brand.visualMotifs}.` : null,
     brand.exampleTaglines?.length
@@ -206,7 +215,9 @@ ${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)
 CREATIVE DIRECTION — Variant ${variantIndex + 1} (${variant.name}):
 ${variant.direction}
 Atmosphere and mood: ${variant.mood}
-${!hasProductImage ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
+${variant.name === 'Typograficzny Bold' ? `⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors?.primary}. No photography, no gradient — pure brand color block. All text in a high-contrast color that works against this background. CTA button in ${brand.ctaColor || brand.colors?.accent}.
+` : ''}${variant.name === 'Gradient Premium' ? `⚡ COLOR-CRITICAL: Gradient MUST be built from ${brand.colors?.primary} → ${brand.colors?.secondary} ONLY — these two brand hex values are the only colors in the gradient. No photography. No other colors.
+` : ''}${!hasProductImage ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
 
 KEY MESSAGE: ${brand.usp || primaryLine}
 ${brand.audience ? `TARGET AUDIENCE: ${brand.audience}` : ''}

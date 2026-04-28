@@ -233,6 +233,11 @@ ${sz.instruction}\n`
   // Build BRAND DNA section — uses deeper research fields if available
   const ctaHex = brand.ctaColor || brand.colors.accent || brand.colors.primary
 
+  // Full color palette block — used when research returns 4–6 keyed colors
+  const colorPaletteBlock = brand.colorPalette?.length
+    ? `\nFULL COLOR PALETTE — all brand colors, use them all:\n${brand.colorPalette.map((c) => `  ${c.hex} → ${c.role}`).join('\n')}`
+    : ''
+
   // Typography: prefer exact font names from research, fall back to description
   const hasExactFonts = brand.headingFont || brand.bodyFont
   const typographyLine = hasExactFonts
@@ -253,7 +258,9 @@ COLOR SYSTEM — use these exact colors in the roles described:
 - ${brand.colors.accent} → accent / highlight color${brand.ctaColor && brand.ctaColor.toLowerCase() !== brand.colors.accent.toLowerCase() ? `
 - ⚡ ${brand.ctaColor} → CTA BUTTON COLOR — this is the ACTUAL button color extracted from the website. ALL call-to-action buttons MUST use exactly this color, no substitutions.` : `
 - ${ctaHex} → CTA button color — use for ALL call-to-action buttons`}${brand.colorUsagePattern ? `
-- Color usage: ${brand.colorUsagePattern}` : ''}
+- Color usage: ${brand.colorUsagePattern}` : ''}${colorPaletteBlock}
+
+⚡ COLOR MANDATE — NON-NEGOTIABLE: The hex values above ARE this brand's visual DNA. Any substitution with a generic blue, stock-photo orange, default teal, or any color not listed above is an automatic creative failure. Every background, gradient, overlay, and decorative element must be drawn EXCLUSIVELY from the brand colors listed. There are no exceptions.
 
 TYPOGRAPHY:${hasExactFonts ? `
 - ⚡ EXACT FONTS from the website: ${typographyLine} — use these font names exactly, or the closest possible visual match if unavailable` : `
@@ -264,7 +271,10 @@ TYPOGRAPHY:${hasExactFonts ? `
 VISUAL IDENTITY:
 - Style: ${brand.visualStyle || brand.style || 'minimalist, premium feel'}${brand.visualMotifs ? `
 - Site motifs (incorporate at least one): ${brand.visualMotifs}` : ''}
-- Photography: ${brand.photoStyle || 'lifestyle photography, bright natural light'}${brand.exampleTaglines?.length ? `
+- Photography: ${brand.photoStyle || 'lifestyle photography, bright natural light'}${brand.compositionStyle ? `
+- Composition style: ${brand.compositionStyle}` : ''}${brand.imageryType ? `
+- Imagery type: ${brand.imageryType}` : ''}${brand.lightingMood ? `
+- Lighting/mood: ${brand.lightingMood}` : ''}${brand.exampleTaglines?.length ? `
 - Actual copy/headlines from the site — match this exact tone: ${brand.exampleTaglines.map((t) => `"${t}"`).join(', ')}` : ''}`
 
   const prompt = `OUTPUT FORMAT:
@@ -306,7 +316,9 @@ CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
 - Layout: ${variant.layout}
 - Hero element: ${variant.hero}
 - Background: ${variant.bg}
-- Mood/atmosphere: ${variant.mood}${variant.name === 'Lifestyle' ? `
+- Mood/atmosphere: ${variant.mood}${variant.name === 'Typograficzny Bold' ? `
+⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors.primary}. This is the single most important rule for this variant — no photography, no gradient, no other background color. All text must be in a high-contrast color that works against ${brand.colors.primary}. Use ${brand.ctaColor || brand.colors.accent} for the CTA button.` : ''}${variant.name === 'Gradient Premium' ? `
+⚡ COLOR-CRITICAL: The gradient MUST be built from ${brand.colors.primary} → ${brand.colors.secondary} ONLY — these two brand colors are the ONLY colors in the gradient. No photography, no other colors. The gradient must feel warm, deep, and deliberately branded — not generic.` : ''}${variant.name === 'Lifestyle' ? `
 LIFESTYLE SCENE — brand-authentic direction (override generic stock-photo clichés with THIS brand's world):
 ${brand.photoStyle ? `- Photography character: ${brand.photoStyle}` : '- Natural, editorial lifestyle photography — feels real, not staged'}
 ${brand.visualMotifs ? `- Brand visual motifs to weave into the scene naturally: ${brand.visualMotifs}` : ''}

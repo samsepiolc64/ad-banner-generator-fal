@@ -252,19 +252,35 @@ function extractTechnicalHints(html) {
   const css = styleChunks.join('\n').slice(0, 60000)
 
   if (css) {
-    // CSS custom properties matching brand/primary/accent/cta patterns
+    // CSS custom properties — broad set of brand/UI color variables
     const cssColors = []
-    const varRegex = /--(primary|brand|main|accent|secondary|cta|button|btn|color-primary|color-brand|color-accent|color-cta)(?:-color|-bg|-background|-default)?[^:;,\n]*\s*:\s*(#[0-9a-fA-F]{3,8})/gi
+    const varRegex = /--(primary|brand|main|accent|secondary|cta|button|btn|background|bg|page-bg|surface|foreground|text|heading|color-primary|color-brand|color-accent|color-cta|color-bg|color-background|color-surface|color-foreground|color-text|color-heading)(?:-color|-bg|-background|-default|-primary|-secondary|-foreground|-on)?[^:;,\n]*\s*:\s*(#[0-9a-fA-F]{3,8})/gi
     let vc
-    while ((vc = varRegex.exec(css)) !== null && cssColors.length < 8) {
+    while ((vc = varRegex.exec(css)) !== null && cssColors.length < 12) {
       const varName = vc[0].split(':')[0].trim()
       cssColors.push(`${varName}: ${vc[2]}`)
     }
     if (cssColors.length > 0) {
-      hints.push(`CSS brand color variables: ${cssColors.join('; ')}`)
+      hints.push(`CSS color variables: ${cssColors.join('; ')}`)
     }
 
-    // Button/CTA background colors from CSS rules
+    // Colors defined in :root — extract ALL hex values (most comprehensive source)
+    const rootColors = []
+    const rootRegex = /:root\s*\{([^}]{0,5000})\}/g
+    let rm
+    while ((rm = rootRegex.exec(css)) !== null) {
+      const rootBlock = rm[1]
+      const propRegex = /--([a-z][a-z0-9-]*)\s*:\s*(#[0-9a-fA-F]{3,8})/gi
+      let pm
+      while ((pm = propRegex.exec(rootBlock)) !== null && rootColors.length < 15) {
+        rootColors.push(`--${pm[1]}: ${pm[2]}`)
+      }
+    }
+    if (rootColors.length > 0) {
+      hints.push(`:root color tokens: ${rootColors.join('; ')}`)
+    }
+
+    // Button/CTA background colors from CSS class rules
     const btnColors = []
     const btnRegex = /\.(?:btn|button|cta|btn-primary|btn-secondary|button-primary|button-cta|cta-button)[^{,]*\s*\{[^}]{0,400}background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,8})/gi
     let bc
@@ -273,6 +289,13 @@ function extractTechnicalHints(html) {
     }
     if (btnColors.length > 0) {
       hints.push(`CTA/button background colors from CSS: ${[...new Set(btnColors)].join(', ')}`)
+    }
+
+    // Page/body background color
+    const bodyBgRegex = /(?:^|\})\s*(?:html|body)\s*\{[^}]{0,400}background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,8})/gi
+    let bb
+    if ((bb = bodyBgRegex.exec(css)) !== null) {
+      hints.push(`Body/page background color: ${bb[1]}`)
     }
   }
 
@@ -356,12 +379,12 @@ const BROWSER_HEADERS = {
   'Upgrade-Insecure-Requests': '1',
 }
 
-async function fetchWithTimeout(url, timeoutMs = 8000) {
+async function fetchWithTimeout(url, timeoutMs = 8000, extraHeaders = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(url, {
-      headers: BROWSER_HEADERS,
+      headers: { ...BROWSER_HEADERS, ...extraHeaders },
       redirect: 'follow',
       signal: controller.signal,
     })
@@ -443,26 +466,76 @@ async function tryJinaReader(domain) {
 
 /**
  * Try URL variants IN PARALLEL — whichever succeeds first wins.
- * Max wall time: ~8s (not 60s like sequential). If all fail quickly,
- * we skip HTML fetch and let Claude infer from domain name alone.
+ * Three strategies:
+ *   1. Direct fetch (https://domain + https://www.domain)
+ *   2. Google referer trick — fakes a referral from Google search, bypasses
+ *      bot-protection that only blocks direct access but allows search-referred traffic
+ * Max wall time: ~8s. If all fail quickly, caller tries other fallbacks.
  */
 async function tryFetchVariants(domain) {
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
-  const variants = [
-    `https://${clean}`,
-    `https://www.${clean}`,
+  const attempts = [
+    { url: `https://${clean}`,       headers: {} },
+    { url: `https://www.${clean}`,   headers: {} },
+    // Google referer — bypasses some WAF/bot-detection that blocks direct traffic
+    { url: `https://${clean}`,       headers: { Referer: `https://www.google.com/search?q=${encodeURIComponent(clean)}` } },
   ]
 
   try {
     return await Promise.any(
-      variants.map(async (url) => {
-        const res = await fetchWithTimeout(url, 8000)
+      attempts.map(async ({ url, headers }) => {
+        const res = await fetchWithTimeout(url, 8000, headers)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const html = await res.text()
         return { html, finalUrl: res.url || url }
       })
     )
   } catch {
+    return null
+  }
+}
+
+/**
+ * CDX raw snapshot fallback — queries Wayback Machine CDX API for the most
+ * recent successful snapshot, then fetches the raw HTML (id_ flag = no toolbar
+ * injection). More reliable than the /web/0/ redirect for some domains.
+ * Returns { html, archiveUrl, timestamp } or null.
+ */
+async function tryCdxSnapshot(domain) {
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  try {
+    console.log(`[cdx] querying CDX API for ${clean}`)
+    // CDX API: get timestamp of the most recent HTTP 200 snapshot
+    const cdxRes = await fetchWithTimeout(
+      `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(clean)}&output=json&limit=1&filter=statuscode:200&fl=timestamp&sort=reverse`,
+      6000
+    )
+    if (!cdxRes.ok) { console.warn(`[cdx] CDX API HTTP ${cdxRes.status}`); return null }
+    const rows = await cdxRes.json()
+    // rows[0] is the header ["timestamp"], rows[1] is the first result
+    if (!rows || rows.length < 2) { console.warn('[cdx] no snapshots found'); return null }
+    const timestamp = rows[1][0]
+    if (!timestamp || timestamp.length < 14) return null
+
+    // Reject snapshots older than 3 years (brand may have completely changed)
+    const snapshotYear = parseInt(timestamp.slice(0, 4), 10)
+    const currentYear = new Date().getFullYear()
+    if (snapshotYear && currentYear - snapshotYear > 3) {
+      console.warn(`[cdx] rejecting stale snapshot from ${snapshotYear}`)
+      return null
+    }
+
+    // id_ flag returns raw HTML without Wayback toolbar injection — cleaner for parsing
+    const snapUrl = `https://web.archive.org/web/${timestamp}id_/https://${clean}`
+    console.log(`[cdx] fetching raw snapshot ${timestamp} from ${snapUrl}`)
+    const snapRes = await fetchWithTimeout(snapUrl, 10000)
+    if (!snapRes.ok) { console.warn(`[cdx] snapshot HTTP ${snapRes.status}`); return null }
+    const html = await snapRes.text()
+    if (html.length < 1000) { console.warn('[cdx] snapshot too short'); return null }
+    console.log(`[cdx] got ${html.length} chars, timestamp: ${timestamp}`)
+    return { html, archiveUrl: snapUrl, timestamp }
+  } catch (e) {
+    console.warn('[cdx] exception:', e.message)
     return null
   }
 }
@@ -570,9 +643,23 @@ export default async (req) => {
         }
       }
 
-      // Step 4: If still no data, try Wayback Machine archived snapshot.
+      // Step 4a: CDX raw snapshot — queries Wayback CDX API for the exact latest
+      // snapshot timestamp, then fetches raw HTML (no toolbar injection). More
+      // reliable than the /web/0/ redirect and faster for many sites.
       if (!html && !screenshotDataUrl) {
-        console.log('[flow] trying Wayback Machine')
+        console.log('[flow] trying CDX snapshot')
+        const cdxResult = await tryCdxSnapshot(normalizedDomain).catch(() => null)
+        if (cdxResult) {
+          html = cdxResult.html.slice(0, 15000)
+          archiveInfo = { archiveUrl: cdxResult.archiveUrl, timestamp: cdxResult.timestamp }
+          source = 'wayback'
+          console.log('[flow] CDX snapshot succeeded')
+        }
+      }
+
+      // Step 4b: If CDX also failed, try the Wayback Machine /web/0/ redirect.
+      if (!html && !screenshotDataUrl) {
+        console.log('[flow] trying Wayback Machine /web/0/ redirect')
         const waybackResult = await tryWaybackMachine(normalizedDomain).catch(() => null)
         if (waybackResult) {
           html = waybackResult.html.slice(0, 15000)
@@ -610,6 +697,12 @@ export default async (req) => {
   "headingFont": "exact font-family name for headings/titles (e.g. 'Montserrat', 'Playfair Display', 'Oswald'). If TECHNICAL HINTS list Google Fonts, pick the one most likely used for headings. Otherwise infer from visual analysis.",
   "bodyFont": "exact font-family name for body text (e.g. 'Inter', 'Open Sans', 'Lato'). If TECHNICAL HINTS list Google Fonts, pick the body font. Can be the same as headingFont.",
   "colorUsagePattern": "concrete description of how brand colors are used: which is the page background, which for headings/text, which for CTA buttons, which for section backgrounds (e.g. 'white page bg, #1A2B4C dark navy for headings and text, #FF6B00 orange for ALL CTA buttons, #F8F8F8 light gray for alternating section backgrounds')",
+  "colorPalette": [
+    { "hex": "#hex", "role": "where this color appears on the site — e.g. 'główne tło strony', 'kolor przycisków CTA', 'kolor nagłówków', 'tło sekcji hero', 'kolor akcentu / ikon', 'kolor tekstu body'" }
+  ],
+  "compositionStyle": "visual composition approach on the site — e.g. 'centrowany produkt na białym tle', 'asymetryczne layouty z dużą przestrzenią negatywną', 'diagonalne dynamiczne kompozycje', 'overhead flat-lay produkty z rekwizytami', 'pełnoekranowe hero images z nakładką tekstu'",
+  "imageryType": "primary type of imagery used — e.g. 'studio product photography na białym tle', 'lifestyle photography z ludźmi w realnych sceneriach', 'abstrakcyjne ilustracje geometryczne', 'flat vector icon illustrations', 'zdjęcia produktowe + graficzne overlaye'",
+  "lightingMood": "lighting/atmosphere character — e.g. 'jasne, przewiewne, high-key naturalne światło dzienne', 'ciemne, nastrojowe studio z rim lightingiem', 'ciepłe złote godziny', 'kliniczne białe tło produkt photography', 'dramatyczny wysoki kontrast noir'",
   "competitors": [
     { "name": "competitor brand name", "domain": "competitor.com", "positioning": "how they position themselves in 1 short sentence" }
   ],
@@ -617,7 +710,7 @@ export default async (req) => {
   "differentiationDirective": "1 sentence — the single clearest way THIS brand should visually/verbally stand out against that landscape. Actionable for creative direction."
 }
 
-LANGUAGE: All descriptive text fields (industry, productType, visualStyle, visualMotifs, photoStyle, typography, tone, audience, usp, brandPersonality, colorUsagePattern, competitorInsight, differentiationDirective, competitor positioning) MUST be written in Polish. Font names, hex color codes, URLs, brand names, and exampleTaglines stay in their original form.
+LANGUAGE: All descriptive text fields (industry, productType, visualStyle, visualMotifs, photoStyle, typography, tone, audience, usp, brandPersonality, colorUsagePattern, colorPalette role descriptions, compositionStyle, imageryType, lightingMood, competitorInsight, differentiationDirective, competitor positioning) MUST be written in Polish. Font names, hex color codes, URLs, brand names, and exampleTaglines stay in their original form.
 
 IMPORTANT:
 - Be SPECIFIC and CONCRETE. Avoid generic adjectives like "modern", "clean", "premium" unless paired with concrete visual evidence.
@@ -626,6 +719,7 @@ IMPORTANT:
 - "ctaColor": if TECHNICAL HINTS are provided above, use the button color from there directly — it is ground truth extracted from CSS. Otherwise infer from the site's visual style.
 - "headingFont" / "bodyFont": if TECHNICAL HINTS list Google Fonts, use those exact names. This is critical for brand-consistent ads.
 - "colorUsagePattern": always describe which specific hex is used where — this directly drives ad creative decisions.
+- "colorPalette": identify 4–6 key colors used on the site — backgrounds, text colors, CTAs, section fills, accents. If TECHNICAL HINTS list CSS variables or :root tokens, extract those hex values with their roles. This is the MOST IMPORTANT field for ad visual fidelity — populate it carefully.
 - "competitors": identify 3-5 real direct competitors in the SAME market (same country if local brand, same language if applicable). Use your training knowledge — DO NOT invent fake brands. If you don't know real ones, return an empty array [].
 - "competitorInsight" and "differentiationDirective" should always be filled — they guide creative contrast even when competitor list is empty.`
 
