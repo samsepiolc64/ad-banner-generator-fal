@@ -4,7 +4,7 @@
  * When Claude API is available, this can be enhanced with AI-generated prompts.
  */
 
-const VARIANT_MATRIX = [
+export const VARIANT_MATRIX = [
   {
     name: 'Hero lifestyle',
     layout: 'Full-bleed lifestyle photograph fills the entire canvas; headline and CTA float over a cinematic dark gradient in the lower portion — image dominates, text is secondary',
@@ -39,6 +39,34 @@ const VARIANT_MATRIX = [
     hero: 'A single, carefully chosen visual: close-up product texture, a detail shot from a lifestyle scene, or one striking prop — quality over quantity',
     bg: 'Light, airy background — white or very light brand neutral; perhaps a subtle texture or gradient; the emptiness is intentional and luxurious',
     mood: 'Quietly luxurious, calm, premium — like a high-end fragrance or jewellery ad; the restraint communicates exclusivity',
+  },
+  {
+    name: 'Typograficzny Bold',
+    layout: 'Brand color fills the entire canvas as a solid or near-solid color block; oversized headline dominates at least 50% of the canvas — typography IS the hero; a single product shot or brand icon serves as supporting anchor only; zero complex photography',
+    hero: 'The headline itself — set in heavy type (weight 700–900) that commands immediate attention at any banner size; product or minimal brand element plays supporting role',
+    bg: 'Solid brand primary or secondary color — rich, saturated, unapologetic; may include subtle texture or gentle gradient variation but NO photography; pure color-block approach',
+    mood: 'Bold, direct, confident — like a protest poster or a luxury brand statement campaign; impossible to miss from 320×50 mobile banner to 970×250 billboard',
+  },
+  {
+    name: 'Gradient Premium',
+    layout: 'Rich gradient built from brand primary and secondary colors sweeps the entire canvas — not a flat color, not a photograph; product or abstract brand element floats on the gradient field; headline and CTA placed in the most contrasting zone of the gradient',
+    hero: 'Product or abstract brand element cleanly isolated against the gradient — lifted out of context, slightly luminous, prestigious; the gradient itself communicates premium quality',
+    bg: 'Deep, rich gradient from brand primary to brand secondary — NOT a generic web gradient; the gradient has depth, warmth, and direction; may include subtle lens flare or inner glow; no photography',
+    mood: 'Premium, modern, aspirational — like a luxury tech product launch or a high-end fragrance campaign; the gradient communicates quality without needing photography',
+  },
+  {
+    name: 'Social Proof',
+    layout: 'Oversized social proof element — key statistic, rating, or powerful one-liner — dominates the composition as the visual hero; set in XXL bold type; brand color background; supporting product or subtle lifestyle element placed below or beside the stat',
+    hero: 'The proof itself: a large number ("4.9★", "+340% sprzedaży", "10 000 klientów"), percentage, or short punchy quote — the undisputed focal point that immediately communicates authority and trust',
+    bg: 'Brand primary color or deep neutral — clean and bold; no complex photography that competes with the message; the number or stat must be the undisputed visual focal point',
+    mood: 'Trustworthy, authoritative, evidence-driven — like a financial results announcement or award banner; confidence comes from proven results, not aesthetic beauty',
+  },
+  {
+    name: 'UGC / Authentic',
+    layout: 'Raw, organic, deliberately imperfect aesthetic — as if filmed or shot by a real customer or creator in their everyday environment; natural composition, no studio styling; headline placed like a caption or organic text overlay, not a designed ad element',
+    hero: 'A real-looking person naturally interacting with the product in their everyday environment — kitchen, street, gym, living room; energy and authenticity over polish and perfection',
+    bg: 'Real-world environment with natural, imperfect light — slightly uneven, genuine; may include subtle film grain or natural vignette; deliberately NOT studio-produced',
+    mood: 'Authentic, energetic, relatable — stops the scroll because it looks like organic content, not advertising; ideal for TikTok and Meta Stories; feels like a trusted friend\'s recommendation',
   },
 ]
 
@@ -327,4 +355,3 @@ text-only composition, no photography no lifestyle scene, flat color background 
   return prompt
 }
 
-export { VARIANT_MATRIX }

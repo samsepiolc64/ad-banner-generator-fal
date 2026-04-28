@@ -239,7 +239,11 @@ export default function App() {
     })
 
     const selectedFormats = ALL_FORMATS.filter((f) => campaignData.formats.includes(f.id))
-    const variantCount = campaignData.variants || 2
+    // Backward-compat: variants może być liczbą (stare dane) lub tablicą indeksów (nowe)
+    const selectedVariants = Array.isArray(campaignData.variants)
+      ? campaignData.variants
+      : Array.from({ length: campaignData.variants || 2 }, (_, i) => i)
+    const variantCount = selectedVariants.length
 
     let headlines
     let cta
@@ -347,7 +351,8 @@ export default function App() {
 
     const allFormats = []
     for (const fmt of selectedFormats) {
-      for (let v = 0; v < variantCount; v++) {
+      for (let i = 0; i < selectedVariants.length; i++) {
+        const v = selectedVariants[i]  // rzeczywisty indeks w VARIANT_MATRIX
         const variantName = VARIANT_MATRIX[v % VARIANT_MATRIX.length].name
         const modelInfo = resolveModel(fmt)
         const isGptImage2 = campaignData.imageModel === 'gpt-image-2'
@@ -356,7 +361,7 @@ export default function App() {
               format: fmt,
               variantIndex: v,
               brand: { ...brand, campaignGoal: campaignData.goal },
-              headline: headlines[v] || headlines[0],
+              headline: headlines[i] || headlines[0],
               hasProductImage: !!campaignData.productImage,
               cta,
               compInsight,
@@ -367,7 +372,7 @@ export default function App() {
               format: fmt,
               variantIndex: v,
               brand: { ...brand, campaignGoal: campaignData.goal },
-              headline: headlines[v] || headlines[0],
+              headline: headlines[i] || headlines[0],
               hasProductImage: !!campaignData.productImage,
               cta,
               compInsight,
@@ -376,14 +381,14 @@ export default function App() {
               campaignChannels: campaignData.channels,
             })
         allFormats.push({
-          id: `${fmt.id}-v${v + 1}`,
-          label: `${fmt.label} · V${v + 1} — ${variantName}`,
+          id: `${fmt.id}-v${i + 1}`,
+          label: `${fmt.label} · V${i + 1} — ${variantName}`,
           width: fmt.width,
           height: fmt.height,
           ar: fmt.ar,
           channel: fmt.channel,
           prompt,
-          headline: headlines[v] || headlines[0],
+          headline: headlines[i] || headlines[0],
           cta,
         })
       }

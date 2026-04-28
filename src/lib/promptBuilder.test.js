@@ -65,8 +65,8 @@ function notContains(prompt, substr) {
 // ─── VARIANT_MATRIX ───────────────────────────────────────────────────────────
 
 describe('VARIANT_MATRIX', () => {
-  it('exports exactly 5 variants', () => {
-    assert.equal(VARIANT_MATRIX.length, 5)
+  it('exports exactly 9 variants', () => {
+    assert.equal(VARIANT_MATRIX.length, 9)
   })
 
   it('contains the correct variant names', () => {
@@ -76,6 +76,10 @@ describe('VARIANT_MATRIX', () => {
     assert.ok(names.includes('Editorial split'))
     assert.ok(names.includes('Immersive cinematic'))
     assert.ok(names.includes('Minimalist éditorial'))
+    assert.ok(names.includes('Typograficzny Bold'))
+    assert.ok(names.includes('Gradient Premium'))
+    assert.ok(names.includes('Social Proof'))
+    assert.ok(names.includes('UGC / Authentic'))
   })
 
   for (const variant of VARIANT_MATRIX) {
@@ -350,8 +354,24 @@ describe('variant cycling', () => {
     contains(makePrompt({ variantIndex: 4 }), 'VARIANT 5 (Minimalist éditorial)')
   })
 
-  it('variantIndex 5 wraps to VARIANT 6 (Hero lifestyle)', () => {
-    contains(makePrompt({ variantIndex: 5 }), 'VARIANT 6 (Hero lifestyle)')
+  it('variantIndex 5 → VARIANT 6 (Typograficzny Bold)', () => {
+    contains(makePrompt({ variantIndex: 5 }), 'VARIANT 6 (Typograficzny Bold)')
+  })
+
+  it('variantIndex 6 → VARIANT 7 (Gradient Premium)', () => {
+    contains(makePrompt({ variantIndex: 6 }), 'VARIANT 7 (Gradient Premium)')
+  })
+
+  it('variantIndex 7 → VARIANT 8 (Social Proof)', () => {
+    contains(makePrompt({ variantIndex: 7 }), 'VARIANT 8 (Social Proof)')
+  })
+
+  it('variantIndex 8 → VARIANT 9 (UGC / Authentic)', () => {
+    contains(makePrompt({ variantIndex: 8 }), 'VARIANT 9 (UGC / Authentic)')
+  })
+
+  it('variantIndex 9 wraps to VARIANT 10 (Hero lifestyle)', () => {
+    contains(makePrompt({ variantIndex: 9 }), 'VARIANT 10 (Hero lifestyle)')
   })
 })
 

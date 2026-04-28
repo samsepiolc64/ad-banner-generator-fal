@@ -45,6 +45,34 @@ const VARIANT_MATRIX = [
     mood:
       'Quietly luxurious, calm, premium — like a high-end fragrance or jewellery advertisement. Restraint communicates exclusivity.',
   },
+  {
+    name: 'Typograficzny Bold',
+    direction:
+      'Brand color fills the entire canvas as a solid or near-solid color block. Oversized headline text dominates at least 50% of the visible canvas — the typography IS the hero. A single product shot or brand icon appears as a secondary anchor element only. No complex photography, no lifestyle scenes. Color-block approach — bold, uncompromising, unmissable at any size from 320×50 mobile banner to 970×250 billboard.',
+    mood:
+      'Bold, direct, and confident — like a protest poster or a luxury brand statement campaign. The message is impossible to ignore at any scale.',
+  },
+  {
+    name: 'Gradient Premium',
+    direction:
+      'A rich gradient built from the brand\'s primary and secondary colors sweeps the entire canvas — not a flat color, not a photograph. A product or abstract brand element floats on this gradient field, clean and slightly luminous. Headline and CTA are placed in the most contrasting zone of the gradient. The gradient must feel warm, deep, and premium — NOT a generic web gradient.',
+    mood:
+      'Premium, modern, aspirational — like a luxury tech product launch or a high-end fragrance campaign. The gradient communicates quality without needing photography.',
+  },
+  {
+    name: 'Social Proof',
+    direction:
+      'A large social proof element — an oversized rating, key statistic, or powerful one-liner — dominates the composition as the visual hero. Set in XXL bold type that immediately communicates trust and authority. Brand color background keeps it clean and focused. A supporting product shot or subtle element sits below or beside the stat without competing with it. The proof must be the undisputed focal point.',
+    mood:
+      'Trustworthy, authoritative, evidence-driven — like a financial results announcement or an award banner. Confidence comes from proven results, not aspirational aesthetics.',
+  },
+  {
+    name: 'UGC / Authentic',
+    direction:
+      'Raw, organic, deliberately imperfect aesthetic — as if captured by a real customer or creator, not a studio photographer. A real-looking person in their everyday environment (kitchen, street, gym, living room) interacts naturally with the product. Natural light, genuine expression, slightly imperfect framing. Headline placed like a caption or organic text overlay — not a designed ad element. Intentionally avoids the polished "ad" look.',
+    mood:
+      'Authentic, energetic, relatable — stops the scroll because it looks like organic content, not advertising. Ideal for TikTok and Meta Stories. Feels like a trusted friend\'s recommendation.',
+  },
 ]
 
 const GOAL_DIRECTIVES = {

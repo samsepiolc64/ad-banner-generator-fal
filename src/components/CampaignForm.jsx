@@ -11,7 +11,6 @@ const CHANNELS = [
   'TikTok Ads',
   'Programmatic',
 ]
-const VARIANT_COUNTS = [1, 2, 3, 4, 5]
 
 const CHANNEL_DEFAULT_FORMATS = {
   'Google Display Ads': ['meta-1200x628', 'meta-1080x1920', 'meta-1200x1200', 'meta-960x1200'],
@@ -19,6 +18,28 @@ const CHANNEL_DEFAULT_FORMATS = {
   'LinkedIn Ads': ['li-1200x627', 'li-1200x1200'],
   'TikTok Ads': ['tt-1080x1920', 'tt-1080x1080'],
   'Programmatic': ['gdn-300x250', 'gdn-728x90', 'gdn-160x600', 'gdn-300x600'],
+}
+
+// Definicje wariantów kreatywnych — widoczne dla użytkownika
+const VARIANT_DEFINITIONS = [
+  { index: 0, name: 'Hero lifestyle',       shortDesc: 'Osoba z produktem, cinematic foto',        tooltip: 'Full-bleed fotografia lifestyle — osoba naturalnie korzysta z produktu. Nagłówek na ciemnym gradiencie. Ciepły, editorial, premium magazine feel.' },
+  { index: 1, name: 'Product w scenie',      shortDesc: 'Produkt jako bohater w atmosferycznej scenerii', tooltip: 'Produkt w bogatej scenerii z rekwizytami — jak lookbook luksusowej marki. Aspiracyjny, tactile. Działa najlepiej gdy masz zdjęcie produktu.' },
+  { index: 2, name: 'Editorial split',       shortDesc: 'Foto po lewej, kolor marki po prawej',    tooltip: 'Pionowy podział: lewa połowa — zdjęcie, prawa — panel w kolorze marki z nagłówkiem i CTA. Nowoczesny, magazynowy.' },
+  { index: 3, name: 'Immersive cinematic',   shortDesc: 'Pełnoformatowa scena kinematograficzna',   tooltip: 'Edge-to-edge scena filmowa, minimalny tekst na ciemnym fragmencie. Dramatyczny, high-impact. Uwaga: może być nieczytelny w małych formatach IAB (728×90, 320×50).' },
+  { index: 4, name: 'Minimalist éditorial', shortDesc: 'Dużo przestrzeni, jeden element wizualny', tooltip: 'Jeden precyzyjnie dobrany element na jasnym tle z dużą ilością negatywnej przestrzeni. Cicha luksusowość — dobry dla premium, beauty, B2B.' },
+  { index: 5, name: 'Typograficzny Bold',    shortDesc: 'Kolor marki + wielki tekst, bez fotografii', tooltip: 'Kolor marki jako tło, oversized headline dominuje 50%+ kadru. Jedyny wariant działający we WSZYSTKICH małych formatach IAB (728×90, 320×50, 970×250) i LinkedIn B2B.' },
+  { index: 6, name: 'Gradient Premium',      shortDesc: 'Gradient z kolorów marki, produkt unosi się', tooltip: 'Bogaty gradient z primary + secondary koloru marki jako tło (nie foto). Produkt lekko glowing. Świetny dla tech, beauty, fintech — gdy nie masz zdjęć.' },
+  { index: 7, name: 'Social Proof',          shortDesc: 'Duża liczba lub cytat jako bohater',       tooltip: 'Oversized stat ("4.9★", "+340% sprzedaży") lub cytat dominuje kompozycję. Kolor marki w tle. Bardzo skuteczny w Consideration i Retargeting.' },
+  { index: 8, name: 'UGC / Authentic',       shortDesc: 'Surowy, organiczny styl jak TikTok native', tooltip: 'Celowo nieprodukowany styl — wygląda jak content użytkownika, nie reklama. Wysoki CTR na TikTok i Meta Stories. Autentyczny, energetyczny.' },
+]
+
+// Domyślne warianty per kanał — auto-zaznaczane przy wyborze kanału
+const CHANNEL_DEFAULT_VARIANTS = {
+  'Google Display Ads':             [5, 1, 2],  // Typograficzny Bold, Product w scenie, Editorial split
+  'Meta Ads (Facebook / Instagram)':[0, 1, 8],  // Hero lifestyle, Product w scenie, UGC/Authentic
+  'LinkedIn Ads':                   [5, 4, 2],  // Typograficzny Bold, Minimalist éditorial, Editorial split
+  'TikTok Ads':                     [8, 0, 3],  // UGC/Authentic, Hero lifestyle, Immersive cinematic
+  'Programmatic':                   [5, 1, 4],  // Typograficzny Bold, Product w scenie, Minimalist éditorial
 }
 
 // 3 sekcje — każda grupuje powiązane pola
@@ -51,9 +72,11 @@ const SECTIONS = [
     title: 'Ile?',
     subtitle: 'Warianty, model AI i uwagi',
     fields: ['variants', 'imageModel', 'notes', 'productImage'],
-    isComplete: (f) => !!f.variants,
+    isComplete: (f) => f.variants.length > 0,
     summary: (f) => {
-      const v = `${f.variants} wariant${f.variants > 1 ? 'y' : ''}`
+      const count = f.variants.length
+      const names = f.variants.map((i) => VARIANT_DEFINITIONS[i]?.name).filter(Boolean)
+      const v = count === 0 ? 'brak wariantów' : `${count} wariant${count === 1 ? '' : count < 5 ? 'y' : 'ów'} · ${names.join(', ')}`
       const m = f.imageModel === 'gpt-image-2' ? ' · GPT Image 2' : ' · Nano Banana 2'
       const img = f.productImage ? ' · z produktem' : ''
       return (f.notes ? `${v}${m} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : `${v}${m}`) + img
@@ -82,7 +105,7 @@ export default function CampaignForm({
     headline: '',
     ctaType: 'auto',
     cta: '',
-    variants: 2,
+    variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
     imageModel: 'nanobanan',
     notes: '',
     productImage: null,  // base64 data URL of product reference photo (optional)
@@ -120,16 +143,38 @@ export default function CampaignForm({
       const newChannels = isAdding
         ? [...p.channels, channel]
         : p.channels.filter((c) => c !== channel)
-      const defaults = CHANNEL_DEFAULT_FORMATS[channel] || []
+
+      // Formaty — dodaj/usuń defaulty kanału
+      const defaultFormats = CHANNEL_DEFAULT_FORMATS[channel] || []
       let newFormats
       if (isAdding) {
-        newFormats = [...new Set([...p.formats, ...defaults])]
+        newFormats = [...new Set([...p.formats, ...defaultFormats])]
       } else {
         const stillNeeded = new Set(newChannels.flatMap((c) => CHANNEL_DEFAULT_FORMATS[c] || []))
-        newFormats = p.formats.filter((f) => !defaults.includes(f) || stillNeeded.has(f))
+        newFormats = p.formats.filter((f) => !defaultFormats.includes(f) || stillNeeded.has(f))
       }
-      return { ...p, channels: newChannels, formats: newFormats }
+
+      // Warianty — dodaj/usuń defaulty kanału (unia rekomendacji z aktywnych kanałów)
+      const defaultVariants = CHANNEL_DEFAULT_VARIANTS[channel] || []
+      let newVariants
+      if (isAdding) {
+        newVariants = [...new Set([...p.variants, ...defaultVariants])]
+      } else {
+        const stillNeeded = new Set(newChannels.flatMap((c) => CHANNEL_DEFAULT_VARIANTS[c] || []))
+        newVariants = p.variants.filter((v) => !defaultVariants.includes(v) || stillNeeded.has(v))
+      }
+
+      return { ...p, channels: newChannels, formats: newFormats, variants: newVariants }
     })
+  }
+
+  const toggleVariant = (index) => {
+    setForm((p) => ({
+      ...p,
+      variants: p.variants.includes(index)
+        ? p.variants.filter((v) => v !== index)
+        : [...p.variants, index],
+    }))
   }
 
   const advanceSection = () => setActiveSection((s) => Math.min(s + 1, SECTIONS.length - 1))
@@ -228,6 +273,7 @@ export default function CampaignForm({
                     update={update}
                     toggleArray={toggleArray}
                     toggleChannel={toggleChannel}
+                    toggleVariant={toggleVariant}
                     domainRef={domainRef}
                   />
 
@@ -285,12 +331,12 @@ export default function CampaignForm({
   )
 }
 
-function SectionFields({ section, form, update, toggleArray, toggleChannel, domainRef }) {
+function SectionFields({ section, form, update, toggleArray, toggleChannel, toggleVariant, domainRef }) {
   return (
     <>
       {section.fields.map((field) => (
         <Field key={field} field={field} form={form} update={update}
-          toggleArray={toggleArray} toggleChannel={toggleChannel} domainRef={domainRef} />
+          toggleArray={toggleArray} toggleChannel={toggleChannel} toggleVariant={toggleVariant} domainRef={domainRef} />
       ))}
     </>
   )
@@ -388,7 +434,7 @@ function ProductImagePicker({ value, onChange }) {
   )
 }
 
-function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
+function Field({ field, form, update, toggleArray, toggleChannel, toggleVariant, domainRef }) {
   const label = {
     domain:       'Domena klienta',
     opiekun:      'Opiekun klienta',
@@ -397,7 +443,7 @@ function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
     goal:         'Cel kampanii',
     headline:     'Hasło reklamowe',
     cta:          'Tekst CTA (przycisk)',
-    variants:     'Warianty A/B na każdy format',
+    variants:     'Warianty kreatywne',
     imageModel:   'Model AI do generowania grafik',
     notes:        'Dodatkowe uwagi (opcjonalnie)',
     productImage: 'Zdjęcie produktu (opcjonalnie)',
@@ -407,12 +453,12 @@ function Field({ field, form, update, toggleArray, toggleChannel, domainRef }) {
     <div>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
       <FieldInput field={field} form={form} update={update}
-        toggleArray={toggleArray} toggleChannel={toggleChannel} domainRef={domainRef} />
+        toggleArray={toggleArray} toggleChannel={toggleChannel} toggleVariant={toggleVariant} domainRef={domainRef} />
     </div>
   )
 }
 
-function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef }) {
+function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVariant, domainRef }) {
   switch (field) {
 
     case 'domain':
@@ -549,17 +595,79 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, domainRef
         </div>
       )
 
-    case 'variants':
+    case 'variants': {
+      const selectedCount = form.variants.length
       return (
-        <div className="flex flex-wrap gap-1.5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button key={n} type="button" onClick={() => update('variants', n)}
-              className={`pill ${form.variants === n ? 'pill-active' : ''}`}>
-              {n}
-            </button>
-          ))}
+        <div className="space-y-2.5">
+          {/* Grid wariantów */}
+          <div className="grid grid-cols-1 gap-1.5">
+            {VARIANT_DEFINITIONS.map((v) => {
+              const isActive = form.variants.includes(v.index)
+              return (
+                <button
+                  key={v.index}
+                  type="button"
+                  onClick={() => toggleVariant(v.index)}
+                  title={v.tooltip}
+                  className={`flex items-start gap-2.5 text-left w-full px-3 py-2.5 rounded-xl border transition-colors
+                    ${isActive
+                      ? 'border-gray-900 bg-gray-50 dark:border-white dark:bg-gray-800'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'}`}
+                >
+                  {/* Checkbox indicator */}
+                  <span className={`flex-shrink-0 mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors
+                    ${isActive
+                      ? 'bg-gray-900 border-gray-900 dark:bg-white dark:border-white'
+                      : 'border-gray-300 dark:border-gray-600'}`}>
+                    {isActive && (
+                      <svg viewBox="0 0 10 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        className="w-2.5 h-2 text-white dark:text-gray-900">
+                        <path d="M1 4l3 3 5-5"/>
+                      </svg>
+                    )}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm font-medium ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {v.name}
+                      </span>
+                      {v.index >= 5 && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 flex-shrink-0">
+                          Nowy
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{v.shortDesc}</div>
+                  </div>
+                  {/* Tooltip hint */}
+                  <span className="flex-shrink-0 mt-0.5 text-gray-300 dark:text-gray-600" title={v.tooltip}>
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+                      <circle cx="7" cy="7" r="6"/>
+                      <path d="M7 6v4M7 4.5v.5"/>
+                    </svg>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {/* A/B hint */}
+          {selectedCount > 0 && selectedCount < 2 && (
+            <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0">
+                <path d="M7 1L13 12H1L7 1z"/>
+                <path d="M7 5v3M7 10v.5"/>
+              </svg>
+              Zaznacz min. 2 warianty, żeby przeprowadzić test A/B i wybrać najlepiej konwertujący.
+            </div>
+          )}
+          {selectedCount === 0 && (
+            <div className="text-[11px] text-gray-400 dark:text-gray-500">
+              Zaznacz przynajmniej jeden wariant. Kanały reklamowe automatycznie sugerują najlepsze kombinacje.
+            </div>
+          )}
         </div>
       )
+    }
 
     case 'imageModel':
       return (
