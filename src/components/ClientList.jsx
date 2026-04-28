@@ -168,6 +168,48 @@ function BrandPanel({ brand }) {
           </ul>
         </div>
       )}
+
+      {/* Nowe pola DNA wizualnego */}
+      {brand.colorPalette && brand.colorPalette.length > 0 && (
+        <div>
+          <div className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide mb-1">Paleta kolorów</div>
+          <div className="flex flex-wrap gap-2">
+            {brand.colorPalette.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block w-3.5 h-3.5 rounded-full border border-gray-200 dark:border-gray-700 flex-shrink-0"
+                  style={{ backgroundColor: c.hex }}
+                  title={c.hex}
+                />
+                <span className="text-xs text-gray-500 dark:text-gray-400">{c.hex} <span className="text-gray-400 dark:text-gray-600">({c.role})</span></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(brand.compositionStyle || brand.imageryType || brand.lightingMood) && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1">
+          {brand.compositionStyle && (
+            <div className="max-w-sm">
+              <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Kompozycja</span>
+              <div className="text-gray-700 dark:text-gray-300 text-sm">{brand.compositionStyle}</div>
+            </div>
+          )}
+          {brand.imageryType && (
+            <div className="max-w-sm">
+              <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Zdjęcia</span>
+              <div className="text-gray-700 dark:text-gray-300 text-sm">{brand.imageryType}</div>
+            </div>
+          )}
+          {brand.lightingMood && (
+            <div className="max-w-sm">
+              <span className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide">Światło / nastrój</span>
+              <div className="text-gray-700 dark:text-gray-300 text-sm">{brand.lightingMood}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
