@@ -345,13 +345,19 @@ function SectionFields({ section, form, update, toggleArray, toggleChannel, togg
 }
 
 /**
- * Compact product image picker.
- * Supports drag & drop, click-to-browse, and Ctrl+V paste.
- * Stores result as base64 data URL in parent state.
+ * Product image picker — two modes:
+ *  • "Z dysku"      — drag & drop / click / Ctrl+V paste (file → base64)
+ *  • "Link ze strony" — URL input → server-side proxy fetches the image
+ *    with spoofed Referer headers (bypasses IdoSell/Shopify/Symfony hotlink protection)
+ *
+ * Both modes store result as base64 data URL in parent state.
  */
 function ProductImagePicker({ value, onChange }) {
+  const [mode, setMode] = useState('file')   // 'file' | 'url'
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
+  const [urlInput, setUrlInput] = useState('')
+  const [fetching, setFetching] = useState(false)
   const inputRef = useRef(null)
   const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
 
@@ -359,7 +365,7 @@ function ProductImagePicker({ value, onChange }) {
     setError('')
     if (!file) return
     if (!file.type.startsWith('image/')) { setError('Plik musi być obrazem (PNG, JPG, WebP).'); return }
-    if (file.size > MAX_SIZE) { setError(`Za duży (max 4 MB).`); return }
+    if (file.size > MAX_SIZE) { setError('Za duży (max 4 MB).'); return }
     const reader = new FileReader()
     reader.onload = (e) => onChange(e.target.result)
     reader.onerror = () => setError('Nie udało się odczytać pliku.')
@@ -382,6 +388,32 @@ function ProductImagePicker({ value, onChange }) {
     return () => window.removeEventListener('paste', onPaste)
   }, [processFile])
 
+  const fetchFromUrl = async () => {
+    const url = urlInput.trim()
+    if (!url || !url.startsWith('http')) { setError('Wklej prawidłowy URL zdjęcia.'); return }
+    setError('')
+    setFetching(true)
+    try {
+      const res = await fetch('/.netlify/functions/fetch-image-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setError(data.error || `Błąd serwera (HTTP ${res.status})`)
+        return
+      }
+      onChange(data.dataUrl)
+      setUrlInput('')
+    } catch (e) {
+      setError('Nie udało się pobrać zdjęcia. Sprawdź URL i spróbuj ponownie.')
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  // After image loaded — show preview with remove button
   if (value) {
     return (
       <div className="space-y-2">
@@ -395,7 +427,7 @@ function ProductImagePicker({ value, onChange }) {
           </div>
           <button
             type="button"
-            onClick={() => { onChange(null); if (inputRef.current) inputRef.current.value = '' }}
+            onClick={() => { onChange(null); if (inputRef.current) inputRef.current.value = ''; setUrlInput('') }}
             className="flex-shrink-0 text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
             title="Usuń zdjęcie"
           >
@@ -409,29 +441,81 @@ function ProductImagePicker({ value, onChange }) {
   }
 
   return (
-    <div>
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f) }}
-        onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors
-          ${dragOver
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-            : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-900/50'}`}
-      >
-        <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">
-          Przeciągnij zdjęcie produktu lub kliknij
-        </div>
-        <div className="text-[11px] text-gray-400 dark:text-gray-500">
-          możesz też wkleić (Ctrl+V) · PNG, JPG, WebP · max 4 MB
-        </div>
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f) }} />
+    <div className="space-y-2">
+      {/* Mode switch */}
+      <div className="flex gap-1 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 w-fit">
+        {[['file', 'Z dysku'], ['url', 'Link ze strony']].map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => { setMode(m); setError('') }}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors
+              ${mode === m
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
-      <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5 leading-tight">
-        Bez zdjęcia model wygeneruje ogólną grafikę dopasowaną do branży klienta.
-      </div>
-      {error && <div className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</div>}
+
+      {mode === 'file' ? (
+        <>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f) }}
+            onClick={() => inputRef.current?.click()}
+            className={`cursor-pointer rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors
+              ${dragOver
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-900/50'}`}
+          >
+            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">
+              Przeciągnij zdjęcie produktu lub kliknij
+            </div>
+            <div className="text-[11px] text-gray-400 dark:text-gray-500">
+              możesz też wkleić (Ctrl+V) · PNG, JPG, WebP · max 4 MB
+            </div>
+            <input ref={inputRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f) }} />
+          </div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
+            Bez zdjęcia model wygeneruje ogólną grafikę dopasowaną do branży klienta.
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => { setUrlInput(e.target.value); setError('') }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fetchFromUrl() } }}
+              placeholder="https://sklep.pl/zdjecia/produkt.jpg"
+              className="input flex-1 text-sm"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={fetchFromUrl}
+              disabled={fetching || !urlInput.trim()}
+              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-900 text-white dark:bg-white dark:text-gray-900 disabled:opacity-40 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors"
+            >
+              {fetching ? (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5 animate-spin">
+                  <path d="M8 2a6 6 0 1 0 6 6"/>
+                </svg>
+              ) : 'Pobierz'}
+            </button>
+          </div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
+            Serwer pobiera zdjęcie bezpośrednio — działa też z chronionych sklepów (IdoSell, Shopify, Symfony).
+          </div>
+        </>
+      )}
+
+      {error && <div className="text-xs text-red-600 dark:text-red-400">{error}</div>}
     </div>
   )
 }
