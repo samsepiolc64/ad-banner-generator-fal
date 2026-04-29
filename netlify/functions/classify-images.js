@@ -35,9 +35,9 @@ export default async (req) => {
     })
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+    return new Response(JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
