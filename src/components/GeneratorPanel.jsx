@@ -221,7 +221,7 @@ async function uploadToDrive(blob, filename, sessionFolderId, mimeType = 'image/
   })
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, styleReferenceImages = [], falMode = 'test', imageModel = 'nanobanan' }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, styleReferenceImages = [], moodImages = [], falMode = 'test', imageModel = 'nanobanan' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -337,9 +337,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       : ''
 
     // Product reference instruction — injected when a reference image is supplied.
-    const productRefImg = styleRefCount > 0 ? styleRefCount + 1 : 1  // product image index in the array
+    // Order in submitImageUrls: style refs → product → mood → logo
+    const productRefImg = styleRefCount + 1  // product image index in the array
     const productRefBlock = hasProductRef
-      ? `\n\nPRODUCT REFERENCE IMAGE — CRITICAL:\nReference image #${productRefImg} is the EXACT product to feature. Reproduce it with pixel-accurate fidelity:\n- Exact shape, silhouette, and proportions\n- Exact colors, materials, textures, and finish\n- Exact packaging design, labels, and any graphic elements on the surface\n- Exact size relationships between parts\nDo NOT redesign, simplify, or reinterpret the product. It must be a faithful, photographic-quality reproduction of the reference.`
+      ? `\n\nPRODUCT REFERENCE IMAGE — ABSOLUTE FIDELITY REQUIRED:\nReference image #${productRefImg} shows the EXACT product to feature. This is NON-NEGOTIABLE:\n- Reproduce the product's EXACT shape, silhouette, and proportions — no simplification\n- Reproduce the EXACT colors, materials, surface textures, and finish\n- Reproduce EVERY detail of the packaging: label text, graphic elements, logo on packaging, color blocks, any printed design\n- Reproduce the EXACT size relationships between all parts of the product\n- Whether the product appears as a standalone object, worn by a model, held in hand, or integrated into a scene — it MUST be recognizable as THIS specific product from THIS reference image\n- A viewer who knows the real product must immediately confirm "yes, that's the correct product"\nDO NOT redesign, stylize, simplify, or reinterpret. Unfaithful product reproduction = failed creative.`
+      : ''
+
+    // Mood / atmosphere reference instruction
+    const moodRefCount = moodImages?.length || 0
+    const moodRefBlock = moodRefCount > 0
+      ? `\n\nMOOD / ATMOSPHERE REFERENCE IMAGE${moodRefCount > 1 ? 'S' : ''} — STYLE INSPIRATION:\nThe ${moodRefCount > 1 ? 'next ' + moodRefCount + ' reference images are' : 'next reference image is'} provided as atmospheric/style inspiration:\n- Match the lighting character, color temperature, and overall mood\n- Match the level of warmth, softness vs. drama in the scene\n- These show the aesthetic direction the client wants — absorb the feeling\nDo NOT copy specific objects or layouts — only extract atmosphere, light, and color feeling.`
       : ''
 
     // --- TEXT-EDIT MODE (img2img): send original banner as reference + focused prompt ---
@@ -401,14 +408,15 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
-      finalPrompt = (basePrompt + styleRefBlock + productRefBlock)
+      finalPrompt = (basePrompt + styleRefBlock + productRefBlock + moodRefBlock)
         .replace('{{LOGO_BLOCK}}', logoBlock)
         .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
       submitImageUrls = []
-      // ORDER: style references first (set visual tone) → product (fidelity) → logo (composited locally)
+      // ORDER: style refs (visual tone) → product (fidelity) → mood (atmosphere) → logo (composited locally)
       if (styleReferenceImages?.length) submitImageUrls.push(...styleReferenceImages)
       if (productImage) submitImageUrls.push(productImage)
       else if (productRefUrl) submitImageUrls.push(productRefUrl)
+      if (moodImages?.length) submitImageUrls.push(...moodImages)
       if (hasLogo) submitImageUrls.push(logoDataUrl)
     }
 

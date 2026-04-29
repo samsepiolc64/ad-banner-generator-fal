@@ -70,17 +70,13 @@ const SECTIONS = [
   {
     id: 'settings',
     title: 'Ile?',
-    subtitle: 'Warianty, model AI i uwagi',
-    fields: ['variants', 'imageModel', 'styleReferenceImages', 'notes', 'productImage'],
+    subtitle: 'Warianty kreatywne',
+    fields: ['variants'],
     isComplete: (f) => f.variants.length > 0,
     summary: (f) => {
       const count = f.variants.length
       const names = f.variants.map((i) => VARIANT_DEFINITIONS[i]?.name).filter(Boolean)
-      const v = count === 0 ? 'brak wariantów' : `${count} wariant${count === 1 ? '' : count < 5 ? 'y' : 'ów'} · ${names.join(', ')}`
-      const m = f.imageModel === 'gpt-image-2' ? ' · GPT Image 2' : ' · Nano Banana 2'
-      const img = f.productImage ? ' · z produktem' : ''
-      const refs = f.styleReferenceImages?.length ? ` · ${f.styleReferenceImages.length} ref. banerów` : ''
-      return (f.notes ? `${v}${m} · ${f.notes.slice(0, 40)}${f.notes.length > 40 ? '…' : ''}` : `${v}${m}`) + img + refs
+      return count === 0 ? 'brak wariantów' : `${count} wariant${count === 1 ? '' : count < 5 ? 'y' : 'ów'} · ${names.join(', ')}`
     },
   },
 ]
@@ -107,10 +103,6 @@ export default function CampaignForm({
     ctaType: 'auto',
     cta: '',
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
-    imageModel: 'nanobanan',
-    notes: '',
-    productImage: null,        // base64 data URL of product reference photo (optional)
-    styleReferenceImages: [],  // base64 data URLs — existing client banners as style reference (max 2)
   }))
   const [activeSection, setActiveSection] = useState(0)
   const [maxSection, setMaxSection] = useState(0)
@@ -612,10 +604,6 @@ function Field({ field, form, update, toggleArray, toggleChannel, toggleVariant,
     headline:     'Hasło reklamowe',
     cta:          'Tekst CTA (przycisk)',
     variants:     'Warianty kreatywne',
-    imageModel:            'Model AI do generowania grafik',
-    styleReferenceImages:  'Przykładowe banery klienta — referencja stylu (opcjonalnie)',
-    notes:                 'Dodatkowe uwagi (opcjonalnie)',
-    productImage:          'Zdjęcie produktu (opcjonalnie)',
   }[field]
 
   return (
@@ -837,63 +825,6 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
         </div>
       )
     }
-
-    case 'imageModel':
-      return (
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            {
-              id: 'nanobanan',
-              name: 'Nano Banana 2',
-              badge: 'Domyślny',
-              desc: 'FLUX · sprawdzony, szybki',
-              price: '$0.08–0.15 / grafika',
-            },
-            {
-              id: 'gpt-image-2',
-              name: 'GPT Image 2',
-              badge: 'OpenAI',
-              desc: 'Tekst w grafice, naturalny język',
-              price: '$0.15–0.41 / grafika',
-            },
-          ].map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => update('imageModel', m.id)}
-              className={`text-left p-3 rounded-xl border transition-colors
-                ${form.imageModel === m.id
-                  ? 'border-gray-900 bg-gray-50 dark:border-white dark:bg-gray-800'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'}`}
-            >
-              <div className="flex items-center justify-between gap-1 mb-1">
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">{m.name}</span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0">{m.badge}</span>
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{m.desc}</div>
-              <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{m.price}</div>
-            </button>
-          ))}
-        </div>
-      )
-
-    case 'styleReferenceImages':
-      return (
-        <StyleReferenceImagesPicker
-          values={form.styleReferenceImages || []}
-          onChange={(v) => update('styleReferenceImages', v)}
-        />
-      )
-
-    case 'productImage':
-      return <ProductImagePicker value={form.productImage} onChange={(v) => update('productImage', v)} />
-
-    case 'notes':
-      return (
-        <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)}
-          placeholder="np. styl jak Apple, tylko zdjęcia produktowe bez ludzi, unikaj koloru czerwonego..."
-          className="input min-h-[80px] resize-y" />
-      )
 
     default: return null
   }

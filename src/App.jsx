@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { X } from 'lucide-react'
 import CampaignForm from './components/CampaignForm'
+import MaterialsForm from './components/MaterialsForm'
 import BrandForm from './components/BrandForm'
-import LogoUpload from './components/LogoUpload'
 import GeneratorPanel from './components/GeneratorPanel'
 import ClientList from './components/ClientList'
 import Sidebar from './components/Sidebar'
@@ -22,7 +22,7 @@ import { buildGptImage2Prompt } from './lib/gptImage2PromptBuilder'
 import { resolveModel } from './lib/modelRouting'
 import { normalizeDomain } from './lib/domain'
 
-const STEPS = { CAMPAIGN: 0, BRAND: 1, GENERATE: 2 }
+const STEPS = { CAMPAIGN: 0, MATERIALS: 1, BRAND: 2, GENERATE: 3 }
 
 const DEFAULT_HEADLINES = {
   'Awareness (Świadomość marki)': [
@@ -63,17 +63,23 @@ const DEFAULT_CTAS = {
 }
 
 const FLOW_STEPS = [
-  { id: 0, label: 'Kampania',    sub: 'Kanały, formaty i cel kampanii' },
-  { id: 1, label: 'Marka',       sub: 'Dane brandu i styl wizualny'    },
-  { id: 2, label: 'Generowanie', sub: 'Logo, generowanie i pobieranie' },
+  { id: 0, label: 'Kampania',    sub: 'Kanały, formaty i cel kampanii'        },
+  { id: 1, label: 'Materiały',   sub: 'Model AI, logo i materiały referencyjne' },
+  { id: 2, label: 'Marka',       sub: 'Dane brandu i styl wizualny'           },
+  { id: 3, label: 'Generowanie', sub: 'Generowanie i pobieranie'              },
 ]
 
-function stepSummary(id, campaignData, brandData) {
+function stepSummary(id, campaignData, materialsData, brandData) {
   if (id === 0 && campaignData) {
     const fmtCount = campaignData.formats.length
     return `${campaignData.domain} · ${campaignData.goal} · ${fmtCount} format${fmtCount > 1 ? 'y' : ''}`
   }
-  if (id === 1 && brandData) {
+  if (id === 1 && materialsData) {
+    const model = materialsData.imageModel === 'gpt-image-2' ? 'GPT Image 2' : 'Nano Banana 2'
+    const mediaCount = materialsData.classifiedMedia?.length || 0
+    return [model, mediaCount > 0 ? `${mediaCount} plik${mediaCount === 1 ? '' : 'ów'}` : ''].filter(Boolean).join(' · ')
+  }
+  if (id === 2 && brandData) {
     const parts = [brandData.name, brandData.industry].filter(Boolean)
     return parts.join(' · ') || 'Dane marki'
   }
@@ -101,8 +107,8 @@ export default function App() {
   const [initialBrandData, setInitialBrandData] = useState(null)
   const [initialOpiekun, setInitialOpiekun] = useState('')
   const [campaignData, setCampaignData] = useState(null)
+  const [materialsData, setMaterialsData] = useState(null)
   const [brandData, setBrandData] = useState(null)
-  const [logoDataUrl, setLogoDataUrl] = useState(null)
   const [generatorFormats, setGeneratorFormats] = useState([])
   const [resolvedNotes, setResolvedNotes] = useState(null)
   const [notesImageUrl, setNotesImageUrl] = useState(null)
@@ -152,8 +158,8 @@ export default function App() {
     setInitialDomain('')
     setInitialBrandData(null)
     setCampaignData(null)
+    setMaterialsData(null)
     setBrandData(null)
-    setLogoDataUrl(null)
     setGeneratorFormats([])
     setResolvedNotes(null)
     setNotesImageUrl(null)
@@ -166,6 +172,7 @@ export default function App() {
     setInitialBrandData(null)
     setInitialOpiekun('')
     setSelectedModule(null)
+    setMaterialsData(null)
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
@@ -177,6 +184,7 @@ export default function App() {
     setInitialBrandData(brandData)
     setInitialOpiekun(opiekun || '')
     setSelectedModule(moduleId)
+    setMaterialsData(null)
     setFlowKey((k) => k + 1)
     setPanelOpen(true)
     setStep(STEPS.CAMPAIGN)
@@ -193,8 +201,8 @@ export default function App() {
     setSelectedModule(null)
     setStep(STEPS.CAMPAIGN)
     setCampaignData(null)
+    setMaterialsData(null)
     setBrandData(null)
-    setLogoDataUrl(null)
     setGeneratorFormats([])
     setResolvedNotes(null)
     setNotesImageUrl(null)
@@ -205,14 +213,12 @@ export default function App() {
     setCampaignData(data)
     setBrandData(null)
     setGeneratorFormats([])
-    setStep(STEPS.BRAND)
+    setStep(STEPS.MATERIALS)
   }
 
   const handleBrandSubmit = async (brand) => {
     setIsLoading(true)
     setBrandData(brand)
-    // Auto-select brand logo if research fetched one
-    if (brand.logoDataUrl) setLogoDataUrl(brand.logoDataUrl)
     // Zapisz opiekuna i cel kampanii do Supabase (fire-and-forget)
     if (campaignData?.domain) {
       fetch('/.netlify/functions/update-client-meta', {
@@ -292,7 +298,8 @@ export default function App() {
     }
 
     // Jeśli notes zawiera URL — rozpoznaj czy to obrazek czy strona
-    let notesForPrompt = campaignData.notes || null
+    // notes teraz pochodzi z kroku Materiały (materialsData), nie z Kampania
+    let notesForPrompt = materialsData?.notes || null
     // notesForFalAi = notes bez URL i bez scraped content — tylko tekst użytkownika.
     // Fal.ai (image generation) nie przetworzy 5000 znaków treści strony i failuje z 502.
     let notesForFalAi = notesForPrompt
@@ -355,14 +362,16 @@ export default function App() {
         const v = selectedVariants[i]  // rzeczywisty indeks w VARIANT_MATRIX
         const variantName = VARIANT_MATRIX[v % VARIANT_MATRIX.length].name
         const modelInfo = resolveModel(fmt)
-        const isGptImage2 = campaignData.imageModel === 'gpt-image-2'
+        const effectiveImageModel = materialsData?.imageModel || 'nanobanan'
+        const productImageForPrompt = materialsData?.classifiedMedia?.find((m) => m.category === 'product')?.dataUrl || null
+        const isGptImage2 = effectiveImageModel === 'gpt-image-2'
         const prompt = isGptImage2
           ? buildGptImage2Prompt({
               format: fmt,
               variantIndex: v,
               brand: { ...brand, campaignGoal: campaignData.goal },
               headline: headlines[i] || headlines[0],
-              hasProductImage: !!campaignData.productImage,
+              hasProductImage: !!productImageForPrompt,
               cta,
               compInsight,
               notes: notesForFalAi,
@@ -373,7 +382,7 @@ export default function App() {
               variantIndex: v,
               brand: { ...brand, campaignGoal: campaignData.goal },
               headline: headlines[i] || headlines[0],
-              hasProductImage: !!campaignData.productImage,
+              hasProductImage: !!productImageForPrompt,
               cta,
               compInsight,
               notes: notesForFalAi,
@@ -399,10 +408,6 @@ export default function App() {
     setIsLoading(false)
     setStep(STEPS.GENERATE)
   }
-
-  const handleLogoChange = useCallback((dataUrl) => {
-    setLogoDataUrl(dataUrl)
-  }, [])
 
   // Aktualizuj maxStep gdy step rośnie
   useEffect(() => {
@@ -561,7 +566,7 @@ export default function App() {
                           </div>
                           {isDone && (
                             <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                              {stepSummary(id, campaignData, brandData)}
+                              {stepSummary(id, campaignData, materialsData, brandData)}
                             </div>
                           )}
                         </div>
@@ -591,6 +596,15 @@ export default function App() {
                           />
                         )}
 
+                        {id === STEPS.MATERIALS && (
+                          <MaterialsForm
+                            initialData={materialsData}
+                            brandLogoDataUrl={brandData?.logoDataUrl || null}
+                            onSubmit={(data) => { setMaterialsData(data); setStep(STEPS.BRAND) }}
+                            onBack={() => setStep(STEPS.CAMPAIGN)}
+                          />
+                        )}
+
                         {id === STEPS.BRAND && (
                           <>
                             {isLoading && copyGenStatus === 'generating' && (
@@ -610,18 +624,28 @@ export default function App() {
 
                         {id === STEPS.GENERATE && (
                           <>
-                            <LogoUpload onLogoChange={handleLogoChange} brandLogoDataUrl={brandData?.logoDataUrl} />
                             <GeneratorPanel
                               formats={generatorFormats}
-                              logoDataUrl={logoDataUrl}
+                              logoDataUrl={
+                                materialsData?.logoMode === 'upload' ? (materialsData?.logoDataUrl || null)
+                                : materialsData?.logoMode === 'brand' ? (brandData?.logoDataUrl || null)
+                                : null
+                              }
                               brandName={brandData?.name}
                               domain={campaignData?.domain}
-                              notes={resolvedNotes ?? campaignData?.notes}
-                              productImage={campaignData?.productImage || null}
+                              notes={resolvedNotes ?? materialsData?.notes}
+                              productImage={
+                                materialsData?.classifiedMedia?.find((m) => m.category === 'product')?.dataUrl || null
+                              }
                               notesImageUrl={notesImageUrl}
-                              styleReferenceImages={campaignData?.styleReferenceImages || []}
+                              styleReferenceImages={
+                                materialsData?.classifiedMedia?.filter((m) => m.category === 'banner').map((m) => m.dataUrl) || []
+                              }
+                              moodImages={
+                                materialsData?.classifiedMedia?.filter((m) => m.category === 'mood').map((m) => m.dataUrl) || []
+                              }
                               falMode={falMode}
-                              imageModel={campaignData?.imageModel || 'nanobanan'}
+                              imageModel={materialsData?.imageModel || 'nanobanan'}
                             />
                           </>
                         )}
