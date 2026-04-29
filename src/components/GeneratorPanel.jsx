@@ -435,10 +435,62 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       finalPrompt = replaceAdCopyInGptPrompt(storedPrompt, textOverrides.headline, textOverrides.cta)
       submitImageUrls = []
     } else if (isGptImage2) {
-      // GPT Image 2: prompt already built by gptImage2PromptBuilder — no placeholders to replace.
-      // No reference images sent to fal.ai (t2i only). Logo will be composited locally after generation.
+      // GPT Image 2: text-to-image only — no image_urls sent to fal.ai.
+      // Instead, describe materials (product/banner/mood) via Claude Vision and
+      // append those descriptions as text blocks so GPT Image 2 can use them.
       finalPrompt = fmt.prompt
       submitImageUrls = []
+
+      const materialItems = [
+        ...(styleReferenceImages?.map((u) => ({ dataUrl: u, category: 'banner' })) || []),
+        ...(productImage ? [{ dataUrl: productImage, category: 'product' }] : []),
+        ...(moodImages?.map((u) => ({ dataUrl: u, category: 'mood' })) || []),
+      ]
+
+      if (materialItems.length > 0) {
+        try {
+          // Compress images before sending to describe-materials
+          const compressedItems = await Promise.all(
+            materialItems.map(async (item) => ({
+              ...item,
+              dataUrl: await compressRefImage(item.dataUrl),
+            }))
+          )
+          const descRes = await fetch('/.netlify/functions/describe-materials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: compressedItems }),
+            signal,
+          })
+          if (descRes.ok) {
+            const descData = await descRes.json()
+            const descriptions = descData.descriptions || []
+
+            // Format descriptions as prompt appendix blocks
+            const productDesc = descriptions.find((d) => d.category === 'product')
+            const bannerDescs = descriptions.filter((d) => d.category === 'banner')
+            const moodDescs = descriptions.filter((d) => d.category === 'mood')
+
+            let appendix = ''
+            if (productDesc?.text) {
+              appendix += `\n\nPRODUCT REFERENCE — REPRODUCE WITH EXACT FIDELITY:\n${productDesc.text}\nThis specific product must appear in the ad, reproduced as faithfully as possible — correct shape, colors, materials, packaging. Whether shown standalone, worn by a model, or integrated into a scene, it must be immediately recognizable as this product.`
+            }
+            if (bannerDescs.length > 0) {
+              const styleBlock = bannerDescs.map((d, i) =>
+                bannerDescs.length > 1 ? `Reference ${i + 1}: ${d.text}` : d.text
+              ).join('\n')
+              appendix += `\n\nSTYLE REFERENCE — EXISTING AD CREATIVE:\n${styleBlock}\nMatch this visual style DNA: same color palette approach, same mood, same compositional feeling. Do NOT copy layout or text — only extract the visual aesthetic.`
+            }
+            if (moodDescs.length > 0) {
+              const atmBlock = moodDescs.map((d) => d.text).join(' ')
+              appendix += `\n\nATMOSPHERE REFERENCE:\n${atmBlock}\nUse this as inspiration for lighting, color temperature, and emotional tone — do not copy the scene literally.`
+            }
+            if (appendix) finalPrompt = finalPrompt + appendix
+          }
+        } catch {
+          // Non-fatal — proceed without descriptions
+        }
+      }
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
