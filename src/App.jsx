@@ -21,6 +21,7 @@ import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
 import { buildGptImage2Prompt } from './lib/gptImage2PromptBuilder'
 import { resolveModel } from './lib/modelRouting'
 import { normalizeDomain } from './lib/domain'
+import { extractAdCopy } from './lib/extractAdCopy'
 
 const STEPS = { CAMPAIGN: 0, MATERIALS: 1, BRAND: 2, GENERATE: 3 }
 
@@ -353,6 +354,20 @@ export default function App() {
         }
       }
     }
+    // ── Ad copy override from notes ──────────────────────────────────────────
+    // If the user wrote e.g. "hasło: Odkryj nowy smak" or "CTA: Zamów teraz"
+    // in the notes field, extract and use those values — they take priority over
+    // the generated/custom headline and CTA from step 1.
+    const adCopyExtracted = extractAdCopy(notesForFalAi)
+    if (adCopyExtracted.headline) {
+      headlines = Array(variantCount).fill(adCopyExtracted.headline)
+    }
+    if (adCopyExtracted.cta) {
+      cta = adCopyExtracted.cta
+    }
+    // Use cleanedNotes (without the extracted ad copy lines) to avoid duplication
+    const finalNotesForFalAi = adCopyExtracted.cleanedNotes
+
     setResolvedNotes(notesForPrompt)
     setNotesImageUrl(detectedImageUrl)
 
@@ -374,7 +389,7 @@ export default function App() {
               hasProductImage: !!productImageForPrompt,
               cta,
               compInsight,
-              notes: notesForFalAi,
+              notes: finalNotesForFalAi,
               campaignChannels: campaignData.channels,
             })
           : buildPrompt({
@@ -385,7 +400,7 @@ export default function App() {
               hasProductImage: !!productImageForPrompt,
               cta,
               compInsight,
-              notes: notesForFalAi,
+              notes: finalNotesForFalAi,
               modelInfo,
               campaignChannels: campaignData.channels,
             })

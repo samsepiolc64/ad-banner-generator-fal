@@ -310,7 +310,7 @@ ${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)
 Key message: ${brand.usp || headline}
 ${brand.audience ? `Target audience: ${brand.audience}` : ''}
 ${compInsight ? `\nCOMPETITIVE CONTEXT:\n- Market landscape: ${compInsight}\n- Differentiation directive: CREATE CONTRAST with competitors — stand out, don't blend in.` : ''}
-${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}` : ''}
+${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD COPY PLACEMENT section above.` : ''}
 
 CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
 - Layout: ${variant.layout}
