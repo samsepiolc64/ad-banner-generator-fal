@@ -2,7 +2,6 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Upload,
   X,
-  ChevronDown,
   Sparkles,
   Image as ImageIcon,
   AlertTriangle,
@@ -32,7 +31,7 @@ const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
 export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit, onBack }) {
   const [imageModel, setImageModel] = useState(initialData?.imageModel || 'nanobanan')
   const [notes, setNotes] = useState(initialData?.notes || '')
-  const [logoMode, setLogoMode] = useState(initialData?.logoMode || 'brand')
+  const [logoMode, setLogoMode] = useState(initialData?.logoMode || 'none')
   const [uploadedLogoDataUrl, setUploadedLogoDataUrl] = useState(initialData?.logoDataUrl || null)
   const [classifiedMedia, setClassifiedMedia] = useState(initialData?.classifiedMedia || [])
   const [classifying, setClassifying] = useState(false)
@@ -72,6 +71,27 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
       reader.onload = (e) => resolve(e.target.result)
       reader.onerror = reject
       reader.readAsDataURL(file)
+    })
+
+  // Compress image to max 768px and JPEG q=0.75 — keeps it under Netlify's 6 MB body limit
+  const compressForClassification = (dataUrl) =>
+    new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 768
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX }
+          else { width = Math.round((width * MAX) / height); height = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.75))
+      }
+      img.onerror = () => resolve(dataUrl) // fallback: send original
+      img.src = dataUrl
     })
 
   const handleMediaFiles = useCallback(
@@ -114,15 +134,21 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
       setClassifying(true)
       setClassifyError('')
       try {
+        // Compress images before sending — Netlify Functions have a 6 MB body limit
+        const compressedImages = await Promise.all(
+          newItems.map(async (i) => ({
+            dataUrl: await compressForClassification(i.dataUrl),
+            filename: i.filename,
+          }))
+        )
         const res = await fetch('/.netlify/functions/classify-images', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            images: newItems.map((i) => ({ dataUrl: i.dataUrl, filename: i.filename })),
-          }),
+          body: JSON.stringify({ images: compressedImages }),
         })
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`)
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error(errBody.error || `HTTP ${res.status}`)
         }
         const data = await res.json()
         if (data.error) throw new Error(data.error)
@@ -145,7 +171,7 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
           })
         )
       } catch (err) {
-        setClassifyError('Klasyfikacja nie powiodła się. Możesz ręcznie ustawić kategorie.')
+        setClassifyError(`Klasyfikacja nie powiodła się: ${err.message}. Możesz ręcznie ustawić kategorie.`)
         // Fallback: assign 'mood' to all pending
         setClassifiedMedia((prev) =>
           prev.map((item) =>
@@ -472,10 +498,21 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
                       {isPending && classifying ? (
                         <div className="h-5 w-16 animate-pulse bg-gray-200 dark:bg-gray-700 rounded-full" />
                       ) : (
-                        <CategoryDropdown
-                          value={item.category || 'mood'}
-                          onChange={(cat) => updateCategory(idx, cat)}
-                        />
+                        <div className="flex gap-1 flex-wrap">
+                          {CATEGORY_OPTIONS.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => updateCategory(idx, opt.value)}
+                              className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors
+                                ${item.category === opt.value
+                                  ? CATEGORY_COLORS[opt.value]
+                                  : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                            >
+                              {CATEGORY_LABELS[opt.value]}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -518,16 +555,6 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
         {/* Navigation buttons */}
         <div className="flex gap-2 pt-1">
           <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl transition-colors"
-          >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-              <path d="M10 4l-4 4 4 4"/>
-            </svg>
-            Wstecz
-          </button>
-          <button
             type="submit"
             disabled={classifying}
             className="btn-primary flex-1 cursor-pointer"
@@ -552,53 +579,3 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
   )
 }
 
-function CategoryDropdown({ value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  const selected = CATEGORY_OPTIONS.find((o) => o.value === value) || CATEGORY_OPTIONS[2]
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${CATEGORY_COLORS[value] || CATEGORY_COLORS.mood}`}
-      >
-        {CATEGORY_LABELS[value] || 'Nastrój'}
-        <ChevronDown size={10} strokeWidth={2} aria-hidden />
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full mt-1 z-20 min-w-[140px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1">
-          {CATEGORY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => { onChange(opt.value); setOpen(false) }}
-              className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2
-                ${value === opt.value
-                  ? 'font-semibold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-            >
-              <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                opt.value === 'product' ? 'bg-green-500' :
-                opt.value === 'banner' ? 'bg-blue-500' : 'bg-purple-500'
-              }`} />
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
