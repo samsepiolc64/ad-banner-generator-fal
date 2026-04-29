@@ -11,6 +11,7 @@ import {
   Zap,
   Clock,
   Square,
+  ShieldCheck,
 } from 'lucide-react'
 import { resolveModel, costPerImage } from '../lib/modelRouting'
 import { cropToAspect, compressToJpeg, compositeLogoOnBanner, injectXmpDescription } from '../lib/imageUtils'
@@ -282,6 +283,12 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const [editingTexts, setEditingTexts] = useState({})
   // AI captions (fmt.id → string) — generated fire-and-forget after each banner completes
   const [captions, setCaptions] = useState({})
+  // Banner quality evaluations (fmt.id → { verdict, score, channel_label, flags })
+  const [evaluations, setEvaluations] = useState({})
+  // Set of fmt.ids currently being evaluated
+  const [evaluatingIds, setEvaluatingIds] = useState(new Set())
+  // Expanded state for evaluation flag panels (fmt.id → bool)
+  const [expandedEvals, setExpandedEvals] = useState({})
 
   const fsaOk = typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -627,6 +634,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)
+      evaluateBanner(fmt, blob).catch(() => {})
     } catch (e) {
       const msg = e.name === 'AbortError' ? 'Timeout — za długo' : e.message
       updateStatus(fmt.id, { status: 'error', message: msg })
@@ -719,6 +727,37 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   const togglePrompt = (filename) => {
     setExpandedTexts((prev) => ({ ...prev, [filename]: false }))
     setExpandedPrompts((prev) => ({ ...prev, [filename]: !prev[filename] }))
+  }
+
+  // Evaluate a generated banner against channel-specific quality criteria
+  const evaluateBanner = async (fmt, blob) => {
+    const fmtId = fmt.id
+    setEvaluatingIds((prev) => new Set([...prev, fmtId]))
+    try {
+      const dataUrl = await blobToDataUrl(blob)
+      const compressed = await compressRefImage(dataUrl)
+      const base64 = compressed.split(',')[1]
+      const isStories = fmt.channel === 'meta' && fmt.height > fmt.width && fmt.height / fmt.width > 1.5
+      const res = await fetch('/.netlify/functions/evaluate-banner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64,
+          channel: fmt.channel || 'gdn',
+          isStories,
+          width: fmt.width,
+          height: fmt.height,
+        }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.verdict) {
+        setEvaluations((prev) => ({ ...prev, [fmtId]: data }))
+      }
+    } catch {}
+    finally {
+      setEvaluatingIds((prev) => { const s = new Set(prev); s.delete(fmtId); return s })
+    }
   }
 
   return (
@@ -871,6 +910,68 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                       {isTextsOpen ? <ChevronUp size={12} strokeWidth={2} aria-hidden /> : <Pencil size={12} strokeWidth={1.8} aria-hidden />}
                       Zmień teksty
                     </button>
+                  </div>
+                )}
+
+                {/* Evaluation */}
+                {(evaluatingIds.has(fmt.id) || evaluations[fmt.id]) && (
+                  <div className="mt-2">
+                    {evaluatingIds.has(fmt.id) && !evaluations[fmt.id] ? (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                        <ShieldCheck size={13} strokeWidth={1.8} className="animate-pulse" aria-hidden />
+                        Ocenianie zgodności z kanałem…
+                      </div>
+                    ) : evaluations[fmt.id] ? (
+                      <div>
+                        {/* Compact badge row */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedEvals((prev) => ({ ...prev, [fmt.id]: !prev[fmt.id] }))}
+                          className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border transition-colors
+                            border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white/60 dark:bg-black/20"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <ShieldCheck
+                              size={13} strokeWidth={1.8} aria-hidden
+                              className={
+                                evaluations[fmt.id].verdict === 'ready' ? 'text-green-500' :
+                                evaluations[fmt.id].verdict === 'review' ? 'text-amber-500' : 'text-red-500'
+                              }
+                            />
+                            <span className={`text-xs font-semibold
+                              ${evaluations[fmt.id].verdict === 'ready' ? 'text-green-600 dark:text-green-400' :
+                                evaluations[fmt.id].verdict === 'review' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}
+                            >
+                              {evaluations[fmt.id].verdict === 'ready' ? 'Gotowy' :
+                               evaluations[fmt.id].verdict === 'review' ? 'Wymaga sprawdzenia' : 'Niezalecany'}
+                            </span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {evaluations[fmt.id].score}/100 · {evaluations[fmt.id].channel_label}
+                            </span>
+                          </div>
+                          {expandedEvals[fmt.id]
+                            ? <ChevronUp size={12} strokeWidth={2} className="text-gray-400 flex-shrink-0" aria-hidden />
+                            : <ChevronDown size={12} strokeWidth={2} className="text-gray-400 flex-shrink-0" aria-hidden />}
+                        </button>
+
+                        {/* Expanded flags */}
+                        {expandedEvals[fmt.id] && (
+                          <div className="mt-1.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-white/40 dark:bg-black/20 divide-y divide-gray-100 dark:divide-gray-800">
+                            {evaluations[fmt.id].flags.map((flag) => (
+                              <div key={flag.id} className="flex items-start gap-2 px-2.5 py-1.5">
+                                <span className="flex-shrink-0 mt-0.5 text-sm leading-none">
+                                  {flag.status === 'pass' ? '✅' : flag.status === 'warn' ? '⚠️' : '❌'}
+                                </span>
+                                <div className="min-w-0">
+                                  <div className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 leading-snug">{flag.name}</div>
+                                  <div className="text-[10px] text-gray-400 dark:text-gray-500 leading-snug">{flag.note}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>

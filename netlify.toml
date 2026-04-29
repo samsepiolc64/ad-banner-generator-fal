@@ -45,6 +45,9 @@
 [functions."upload-to-drive"]
   timeout = 30
 
+[functions."evaluate-banner"]
+  timeout = 30
+
 [[headers]]
   for = "/*"
   [headers.values]
