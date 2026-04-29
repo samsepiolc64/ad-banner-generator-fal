@@ -87,6 +87,33 @@ FORBIDDEN everywhere outside the product surface:
 - No "inspired-by" lookalike logos, stylized monograms, or typography that reads as a brand mark
 - Do NOT add any brand identity text element that was not explicitly listed in AD COPY PLACEMENT`
 
+/**
+ * Compress a data URL to max 1024px and JPEG q=0.82 before sending to fal.ai.
+ * Keeps reference quality good while staying well under Netlify's 6 MB body limit.
+ * HTTPS URLs are returned unchanged (fal.ai fetches them directly).
+ */
+async function compressRefImage(dataUrl) {
+  if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const MAX = 1024
+      let { width, height } = img
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round((height * MAX) / width); width = MAX }
+        else { width = Math.round((width * MAX) / height); height = MAX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', 0.82))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+
 /** Extract the first http(s) URL from a string, or null */
 function extractUrl(text) {
   if (!text) return null
@@ -412,12 +439,20 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         .replace('{{LOGO_BLOCK}}', logoBlock)
         .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
       submitImageUrls = []
+      // Compress all data URL references before adding — Netlify body limit is 6 MB.
+      // HTTPS URLs go through as-is (fal.ai fetches them server-side).
       // ORDER: style refs (visual tone) → product (fidelity) → mood (atmosphere) → logo (composited locally)
-      if (styleReferenceImages?.length) submitImageUrls.push(...styleReferenceImages)
-      if (productImage) submitImageUrls.push(productImage)
+      if (styleReferenceImages?.length) {
+        const compressed = await Promise.all(styleReferenceImages.map(compressRefImage))
+        submitImageUrls.push(...compressed)
+      }
+      if (productImage) submitImageUrls.push(await compressRefImage(productImage))
       else if (productRefUrl) submitImageUrls.push(productRefUrl)
-      if (moodImages?.length) submitImageUrls.push(...moodImages)
-      if (hasLogo) submitImageUrls.push(logoDataUrl)
+      if (moodImages?.length) {
+        const compressed = await Promise.all(moodImages.map(compressRefImage))
+        submitImageUrls.push(...compressed)
+      }
+      if (hasLogo) submitImageUrls.push(await compressRefImage(logoDataUrl))
     }
 
     // Reuse the original seed for text-edit regeneration (improves visual similarity)

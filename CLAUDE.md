@@ -115,13 +115,36 @@ Prompty budowane w `promptBuilder.js` zawierają sekcje:
 
 Netlify — konfiguracja w `netlify.toml`. Auto-deploy z `main`. Functions timeout: generate-image 60s, research-domain 30s.
 
-## Git — zasady pracy
+## Git — zasady pracy (OBOWIĄZKOWE — nie pomijaj)
 
-- **Commity lokalne: tak, zawsze** — po każdej zmianie rób commit lokalny.
-- **Push: TYLKO gdy użytkownik napisze "push"** — nigdy nie pushuj samodzielnie.
-- **Po commicie zawsze powiedz wprost:** `✅ Commit lokalny — NIE wypchniete. Napisz "push" żeby wdrożyć.`
-- **Po pushu zawsze powiedz wprost:** `✅ Wypchniete na GitHub → Netlify zbuduje automatycznie.`
-- Powód: każdy push uruchamia deploy na Netlify i zużywa build credits.
+### ⛔ PUSH — ŻELAZNA REGUŁA
+**NIGDY nie pushuj bez wyraźnego "push" od użytkownika.**
+Nawet jeśli zmiany są gotowe, commit zrobiony, testy przechodzą — CZEKAJ.
+Każdy push = deploy na Netlify = build credits. Decyzja należy do użytkownika.
+
+### ✅ TESTY — zawsze przed commitem
+Przed każdym `git commit` uruchom `npm test` i pokaż wynik.
+Jeśli testy nie przechodzą — NIE commituj, napraw najpierw.
+
+### 📢 FORMAT KOMUNIKATÓW — obowiązkowy
+Po każdym commicie i po każdym pushu wyświetl blok w tym formacie (dosłownie):
+
+Po commicie:
+```
+*****************************************************
+**  ✅ TESTY: [X]/[X] passed                       **
+**  ✅ COMMIT: [skrót] — [tytuł commitu]           **
+**  ⏳ PUSH: oczekuje na "push" od Ciebie          **
+*****************************************************
+```
+
+Po pushu:
+```
+*****************************************************
+**  ✅ PUSH: wypchniete na GitHub (main)           **
+**  🚀 Netlify buduje automatycznie               **
+*****************************************************
+```
 
 ## Roadmap (z README)
 
