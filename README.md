@@ -7,16 +7,17 @@ Aplikacja webowa do generowania kreacji reklamowych AI dla Google Display, Meta 
 ## Spis treści
 
 1. [Szybki start](#szybki-start)
-2. [Stack technologiczny](#stack-technologiczny)
-3. [Zmienne środowiskowe](#zmienne-środowiskowe)
-4. [Flow aplikacji](#flow-aplikacji)
-5. [Architektura](#architektura)
-6. [Formaty](#formaty)
-7. [Kluczowe koncepcje](#kluczowe-koncepcje)
-8. [Struktura plików](#struktura-plików)
-9. [Testy](#testy)
-10. [Deploy](#deploy)
-11. [Znane ograniczenia](#znane-ograniczenia)
+2. [Setup od zera (nowa instancja)](#setup-od-zera-nowa-instancja)
+3. [Stack technologiczny](#stack-technologiczny)
+4. [Zmienne środowiskowe](#zmienne-środowiskowe)
+5. [Flow aplikacji](#flow-aplikacji)
+6. [Architektura](#architektura)
+7. [Formaty](#formaty)
+8. [Kluczowe koncepcje](#kluczowe-koncepcje)
+9. [Struktura plików](#struktura-plików)
+10. [Testy](#testy)
+11. [Deploy](#deploy)
+12. [Znane ograniczenia](#znane-ograniczenia)
 
 ---
 
@@ -24,14 +25,101 @@ Aplikacja webowa do generowania kreacji reklamowych AI dla Google Display, Meta 
 
 ```bash
 npm install
-cp .env.example .env   # uzupełnij FAL_API_KEY (wymagane)
+cp .env.example .env   # uzupełnij przynajmniej FAL_API_KEY
 netlify dev             # frontend → :8888, Vite dev → :5173
 ```
 
 ```bash
-npm test               # uruchom 186 testów (node:test)
+npm test               # uruchom testy (node:test)
 npm run build          # produkcyjny build → dist/
 ```
+
+---
+
+## Setup od zera (nowa instancja)
+
+Pełna instrukcja postawienia własnej instancji na nowym koncie.
+
+### 1. Repozytorium
+
+```bash
+git clone https://github.com/TWOJ-USER/ad-banner-generator-fal.git
+cd ad-banner-generator-fal
+npm install
+cp .env.example .env
+```
+
+### 2. fal.ai — generowanie grafik (wymagane)
+
+1. Załóż konto na [fal.ai](https://fal.ai)
+2. Dashboard → **API Keys** → utwórz nowy klucz
+3. Wpisz do `.env`:
+   ```
+   FAL_API_KEY=FAL-twoj-klucz
+   ```
+
+### 3. Anthropic Claude — AI research i copy (opcjonalne, ale zalecane)
+
+Bez tego klucza research marki i generowanie copy AI nie działają — wszystko trzeba uzupełniać ręcznie.
+
+1. Załóż konto na [console.anthropic.com](https://console.anthropic.com)
+2. **API Keys** → utwórz nowy klucz
+3. Wpisz do `.env`:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-twoj-klucz
+   ```
+
+### 4. Supabase — baza danych klientów (opcjonalne)
+
+Bez Supabase dane klientów są tylko w localStorage przeglądarki (nie synchronizują się między urządzeniami).
+
+1. Załóż konto na [supabase.com](https://supabase.com) → utwórz nowy projekt
+2. **SQL Editor** → wklej i uruchom zawartość pliku [`supabase-schema.sql`](./supabase-schema.sql)
+3. **Project Settings → API** → skopiuj **Project URL** i **service_role key** (nie anon!)
+4. Wpisz do `.env`:
+   ```
+   SUPABASE_URL=https://xxxx.supabase.co
+   SUPABASE_SERVICE_KEY=eyJhb...
+   ```
+
+### 5. Google Drive — automatyczny zapis grafik (opcjonalne)
+
+1. Otwórz [Google Cloud Console](https://console.cloud.google.com)
+2. Utwórz nowy projekt (lub użyj istniejącego)
+3. **APIs & Services → Enable APIs** → włącz **Google Drive API**
+4. **IAM & Admin → Service Accounts** → utwórz konto serwisowe
+5. Przy tworzeniu konta: **Create key → JSON** → pobierz plik z kluczem
+6. Z pobranego JSON skopiuj `client_email` i `private_key`
+7. Utwórz folder na Google Drive → kliknij prawym na folder → **Share** → dodaj e-mail konta serwisowego z rolą **Editor**
+8. Z URL folderu skopiuj ID: `drive.google.com/drive/folders/{FOLDER_ID}`
+9. Wpisz do `.env`:
+   ```
+   GOOGLE_SERVICE_ACCOUNT_EMAIL=nazwa@projekt.iam.gserviceaccount.com
+   GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nXXX\n-----END PRIVATE KEY-----\n"
+   GOOGLE_DRIVE_FOLDER_ID=twoje-folder-id
+   ```
+   > **Uwaga:** `GOOGLE_PRIVATE_KEY` musi być w cudzysłowie, z dosłownymi `\n` (nie prawdziwymi enterami).
+
+### 6. Basic Auth — ochrona hasłem (opcjonalne)
+
+Jeśli aplikacja ma być dostępna publicznie ale chroniona przed nieuprawnionym dostępem:
+
+```
+APP_USER=admin
+APP_PASSWORD=silne-haslo
+```
+
+Jeśli zmienne nie są ustawione — aplikacja jest dostępna bez logowania.
+
+### 7. Netlify — hosting
+
+1. Załóż konto na [netlify.com](https://netlify.com) → **Add new site → Import from Git**
+2. Połącz z GitHub i wybierz repozytorium
+3. Build settings (powinny być wykryte automatycznie z `netlify.toml`):
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+4. **Site settings → Environment variables** → dodaj wszystkie zmienne z `.env`
+5. **Deploy site** → aplikacja będzie dostępna pod `*.netlify.app`
 
 ---
 
@@ -40,7 +128,7 @@ npm run build          # produkcyjny build → dist/
 | Warstwa | Technologia |
 |---------|-------------|
 | Frontend | React 18 + Vite 6 + Tailwind CSS |
-| Serverless | Netlify Functions — Node.js ES modules (14 funkcji) |
+| Serverless | Netlify Functions — Node.js ES modules (18 funkcji) |
 | Ikony | lucide-react |
 | Generowanie grafik AI | fal.ai — Nano Banana 2 ($0.08), Nano Banana Pro ($0.15), GPT Image 2 ($0.20) |
 | AI text | Anthropic Claude API — Haiku 4.5 (research + copy + vision) |
@@ -60,17 +148,21 @@ Skopiuj `.env.example` → `.env`:
 
 | Zmienna | Wymagana | Opis |
 |---------|----------|------|
-| `FAL_API_KEY` | **TAK** | Klucz fal.ai (tryb testowy) |
+| `FAL_API_KEY` | **TAK** | Klucz fal.ai (tryb testowy i domyślny) |
 | `FAL_PROD_API_KEY` | nie | Klucz fal.ai (tryb Klient) — fallback do `FAL_API_KEY` |
-| `ANTHROPIC_API_KEY` lub `CLAUDE_API_KEY` | nie | Claude API — research domeny, copy, vision |
-| `SUPABASE_URL` | nie | URL projektu Supabase (cache L2 + koszty) |
-| `SUPABASE_SERVICE_KEY` | nie | Supabase service role key |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | nie | Email konta usługowego Google Drive |
-| `GOOGLE_PRIVATE_KEY` | nie | Klucz RSA PEM Drive (wieloliniowy, z `\n`) |
+| `ANTHROPIC_API_KEY` lub `CLAUDE_API_KEY` | nie | Claude API — research domeny, copy, vision, ocena banerów |
+| `SUPABASE_URL` | nie | URL projektu Supabase (lista klientów + koszty) |
+| `SUPABASE_SERVICE_KEY` | nie | Supabase **service_role** key (nie anon!) |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | nie | Email konta serwisowego Google Drive |
+| `GOOGLE_PRIVATE_KEY` | nie | Klucz RSA PEM Drive (w cudzysłowie, z `\n`) |
+| `GOOGLE_DRIVE_FOLDER_ID` | nie | ID folderu głównego na Google Drive |
+| `SCREENSHOTONE_API_KEY` | nie | Klucz ScreenshotOne — zrzuty stron w research |
+| `APP_USER` | nie | Login do Basic Auth (jeśli brak — brak ochrony) |
+| `APP_PASSWORD` | nie | Hasło do Basic Auth |
 
 Bez `ANTHROPIC_API_KEY` — tylko ręczne uzupełnianie danych marki.
-Bez Supabase — cache tylko w localStorage.
-Bez Drive — tylko pobieranie pliku lokalnie.
+Bez Supabase — cache wyłącznie w localStorage przeglądarki (nie synchronizuje się między urządzeniami).
+Bez Drive — grafiki tylko pobierane lokalnie.
 
 Na Netlify: **Site settings → Environment variables**.
 
@@ -82,16 +174,21 @@ Na Netlify: **Site settings → Environment variables**.
 ┌───────────────────────────────────────────────────────────┐
 │  Krok 1: Kampania (CampaignForm)                          │
 │  domena · cel kampanii · kanały · formaty · warianty      │
-│  headline + CTA · zdjęcie produktu (opcja)                │
+│  headline + CTA                                           │
 ├───────────────────────────────────────────────────────────┤
-│  Krok 2: Marka (BrandForm)                                │
+│  Krok 2: Materiały (MaterialsForm)                        │
+│  wybór modelu AI (Nano Banana 2 / GPT Image 2)            │
+│  upload logo · zdjęcie produktu · materiały referencyjne  │
+│  klasyfikacja materiałów przez Claude Vision              │
+├───────────────────────────────────────────────────────────┤
+│  Krok 3: Marka (BrandForm)                                │
 │  auto-research przez Claude API lub ręczne uzupełnienie   │
 │  kolory · typografia · styl · ton · USP · audience        │
 ├───────────────────────────────────────────────────────────┤
-│  Krok 3: Generowanie (GeneratorPanel)                     │
-│  upload logo · upload zdjęcia produktu                    │
+│  Krok 4: Generowanie (GeneratorPanel)                     │
 │  generowanie: każdy format × każdy wariant                │
-│  podgląd w kartach 440px · download · Google Drive        │
+│  podgląd w kartach · download · Google Drive              │
+│  zmiana tekstów · ocena banera AI                         │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -130,7 +227,7 @@ podgląd + download + upload do Google Drive
 
 ## Architektura
 
-### Netlify Functions (14)
+### Netlify Functions (18)
 
 | Funkcja | Timeout | Opis |
 |---------|---------|------|
@@ -139,6 +236,10 @@ podgląd + download + upload do Google Drive
 | `research-domain` | 60s | Claude research + Supabase cache |
 | `generate-copy` | 30s | AI nagłówki per wariant (format `"LINE1\nLINE2"`) |
 | `describe-banner` | 30s | Claude Vision — analiza bannera (tryb "Zmień teksty") |
+| `classify-images` | 30s | Claude Vision — klasyfikacja wgranych obrazów (product / banner / mood) |
+| `describe-materials` | 45s | Claude Vision — opisuje materiały referencyjne dla GPT Image 2 (t2i) |
+| `evaluate-banner` | 30s | Claude Vision — ocena bannera wg kryteriów kanału (GDN / Meta / TikTok) |
+| `fetch-image-proxy` | 15s | Server-side proxy obrazów — obejście hotlink protection (+ Wayback fallback) |
 | `remove-bg` | 30s | fal.ai Birefnet v2 — usuwanie tła logo |
 | `fetch-url-content` | 25s | Pobieranie strony (direct → Jina.ai → Wayback) |
 | `add-cost` | 10s | Aktualizacja kosztów USD w Supabase |
@@ -282,12 +383,16 @@ Format 9:16 na kanale Meta (bez GDN) = Stories/Reels:
 ```
 ad-banner-generator-fal/
 ├── netlify/
-│   ├── functions/               # 14 Netlify Functions (ES modules)
+│   ├── functions/               # 18 Netlify Functions (ES modules)
 │   │   ├── generate-image.js    # proxy fal.ai queue
 │   │   ├── check-result.js      # polling kolejki fal.ai
 │   │   ├── research-domain.js   # Claude research + Supabase cache
 │   │   ├── generate-copy.js     # AI nagłówki
 │   │   ├── describe-banner.js   # Claude Vision (Zmień teksty)
+│   │   ├── classify-images.js   # Claude Vision — klasyfikacja obrazów
+│   │   ├── describe-materials.js # Claude Vision — opis materiałów dla GPT Image 2
+│   │   ├── evaluate-banner.js   # Claude Vision — ocena bannera
+│   │   ├── fetch-image-proxy.js # server-side proxy obrazów (hotlink bypass)
 │   │   ├── remove-bg.js         # fal.ai Birefnet
 │   │   ├── fetch-url-content.js # Jina.ai + Wayback fallback
 │   │   ├── add-cost.js          # tracking kosztów
@@ -303,8 +408,9 @@ ad-banner-generator-fal/
 ├── src/
 │   ├── components/
 │   │   ├── CampaignForm.jsx         # Krok 1 — kampania
-│   │   ├── BrandForm.jsx            # Krok 2 — marka + research
-│   │   ├── GeneratorPanel.jsx       # Krok 3 — generowanie banerów
+│   │   ├── MaterialsForm.jsx        # Krok 2 — model AI + logo + materiały ref.
+│   │   ├── BrandForm.jsx            # Krok 3 — marka + research
+│   │   ├── GeneratorPanel.jsx       # Krok 4 — generowanie banerów
 │   │   ├── ClientList.jsx           # Panel klientów
 │   │   ├── LogoUpload.jsx           # Upload logo + usuwanie tła
 │   │   ├── ScreenshotUploader.jsx   # Upload screenshota
@@ -324,6 +430,8 @@ ad-banner-generator-fal/
 │       ├── productPromptBuilder.js  # Prompty produktowe (NB2/NBPro)
 │       ├── gptImage2PromptBuilder.js          # Prompty GPT Image 2
 │       ├── gptImage2ProductPromptBuilder.js   # Prompty GPT Image 2 + produkty
+│       ├── extractAdCopy.js         # Wyciąganie headline/CTA z tekstu bannera
+│       ├── extractAdCopy.test.js
 │       ├── clientCosts.js           # Śledzenie kosztów
 │       └── teamMembers.js           # Konfiguracja zespołu
 │
