@@ -83,7 +83,7 @@ const CHANNEL_REQUIREMENTS = {
 
   meta: `Keep the very top and the very bottom of the image as pure background or scene only — no text, no CTA anywhere near the top or bottom edges, since platform controls overlap these areas on mobile. Place headline, product, and CTA in the central portion of the image with generous breathing room from every edge. Keep text minimal — fewer words, larger type; imagery must dominate. Place the CTA button in the lower-center portion of the composition, well clear of the bottom edge. No social platform interface elements of any kind.`,
 
-  'meta-stories': `No CTA button anywhere in the image — none whatsoever. No social platform UI, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or send/reply boxes — the final image must be pure ad creative with zero interface elements.
+  'meta-stories': `NO CTA button anywhere in the image — none whatsoever. DO NOT render any social platform UI, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or send/reply boxes — the final image must be pure ad creative with zero interface elements. (Meta Ads Stories / Reels format)
 
 CANVAS FILL — NON-NEGOTIABLE: The background color, gradient, or scene MUST extend edge-to-edge across the ENTIRE canvas — from the very top pixel row to the very bottom pixel row, left to right. There must be absolutely no white strips, no grey borders, no empty margins, and no letterboxing of any kind. Every single pixel of the canvas must be filled with the brand background color or a continuous scene.
 
