@@ -255,9 +255,22 @@ export default function App() {
     let headlines
     let cta
 
+    // Extract copy hints from notes early — before calling Claude.
+    // Strip URLs so we don't pass scraped page content as copy direction.
+    const rawNotesForCopy = (materialsData?.notes || '').replace(/https?:\/\/[^\s]+/g, '').trim() || null
+    const notesAdCopy = extractAdCopy(rawNotesForCopy)
+    // copyHints = free-form suggestions the user wrote (without explicit "hasło: X" lines)
+    const copyHints = notesAdCopy.cleanedNotes?.trim() || null
+
     if (campaignData.headlineType === 'custom' && campaignData.headline) {
+      // Priority 1: headline typed manually in campaign form
       headlines = Array(variantCount).fill(campaignData.headline)
+    } else if (notesAdCopy.headline) {
+      // Priority 2: explicit "hasło: X" in notes — skip AI entirely
+      headlines = Array(variantCount).fill(notesAdCopy.headline)
+      setCopyGenStatus('done')
     } else {
+      // Priority 3: Claude generates headlines, with notes as highest-priority creative direction
       setCopyGenStatus('generating')
       try {
         const res = await fetch('/.netlify/functions/generate-copy', {
@@ -268,6 +281,7 @@ export default function App() {
             goal: campaignData.goal,
             channels: campaignData.channels,
             variantCount,
+            copyHints,   // ← sugestie z pola "Dodatkowe uwagi" — najwyższy priorytet dla Claude
           }),
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -354,19 +368,16 @@ export default function App() {
         }
       }
     }
-    // ── Ad copy override from notes ──────────────────────────────────────────
-    // If the user wrote e.g. "hasło: Odkryj nowy smak" or "CTA: Zamów teraz"
-    // in the notes field, extract and use those values — they take priority over
-    // the generated/custom headline and CTA from step 1.
-    const adCopyExtracted = extractAdCopy(notesForFalAi)
-    if (adCopyExtracted.headline) {
-      headlines = Array(variantCount).fill(adCopyExtracted.headline)
+    // ── CTA override from notes + clean notes for fal.ai ────────────────────
+    // Headline priority is already handled above (notesAdCopy.headline → skip Claude).
+    // Here we: (1) apply CTA from notes if present, (2) strip extracted lines from
+    // the notes sent to the image generator so they don't leak into the visual prompt.
+    if (notesAdCopy.cta) {
+      cta = notesAdCopy.cta
     }
-    if (adCopyExtracted.cta) {
-      cta = adCopyExtracted.cta
-    }
-    // Use cleanedNotes (without the extracted ad copy lines) to avoid duplication
-    const finalNotesForFalAi = adCopyExtracted.cleanedNotes
+    // Strip "hasło: X" / "CTA: X" lines from the fully-processed notes before
+    // sending to fal.ai — avoids duplication and "hasło" text leaking onto banners.
+    const finalNotesForFalAi = extractAdCopy(notesForFalAi).cleanedNotes
 
     setResolvedNotes(notesForPrompt)
     setNotesImageUrl(detectedImageUrl)

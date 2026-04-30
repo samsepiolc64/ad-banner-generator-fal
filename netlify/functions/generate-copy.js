@@ -40,7 +40,7 @@ export default async (req) => {
   }
 
   try {
-    const { brand, goal, channels, variantCount } = await req.json()
+    const { brand, goal, channels, variantCount, copyHints } = await req.json()
 
     if (!brand || !goal || !variantCount) {
       return new Response(
@@ -61,6 +61,15 @@ export default async (req) => {
       : 'same language as the brand\'s website'
 
     const prompt = `You are a senior advertising copywriter. Write ad headlines for a real brand. Every headline must sound like THIS brand's voice — not generic ad copy.
+${copyHints ? `
+⚡ CLIENT COPY DIRECTION — HIGHEST PRIORITY ⚡
+The client has provided specific guidance about the ad copy below.
+This overrides all other creative considerations — follow it closely in EVERY headline.
+Treat it as a direct brief from the client, not a suggestion.
+
+${copyHints}
+
+` : ''}
 
 BRAND:
 - Name: ${brand.name}
