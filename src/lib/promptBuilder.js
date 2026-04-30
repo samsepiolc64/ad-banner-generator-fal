@@ -71,53 +71,50 @@ export const VARIANT_MATRIX = [
 ]
 
 const CHANNEL_REQUIREMENTS = {
-  gdn: `-- Google Display Ads --
-- Keep all key elements (headline, product, CTA) well within the canvas — generous breathing room from every edge, no content touching borders
-- Static image, no animation, no implied interactivity
-- CTA button clearly visible and readable
-- No phone, browser, or OS interface elements
-- No QR codes
-- TEXT COVERAGE HARD LIMIT (Google policy): all text elements combined — headline, CTA, any body copy — must cover no more than one fifth of the total image surface; imagery and visuals must dominate`,
-  meta: `-- Meta Ads (Feed) --
-- COMPOSITION: the very top and very bottom of the image must show only background or scene — no text, no logo, no CTA anywhere near the top or bottom edges; platform UI covers these areas on mobile
-- Place headline, product, and CTA in the central portion of the image with generous breathing room from every edge
-- Keep text minimal — fewer words, larger type; imagery must dominate; ads with heavy text are penalized in delivery
-- No Facebook, Instagram, or any social platform interface elements
-- CTA button placed in the lower-center portion of the composition, well clear of the bottom edge`,
-  'meta-stories': `-- Meta Ads | Stories / Reels (9:16) --
-- NO CTA button anywhere in the image — none whatsoever
-- DO NOT render any social platform UI, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or send/reply boxes — the final image must be pure ad creative with zero interface elements
-- COMPOSITION: concentrate all content (headline, product, visuals) in the middle portion of the frame — the top portion and the large bottom portion of the image must show only pure background or scene, with no text, product, or design element whatsoever
-- The bottom third of the image must be entirely clean background — this is critical; platform controls overlap this area
-- Small breathing room on left and right edges — keep all content away from the sides
-- Headline: centered horizontally, placed in the upper-center area of the image
-- Design for immediate impact — the message must be understood within one second`,
-  programmatic: `-- Programmatic Display --
-- Keep all content well within the canvas with generous breathing room from every edge — ads appear at many sizes and cropping must never cut content
-- Legibility at small display sizes is the top priority: use large, bold text; avoid thin strokes, fine details, or small decorative elements that disappear when scaled down
-- High contrast between all text and background is mandatory
-- CTA button must be clearly visible and the action immediately obvious
-- Avoid overly complex compositions — simple, bold visuals perform best across placements`,
-  linkedin: `-- LinkedIn Ads --
-- Professional, business-oriented visual tone — this is a B2B platform; avoid overly casual, playful, or consumer-lifestyle aesthetics
-- COMPOSITION: keep all content well away from every edge of the image — LinkedIn feed UI overlaps the sides on mobile; generous breathing room on all sides
-- The message must be immediately clear to a professional scrolling their feed — lead with the value proposition
-- Text is more acceptable on LinkedIn than on Meta — a concise headline + short descriptor is appropriate, but keep it clean and readable
-- No personal social platform UI (no LinkedIn interface elements, no profile picture mocks, no connection count mockups)
-- CTA button placed in the lower third, clearly readable, professional color
-- Typography: clean, professional sans-serif; avoid decorative or script fonts
-- Overall feel: credible, premium, business-ready`,
-  tiktok: `-- TikTok Ads (Static Image) --
-- COMPOSITION — TikTok UI covers large areas of the frame; place ALL content strictly in the LEFT-CENTER area of the image:
-  · The large bottom portion of the image must be clean background — TikTok controls (buttons, caption) cover this area
-  · The very top of the image must be clean background — top bar covers it
-  · The right side of the image must be clean background — action buttons column covers it
-  · ALL headline, product, and visuals must be confined to the left-center zone of the frame, well clear of bottom, top, and right edges
-- Visual style: bold, energetic, high-contrast, youth-oriented; design for immediate thumb-stopping impact
-- Large, bold headline — designed to be read in under 1 second
-- NO CTA button text in the image — TikTok overlays its own CTA
-- Authentic, dynamic aesthetic — avoid overly polished "corporate" look; prefer vivid colors and energy
-- Design for mobile-first, full-screen viewing`,
+  gdn: `Keep all key elements (headline, product, CTA) well within the canvas — generous breathing room from every edge, no content touching borders. Static image, no animation, no implied interactivity. CTA button clearly visible and readable. No phone, browser, or OS interface elements. No QR codes. TEXT COVERAGE HARD LIMIT: all text elements combined — headline, CTA, any body copy — must cover no more than one fifth of the total image surface; imagery and visuals must dominate.`,
+
+  'gdn-leaderboard': `This is an ultra-wide horizontal banner format. The composition must flow in a single horizontal line from left to right — headline, product element (if any), and CTA arranged side by side, never stacked vertically. No tall design elements. All content well within the canvas with generous breathing room on all sides. High contrast mandatory. Text combined must not exceed 20% of the total image surface.`,
+
+  'gdn-billboard': `This is a wide panoramic banner format. The composition spans the full width with a cinematic, horizontal layout — a strong visual on one side balanced by headline and CTA on the other, or a full-width scene with a horizontal text overlay. All elements must remain well within the canvas. Text combined must not exceed 20% of the total image surface.`,
+
+  'gdn-skyscraper': `This is an extremely narrow vertical banner format. The composition must stack elements top-to-bottom: brand visual at the top, headline in the middle, CTA at the bottom. Absolutely no horizontal spreading of elements — everything must fit within the narrow width. Generous breathing room from left and right edges. Text combined must not exceed 20% of the total image surface.`,
+
+  'gdn-mobile': `This is an ultra-small mobile banner. Extreme minimalism is mandatory: one short bold headline maximum, no body copy, no decorative detail elements. Single horizontal flow — no vertical stacking. Everything well within the canvas. Maximum contrast between text and background is critical for legibility at this tiny scale. Text must not exceed 20% of the total image surface.`,
+
+  meta: `Keep the very top and the very bottom of the image as pure background or scene only — no text, no CTA anywhere near the top or bottom edges, since platform controls overlap these areas on mobile. Place headline, product, and CTA in the central portion of the image with generous breathing room from every edge. Keep text minimal — fewer words, larger type; imagery must dominate. Place the CTA button in the lower-center portion of the composition, well clear of the bottom edge. No social platform interface elements of any kind.`,
+
+  'meta-stories': `No CTA button anywhere in the image — none whatsoever. No social platform UI, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or send/reply boxes — the final image must be pure ad creative with zero interface elements. The top 14% of the image must be entirely clean background or scene — no content may enter this zone. The bottom 33% of the image must be entirely clean background — platform controls overlap this area and any content placed here will be hidden. Keep all content away from the left and right edges. Place the headline centered horizontally in the safe zone between the top and bottom margins. Design for immediate impact — the message must be understood within one second.`,
+
+  programmatic: `Keep all content well within the canvas with generous breathing room from every edge — ads appear at many sizes and cropping must never cut content. Legibility at small display sizes is the top priority: use large, bold text; avoid thin strokes, fine details, or small decorative elements that disappear when scaled down. High contrast between all text and background is mandatory. CTA button must be clearly visible and the action immediately obvious. Avoid overly complex compositions — simple, bold visuals perform best across placements.`,
+
+  linkedin: `Professional, business-oriented visual tone — this is a business platform; avoid overly casual, playful, or consumer-lifestyle aesthetics. Keep all content well away from every edge of the image — platform UI overlaps the sides on mobile; generous breathing room on all sides. The message must be immediately clear to a professional scrolling their feed — lead with the value proposition. A concise headline plus short descriptor is appropriate, but keep it clean and readable. No platform interface elements, profile picture mocks, or connection count mockups. CTA button placed in the lower third, clearly readable, professional color. Typography: clean, professional sans-serif; avoid decorative or script fonts. Overall feel: credible, premium, business-ready.`,
+
+  tiktok: `No CTA button text in the image — the platform overlays its own. Place all content — headline, product, visuals — strictly in the left-center area of the frame: the large bottom portion, the very top, and the entire right side must show only clean background, since the platform interface covers these areas. Visual style: bold, energetic, high-contrast, youth-oriented; design for immediate thumb-stopping impact. Large, bold headline — designed to be read in under one second. Authentic, dynamic aesthetic — avoid overly polished corporate look; prefer vivid colors and energy. Design for mobile-first, full-screen viewing.`,
+
+  'tiktok-other': `Bold, energetic, youth-oriented visual style designed for immediate scroll-stopping impact. Large, bold headline readable in under one second. No CTA button in the image — the platform overlays its own. Keep all content well within the canvas with generous breathing room from every edge. Authentic, dynamic aesthetic — avoid overly polished corporate look. Design for mobile-first viewing.`,
+}
+
+/**
+ * Resolve channel requirements based on channel and format dimensions.
+ * Returns format-specific rules for extreme GDN aspect ratios and TikTok variants.
+ */
+function resolveChannelReqs(format, { isStories, isTikTokVertical, hasGdn }) {
+  if (isStories) return CHANNEL_REQUIREMENTS['meta-stories']
+  if (isTikTokVertical) return CHANNEL_REQUIREMENTS.tiktok
+  if (format.channel === 'tiktok') return CHANNEL_REQUIREMENTS['tiktok-other']
+
+  if (hasGdn || format.channel === 'gdn') {
+    const ratio = format.width / format.height
+    if (format.height <= 60) return CHANNEL_REQUIREMENTS['gdn-mobile']
+    if (ratio >= 7) return CHANNEL_REQUIREMENTS['gdn-leaderboard']
+    if (ratio >= 3) return CHANNEL_REQUIREMENTS['gdn-billboard']
+    if (ratio <= 0.35) return CHANNEL_REQUIREMENTS['gdn-skyscraper']
+    return CHANNEL_REQUIREMENTS.gdn
+  }
+
+  if (format.channel === 'meta') return CHANNEL_REQUIREMENTS.meta
+  if (format.channel === 'linkedin') return CHANNEL_REQUIREMENTS.linkedin
+  return CHANNEL_REQUIREMENTS.programmatic
 }
 
 const GOAL_DIRECTIVES = {
@@ -203,22 +200,7 @@ export function buildPrompt({
   const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
   const isTikTokVertical = format.channel === 'tiktok' && format.ar === '9:16'
 
-  let channelReqs = ''
-  if (isStories) {
-    channelReqs = CHANNEL_REQUIREMENTS['meta-stories']
-  } else if (isTikTokVertical) {
-    channelReqs = CHANNEL_REQUIREMENTS.tiktok
-  } else if (hasGdn) {
-    channelReqs = CHANNEL_REQUIREMENTS.gdn
-  } else if (format.channel === 'meta') {
-    channelReqs = CHANNEL_REQUIREMENTS.meta
-  } else if (format.channel === 'linkedin') {
-    channelReqs = CHANNEL_REQUIREMENTS.linkedin
-  } else if (format.channel === 'tiktok') {
-    channelReqs = CHANNEL_REQUIREMENTS.tiktok
-  } else {
-    channelReqs = CHANNEL_REQUIREMENTS.programmatic
-  }
+  const channelReqs = resolveChannelReqs(format, { isStories, isTikTokVertical, hasGdn })
 
   // Canvas crop zone for non-native AR (described without numbers to prevent leakage)
   let cropZone = ''
@@ -302,7 +284,6 @@ VISUAL IDENTITY:
 
 ${brandDna}
 
-LOGO HANDLING:
 {{LOGO_BLOCK}}
 ${cropZone}
 ${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
@@ -358,11 +339,11 @@ TYPOGRAPHY REQUIREMENTS:
 - Keep text concise and surrounded by visual breathing room — imagery should dominate the composition
 - DASH RULE: if any dash is used in text overlays, use en dash (–) NEVER em dash (—)${format.channel === 'gdn' ? '\n- HARD LIMIT (Google policy): all text combined must cover no more than 20% of the total image surface area' : ''}
 
-CHANNEL-SPECIFIC REQUIREMENTS:
+PLACEMENT AND COMPOSITION RULES:
 ${channelReqs}
 
-NEGATIVE PROMPT (do NOT render any of these):
-text-only composition, no photography no lifestyle scene, flat color background with only text, blank white background with product cutout floating, solid color background with text floating in center, empty background with text, template banner layout, generic digital banner aesthetic, corporate brochure style, clip art product on plain background, stock photo cliché, gradient blob background, flat vector illustration style, blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom third of the image, any content near the left or right edges, Instagram Stories UI overlay, Instagram Stories chrome, social media app interface, app navigation bar, platform header bar, profile avatar circle, username overlay, account name text, story viewer header, timestamp text, story controls, send message bar, reply box, message input field, heart icon row, share icon, paper plane icon, swipe up indicator, swipe up text, story progress bar, story dots indicator, any simulated mobile phone UI, any simulated app UI' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
+DO NOT RENDER ANY OF THE FOLLOWING:
+text-only composition, no photography no lifestyle scene, flat color background with only text, blank white background with product cutout floating, solid color background with text floating in center, empty background with text, template banner layout, generic digital banner aesthetic, corporate brochure style, clip art product on plain background, stock photo cliché, gradient blob background, flat vector illustration style, blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner, any visible text labels describing image zones or areas, any text indicating "left", "right", "center", "top", "bottom" as position labels, any text reading "headline", "CTA", "logo", "placement", "safe", "zone", "area", "content", "composition", "banner", "ad", "display", "leaderboard", "skyscraper", "billboard", any channel name rendered as text, any format name rendered as text, any technical instruction rendered as visible text in the image${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top 14% of the image, any text or visual element in the bottom 33% of the image, any content near the left or right edges, Instagram Stories UI overlay, Instagram Stories chrome, social media app interface, app navigation bar, platform header bar, profile avatar circle, username overlay, account name text, story viewer header, timestamp text, story controls, send message bar, reply box, message input field, heart icon row, share icon, paper plane icon, swipe up indicator, swipe up text, story progress bar, story dots indicator, any simulated mobile phone UI, any simulated app UI' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
 
   return prompt
 }
