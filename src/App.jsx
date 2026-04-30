@@ -372,6 +372,12 @@ export default function App() {
     setNotesImageUrl(detectedImageUrl)
 
     const allFormats = []
+    // Compute hasLogo once — same logic as logoDataUrl prop passed to GeneratorPanel
+    const hasLogo = !!(
+      materialsData?.logoMode === 'upload' ? materialsData?.logoDataUrl
+      : materialsData?.logoMode === 'brand' ? brandData?.logoDataUrl
+      : null
+    )
     for (const fmt of selectedFormats) {
       for (let i = 0; i < selectedVariants.length; i++) {
         const v = selectedVariants[i]  // rzeczywisty indeks w VARIANT_MATRIX
@@ -387,6 +393,7 @@ export default function App() {
               brand: { ...brand, campaignGoal: campaignData.goal },
               headline: headlines[i] || headlines[0],
               hasProductImage: !!productImageForPrompt,
+              hasLogo,
               cta,
               compInsight,
               notes: finalNotesForFalAi,

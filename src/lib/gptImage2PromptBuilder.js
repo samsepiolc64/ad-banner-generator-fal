@@ -90,17 +90,50 @@ const GOAL_DIRECTIVES = {
 }
 
 const CHANNEL_REQS = {
-  gdn: `GOOGLE DISPLAY NETWORK: Keep all key elements (headline, product, CTA button) well within the canvas with generous breathing room from every edge. All text combined (headline, CTA, any body copy) must cover no more than 20% of the total image surface — imagery must dominate visually. Include a clearly visible, rounded CTA button. Do not include phone UI, browser chrome, QR codes, or any social platform interface elements.`,
+  gdn: `Keep all key elements (headline, product, CTA button) well within the canvas with generous breathing room from every edge. All text combined must cover no more than 20% of the total image surface — imagery must dominate visually. Include a clearly visible, rounded CTA button. Do not include phone UI, browser chrome, QR codes, or any social platform interface elements.`,
 
-  meta: `META ADS (FEED): Concentrate all content (headline, product, CTA) in the central portion of the image. Keep the very top and the very bottom of the image as pure background or scene only — platform UI covers these areas on mobile. Keep text minimal — fewer words, larger type — imagery must dominate. Place the CTA button in the lower-center area, well clear of the bottom edge. Do not include any social media interface elements.`,
+  'gdn-leaderboard': `The composition must flow in a single horizontal line from left to right — headline, product element (if any), and CTA arranged side by side, never stacked vertically. No tall design elements. All content well within the canvas with generous breathing room on all sides. Maximum contrast for legibility. Text combined must not exceed 20% of the total image surface.`,
 
-  'meta-stories': `META STORIES / REELS (9:16 VERTICAL): Do NOT include a CTA button anywhere in the image. Concentrate all content (headline, product) in the middle third of the frame — keep the top portion and the large bottom third of the image as pure clean background or scene only, since platform controls cover these areas. Keep all content away from the left and right edges. Headline should be centered horizontally in the upper-center area of the content zone. Do not include any social media interface elements, app chrome, or platform UI of any kind.`,
+  'gdn-billboard': `The composition spans the full width with a cinematic, horizontal layout — a strong visual on one side balanced by headline and CTA on the other, or a full-width scene with a horizontal text overlay. All elements must remain well within the canvas. Text combined must not exceed 20% of the total image surface.`,
 
-  programmatic: `PROGRAMMATIC DISPLAY: Keep all content well within the canvas with generous breathing room from every edge. Prioritize legibility at small display sizes — use large, bold text and avoid fine details that disappear when scaled down. Ensure high contrast between text and background. Include a clearly visible CTA button. Keep the composition simple, bold, and immediately legible.`,
+  'gdn-skyscraper': `The composition must stack elements top-to-bottom: brand visual at the top, headline in the middle, CTA at the bottom. Absolutely no horizontal spreading of elements — everything must fit within the narrow width. Generous breathing room from left and right edges. Text combined must not exceed 20% of the total image surface.`,
 
-  linkedin: `LINKEDIN ADS: Professional, business-oriented visual tone — this is a B2B platform, so avoid overly casual or consumer-lifestyle aesthetics. Keep all content well away from every edge of the image. Lead with a clear value proposition for professionals. A concise headline plus short descriptor is appropriate. Include a CTA button in the lower third. Typography must be clean and professional. Overall feel: credible, premium, business-ready.`,
+  'gdn-mobile': `Extreme minimalism is mandatory: one short bold headline maximum, no body copy, no decorative detail elements. Single horizontal flow — no vertical stacking. Everything well within the canvas. Maximum contrast between text and background is critical for legibility at this tiny scale. Text must not exceed 20% of the total image surface.`,
 
-  tiktok: `TIKTOK ADS (9:16 VERTICAL): Concentrate ALL content (headline, product, visuals) strictly in the LEFT-CENTER area of the image — keep the large bottom portion, the very top, and the entire right side as clean background only, since TikTok's interface covers these areas. Do NOT include a CTA button — TikTok overlays its own. Visual style: bold, energetic, high-contrast, designed for immediate thumb-stopping impact. Large, bold headline readable in under 1 second.`,
+  meta: `Keep the very top and the very bottom of the image as pure background or scene only — platform UI covers these areas on mobile. Concentrate headline, product, and CTA in the central portion of the image with generous breathing room from every edge. Keep text minimal — fewer words, larger type — imagery must dominate. Place the CTA button in the lower-center area, well clear of the bottom edge. Do not include any social media interface elements.`,
+
+  'meta-stories': `Do not include a CTA button anywhere in the image. Do not include any social media interface elements, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or reply boxes — the final image must be pure ad creative.
+
+CANVAS FILL — NON-NEGOTIABLE: The background color, gradient, or scene MUST extend edge-to-edge across the ENTIRE canvas — from the very top pixel row to the very bottom pixel row, left to right. There must be absolutely no white strips, no grey borders, no empty margins, and no letterboxing of any kind. Every single pixel of the canvas must be filled with the brand background color or a continuous scene.
+
+CONTENT-FREE ZONES (background fills these, content does not): The top 14% of the image must show only the continuation of the background color or scene — no text, no product, no design element may enter this zone. The bottom 33% must similarly show only the background continuation — platform controls cover this area. All visible content (headline, visuals) must be placed in the safe middle zone between these two margins. Place the headline centered horizontally in this safe zone. Design for immediate impact — the message must be understood within one second.`,
+
+  programmatic: `Keep all content well within the canvas with generous breathing room from every edge. Prioritize legibility at small display sizes — use large, bold text and avoid fine details that disappear when scaled down. Ensure high contrast between text and background. Include a clearly visible CTA button. Keep the composition simple, bold, and immediately legible.`,
+
+  linkedin: `Professional, business-oriented visual tone — this is a business platform, so avoid overly casual or consumer-lifestyle aesthetics. Keep all content well away from every edge of the image. Lead with a clear value proposition for professionals. A concise headline plus short descriptor is appropriate. Include a CTA button in the lower third. Typography must be clean and professional. Overall feel: credible, premium, business-ready.`,
+
+  tiktok: `No CTA button in the image — the platform overlays its own. Place all content — headline, product, visuals — strictly in the left-center area of the frame: the large bottom portion, the very top, and the entire right side must show only clean background, since the platform interface covers these areas. Visual style: bold, energetic, high-contrast, designed for immediate thumb-stopping impact. Large, bold headline readable in under one second.`,
+
+  'tiktok-other': `Bold, energetic, youth-oriented visual style designed for immediate scroll-stopping impact. Large, bold headline readable in under one second. No CTA button in the image — the platform overlays its own. Keep all content well within the canvas with generous breathing room from every edge. Authentic, dynamic aesthetic — avoid overly polished corporate look. Design for mobile-first viewing.`,
+}
+
+function resolveGpt2ChannelReqs(format, { isStories, isTikTokVertical, hasGdn }) {
+  if (isStories) return CHANNEL_REQS['meta-stories']
+  if (isTikTokVertical) return CHANNEL_REQS.tiktok
+  if (format.channel === 'tiktok') return CHANNEL_REQS['tiktok-other']
+
+  if (hasGdn || format.channel === 'gdn') {
+    const ratio = format.width / format.height
+    if (format.height <= 60) return CHANNEL_REQS['gdn-mobile']
+    if (ratio >= 7) return CHANNEL_REQS['gdn-leaderboard']
+    if (ratio >= 3) return CHANNEL_REQS['gdn-billboard']
+    if (ratio <= 0.35) return CHANNEL_REQS['gdn-skyscraper']
+    return CHANNEL_REQS.gdn
+  }
+
+  if (format.channel === 'meta') return CHANNEL_REQS.meta
+  if (format.channel === 'linkedin') return CHANNEL_REQS.linkedin
+  return CHANNEL_REQS.programmatic
 }
 
 /**
@@ -113,6 +146,7 @@ export function buildGptImage2Prompt({
   headline,         // string — may contain \n to separate primary from secondary line
   cta,              // string
   hasProductImage,  // boolean
+  hasLogo,          // boolean — true when a real logo will be composited onto the banner
   compInsight,      // string or null
   notes,            // string or null
   campaignChannels, // string[]
@@ -123,22 +157,7 @@ export function buildGptImage2Prompt({
   const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
   const isTikTokVertical = format.channel === 'tiktok' && format.ar === '9:16'
 
-  let channelReqs
-  if (isStories) {
-    channelReqs = CHANNEL_REQS['meta-stories']
-  } else if (isTikTokVertical) {
-    channelReqs = CHANNEL_REQS.tiktok
-  } else if (hasGdn) {
-    channelReqs = CHANNEL_REQS.gdn
-  } else if (format.channel === 'meta') {
-    channelReqs = CHANNEL_REQS.meta
-  } else if (format.channel === 'linkedin') {
-    channelReqs = CHANNEL_REQS.linkedin
-  } else if (format.channel === 'tiktok') {
-    channelReqs = CHANNEL_REQS.tiktok
-  } else {
-    channelReqs = CHANNEL_REQS.programmatic
-  }
+  const channelReqs = resolveGpt2ChannelReqs(format, { isStories, isTikTokVertical, hasGdn })
 
   const channelLabel =
     format.channel === 'meta' ? 'Meta Ads'
@@ -174,6 +193,11 @@ export function buildGptImage2Prompt({
       ? `Render this text with crisp Polish typography including all diacritics (ą, ę, ś, ć, ź, ż, ł, ó, ń):\n- PRIMARY HEADLINE (largest, heaviest, dominant — like 700–900 weight at ~80pt on a 1080px canvas): "${primaryLine}"\n- SECONDARY LINE directly below at 55–65% of the primary size, medium weight (400–500): "${secondaryLine}"\n- CTA BUTTON with text "${cta}" — prominently styled rounded button, background color ${ctaHex}, white text, clearly visible and immediately readable\nFont: ${typographyLine}. Use en dash (–) for any dashes — never em dash (—).`
       : `Render this text with crisp Polish typography including all diacritics (ą, ę, ś, ć, ź, ż, ł, ó, ń):\n- HEADLINE (large, bold): "${primaryLine}"\n- CTA BUTTON with text "${cta}" — prominently styled rounded button, background color ${ctaHex}, white text\nFont: ${typographyLine}. Use en dash (–) for any dashes — never em dash (—).`
   }
+
+  // Logo instruction: reserve clean corner only when a real logo will be composited
+  const logoInstruction = hasLogo
+    ? `Do not render the brand name "${brand.name}" as a standalone floating text element, wordmark, watermark, badge, seal, monogram, or decorative typographic element anywhere outside of product labels or packaging. The brand name may appear naturally on product packaging or labels as part of the product itself. Leave at least one corner (top-left preferred) naturally uncluttered — filled only with pure background color or texture, no objects, text, or design elements — so a real brand logo can be placed there later. This clean corner must look like a natural extension of the background, not a reserved placeholder box or empty geometric shape.`
+    : `Do not render the brand name "${brand.name}" as a standalone floating text element, wordmark, watermark, badge, seal, monogram, or decorative typographic element anywhere outside of product labels or packaging. The brand name may appear naturally on product packaging or labels as part of the product itself.`
 
   // Build brand DNA
   const colorPaletteLines = brand.colorPalette?.length
@@ -228,12 +252,11 @@ The image must be a finished, editorial-quality advertising image — not a gene
 
 ${textBlock}
 
-LOGO RULES:
-Do not render the brand name "${brand.name}" as a standalone floating text element, wordmark, watermark, badge, seal, monogram, or decorative typographic element anywhere outside of product labels or packaging. The brand name may appear naturally on product packaging or labels as part of the product itself. Leave at least one corner (top-left preferred) naturally uncluttered — filled only with pure background color or texture, no objects, text, or design elements — so a real brand logo can be placed there later. This clean corner must look like a natural extension of the background, not a reserved placeholder box or empty geometric shape.
+${logoInstruction}
 
 ${channelReqs}
 
-OUTPUT: Sharp, high-resolution, production-ready image that looks like a real published advertisement. Do not render any measurement labels, pixel values, margin indicators, percentage markers, crop marks, dashed zone borders, dimension arrows, or any technical annotations. The final image must be pure ad creative — never a design spec sheet, mood board, or style guide.`
+OUTPUT: Sharp, high-resolution, production-ready image that looks like a real published advertisement. Do not render any measurement labels, pixel values, margin indicators, percentage markers, crop marks, dashed zone borders, dimension arrows, or any technical annotations. The final image must be pure ad creative — never a design spec sheet, mood board, or style guide. The background must fill the entire canvas from edge to edge — no white strips, no grey bands, no empty margins, no letterboxing of any kind.`
 
   return prompt
 }

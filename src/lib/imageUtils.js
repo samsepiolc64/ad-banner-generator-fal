@@ -126,6 +126,35 @@ function analyzeCorners(bitmap, sampleW, sampleH) {
   return results
 }
 
+/**
+ * Sample the average color of a logo's 4 corners to detect its background color.
+ * Each corner is sampled as a small block for robustness against single-pixel edge artifacts.
+ * Returns { r, g, b } in 0–255 range.
+ */
+function detectLogoBgColor(canvas) {
+  const ctx = canvas.getContext('2d')
+  const w = canvas.width
+  const h = canvas.height
+  // Sample block size: at most 5px or 1/20th of the smaller dimension
+  const s = Math.max(1, Math.min(5, Math.floor(Math.min(w, h) / 20)))
+
+  const corners = [
+    [0,     0    ],
+    [w - s, 0    ],
+    [0,     h - s],
+    [w - s, h - s],
+  ]
+
+  let r = 0, g = 0, b = 0, n = 0
+  for (const [cx, cy] of corners) {
+    const data = ctx.getImageData(cx, cy, s, s).data
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++
+    }
+  }
+  return { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) }
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -288,19 +317,35 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   const isBusy = best.stdDev > 0.14
 
   // Decision tree:
-  // - Logo WITHOUT alpha (white bg not removed) → draw with multiply blend mode.
-  //   multiply: white pixels × banner = banner (white vanishes), dark pixels stay.
-  //   No sticker-box, no flood-fill artifacts — works great for logotypes on white bg.
+  // - Logo WITHOUT alpha (solid bg) → detect bg color from logo corners → draw matching panel →
+  //   logo on top. Enclosed letterforms (O, D, P, B…) match the panel perfectly.
   // - Logo WITH alpha + clean area → just drop shadow (scene-matched)
   // - Logo WITH alpha + dark/busy area → very subtle soft backing (not a hard white rectangle)
   const needsBacking = logoHasAlpha && (isDark || isBusy)
 
   if (!logoHasAlpha) {
-    // Multiply mode: white background disappears, dark ink stays
+    // Detect logo's background color from its corners → draw a matching panel → logo on top.
+    // This correctly handles enclosed letterforms (O, D, P, B…) because those interior pixels
+    // are the same color as the panel — no flood-fill artifacts, no multiply color shifts.
+    const logoBg = detectLogoBgColor(logoCheckCanvas)
+    const panPad = Math.round(Math.min(drawW, drawH) * 0.12)
+    const px = x - panPad
+    const py = y - panPad
+    const pw = drawW + panPad * 2
+    const ph = drawH + panPad * 2
+    const pr = Math.round(Math.min(pw, ph) * 0.1)
+
     ctx.save()
-    ctx.globalCompositeOperation = 'multiply'
-    ctx.drawImage(logoBmp, x, y, drawW, drawH)
+    ctx.shadowColor = 'rgba(0,0,0,0.15)'
+    ctx.shadowBlur = Math.round(drawW * 0.06)
+    ctx.shadowOffsetX = shadowOffsetX * 0.5
+    ctx.shadowOffsetY = shadowOffsetY * 0.5 + Math.round(drawW * 0.005)
+    ctx.fillStyle = `rgb(${logoBg.r},${logoBg.g},${logoBg.b})`
+    roundRect(ctx, px, py, pw, ph, pr)
+    ctx.fill()
     ctx.restore()
+
+    ctx.drawImage(logoBmp, x, y, drawW, drawH)
   } else if (needsBacking) {
     const backingPad = Math.round(Math.min(drawW, drawH) * 0.22)
     const bx = x - backingPad
@@ -455,12 +500,13 @@ export function removeBackgroundFloodFill(canvas, tolerance = 18) {
 
 /**
  * Convert an SVG or image file to a PNG data URL (for logo).
- * Optionally runs client-side background removal for logos on uniform bg.
+ * Solid-background logos are returned as-is — compositeLogoOnBanner handles them
+ * via corner color detection + panel, which correctly covers enclosed letterforms.
  *
  * Returns: { dataUrl, bgRemoved, reason, hasAlpha }
  */
 export function fileToPngDataUrl(file, maxWidth = 600, options = {}) {
-  const { tryRemoveBg = true } = options
+  void options // reserved for future use
 
   return new Promise((resolve, reject) => {
     const isSvg = file.type === 'image/svg+xml' || file.name.endsWith('.svg')
@@ -499,22 +545,14 @@ export function fileToPngDataUrl(file, maxWidth = 600, options = {}) {
           return
         }
 
-        // Try client-side flood-fill background removal
-        if (tryRemoveBg) {
-          const result = removeBackgroundFloodFill(cvs)
-          resolve({
-            dataUrl: cvs.toDataURL('image/png'),
-            bgRemoved: result.removed,
-            reason: result.reason || 'flood-fill',
-            hasAlpha: result.removed,
-          })
-          return
-        }
-
+        // No flood-fill — return logo as-is with solid background.
+        // compositeLogoOnBanner handles solid-bg logos via corner color detection:
+        // it draws a matching panel behind the logo, which correctly covers enclosed
+        // letterforms (O, D, P, B…) that flood-fill cannot reach.
         resolve({
           dataUrl: cvs.toDataURL('image/png'),
           bgRemoved: false,
-          reason: 'skipped',
+          reason: 'panel-composite',
           hasAlpha: false,
         })
       }
