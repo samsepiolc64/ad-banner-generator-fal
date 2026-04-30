@@ -102,7 +102,11 @@ const CHANNEL_REQS = {
 
   meta: `Keep the very top and the very bottom of the image as pure background or scene only — platform UI covers these areas on mobile. Concentrate headline, product, and CTA in the central portion of the image with generous breathing room from every edge. Keep text minimal — fewer words, larger type — imagery must dominate. Place the CTA button in the lower-center area, well clear of the bottom edge. Do not include any social media interface elements.`,
 
-  'meta-stories': `Do not include a CTA button anywhere in the image. Do not include any social media interface elements, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or reply boxes — the final image must be pure ad creative. The top 14% of the image must be entirely clean background or scene — no content may enter this zone. The bottom 33% of the image must be entirely clean background — platform controls cover this area. Keep all content away from the left and right edges. Place the headline centered horizontally in the safe zone between the top and bottom margins. Design for immediate impact — the message must be understood within one second.`,
+  'meta-stories': `Do not include a CTA button anywhere in the image. Do not include any social media interface elements, app chrome, navigation bars, profile headers, avatars, usernames, timestamps, action icons, or reply boxes — the final image must be pure ad creative.
+
+CANVAS FILL — NON-NEGOTIABLE: The background color, gradient, or scene MUST extend edge-to-edge across the ENTIRE canvas — from the very top pixel row to the very bottom pixel row, left to right. There must be absolutely no white strips, no grey borders, no empty margins, and no letterboxing of any kind. Every single pixel of the canvas must be filled with the brand background color or a continuous scene.
+
+CONTENT-FREE ZONES (background fills these, content does not): The top 14% of the image must show only the continuation of the background color or scene — no text, no product, no design element may enter this zone. The bottom 33% must similarly show only the background continuation — platform controls cover this area. All visible content (headline, visuals) must be placed in the safe middle zone between these two margins. Place the headline centered horizontally in this safe zone. Design for immediate impact — the message must be understood within one second.`,
 
   programmatic: `Keep all content well within the canvas with generous breathing room from every edge. Prioritize legibility at small display sizes — use large, bold text and avoid fine details that disappear when scaled down. Ensure high contrast between text and background. Include a clearly visible CTA button. Keep the composition simple, bold, and immediately legible.`,
 
@@ -252,7 +256,7 @@ ${logoInstruction}
 
 ${channelReqs}
 
-OUTPUT: Sharp, high-resolution, production-ready image that looks like a real published advertisement. Do not render any measurement labels, pixel values, margin indicators, percentage markers, crop marks, dashed zone borders, dimension arrows, or any technical annotations. The final image must be pure ad creative — never a design spec sheet, mood board, or style guide.`
+OUTPUT: Sharp, high-resolution, production-ready image that looks like a real published advertisement. Do not render any measurement labels, pixel values, margin indicators, percentage markers, crop marks, dashed zone borders, dimension arrows, or any technical annotations. The final image must be pure ad creative — never a design spec sheet, mood board, or style guide. The background must fill the entire canvas from edge to edge — no white strips, no grey bands, no empty margins, no letterboxing of any kind.`
 
   return prompt
 }
