@@ -178,7 +178,7 @@ describe('brand DNA in prompt', () => {
 
   it('includes additional notes when provided', () => {
     const prompt = makePrompt({ notes: 'Use autumnal color palette' })
-    contains(prompt, 'ADDITIONAL CREATIVE NOTES')
+    contains(prompt, 'CLIENT AD COPY')
     contains(prompt, 'Use autumnal color palette')
   })
 })

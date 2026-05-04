@@ -298,11 +298,29 @@ ${!isLayoutRef && variant.name === 'Typograficzny Bold' ? `⚡ COLOR-CRITICAL: T
 ${isLayoutRef ? '' : `
 KEY MESSAGE: ${brand.usp || primaryLine}
 ${brand.audience ? `TARGET AUDIENCE: ${brand.audience}` : ''}
-${notes ? `ADDITIONAL CREATIVE NOTES: ${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD TEXT section above.` : ''}
+${notes ? `⚡ CLIENT AD COPY — ABSOLUTE PRIORITY (read before AD TEXT section below):
+${notes}
+
+⚠️ COPY MANDATE — NON-NEGOTIABLE:
+Scan the text above for any headline, slogan, tagline, or CTA.
+Recognition rules — treat as client copy if you see ANY of:
+  • a short phrase or sentence that reads like an ad headline or slogan
+  • text labeled with: "Hasło:", "Nagłówek:", "Headline:", "Tekst:", "Slogan:", "CTA:", "Przycisk:", "Button:"
+  • an imperative phrase that could serve as a call-to-action
+
+IF client copy IS found:
+  → Use it VERBATIM — not paraphrased, not improved, not substituted
+  → It REPLACES the headline and/or CTA in AD TEXT section below
+  → Do NOT render any AI-invented headline or CTA anywhere on the banner
+  → ONLY the client's exact words may appear as headline/CTA on this image
+
+IF no identifiable headline or CTA is found in the text above:
+  → Use AD TEXT section below normally` : ''}
 
 VISUAL COMPOSITION REQUIREMENTS:
 The image must be a finished, editorial-quality advertising image — not a generic digital banner. Photography or imagery must dominate at least 60% of the canvas. The composition must feel intentionally designed: every element has deliberate placement, visual tension, and breathing room. It must feel like a high-end magazine editorial or a premium brand campaign. Do not use a flat solid-color background with text floating in the middle, blank white or grey background with a product cutout, clip-art or stock-photo-generic style, corporate brochure grid layout, or gradient blob with copy.
 `}
+AD TEXT${notes ? ' — USE ONLY IF CLIENT AD COPY ABOVE CONTAINS NO HEADLINE/CTA' : ''}:
 ${textBlock}
 
 ${logoInstruction}

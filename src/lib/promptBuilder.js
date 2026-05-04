@@ -312,7 +312,24 @@ ${cropZone}${isLayoutRef ? '' : `${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_D
 Key message: ${brand.usp || headline}
 ${brand.audience ? `Target audience: ${brand.audience}` : ''}
 ${compInsight ? `\nCOMPETITIVE CONTEXT:\n- Market landscape: ${compInsight}\n- Differentiation directive: CREATE CONTRAST with competitors — stand out, don't blend in.` : ''}
-${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD COPY PLACEMENT section above.` : ''}`}
+${notes ? `\n⚡ CLIENT AD COPY — ABSOLUTE PRIORITY (read before AD COPY PLACEMENT):
+${notes}
+
+⚠️ COPY MANDATE — NON-NEGOTIABLE:
+Scan the text above for any headline, slogan, tagline, or CTA.
+Recognition rules — treat as client copy if you see ANY of:
+  • a short phrase or sentence that reads like an ad headline or slogan
+  • text labeled with: "Hasło:", "Nagłówek:", "Headline:", "Tekst:", "Slogan:", "CTA:", "Przycisk:", "Button:"
+  • an imperative phrase that could serve as a call-to-action
+
+IF client copy IS found:
+  → Use it VERBATIM — not paraphrased, not improved, not substituted
+  → It REPLACES the headline and/or CTA in AD COPY PLACEMENT below
+  → Do NOT render any AI-invented headline or CTA anywhere on the banner
+  → ONLY the client's exact words may appear as headline/CTA on this image
+
+IF no identifiable headline or CTA is found in the text above:
+  → Use AD COPY PLACEMENT below normally` : ''}`}
 
 ⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
@@ -370,7 +387,7 @@ ${(() => {
   const parts = headline.split('\n').map(s => s.trim()).filter(Boolean)
   const primary = parts[0] || headline
   const secondary = parts[1] || null
-  return `AD COPY PLACEMENT:
+  return `AD COPY PLACEMENT${notes ? ' — USE ONLY IF CLIENT AD COPY ABOVE CONTAINS NO HEADLINE/CTA' : ''}:
 ${secondary
   ? `TYPOGRAPHIC HIERARCHY — critical for visual impact:
 - PRIMARY HEADLINE: "${primary}"
