@@ -169,44 +169,6 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
-/**
- * Detect scene lighting direction by comparing left vs right and top vs bottom luminance.
- * Returns { dx, dy } — a normalized vector pointing FROM the light source TOWARD shadows.
- * Used to cast a realistic drop shadow matching the scene.
- */
-function detectLightingDirection(bitmap) {
-  const scale = Math.min(1, 200 / Math.max(bitmap.width, bitmap.height))
-  const sw = Math.round(bitmap.width * scale)
-  const sh = Math.round(bitmap.height * scale)
-  const c = document.createElement('canvas')
-  c.width = sw
-  c.height = sh
-  const ctx = c.getContext('2d')
-  ctx.drawImage(bitmap, 0, 0, sw, sh)
-  const data = ctx.getImageData(0, 0, sw, sh).data
-
-  let leftL = 0, rightL = 0, topL = 0, bottomL = 0
-  let leftN = 0, rightN = 0, topN = 0, bottomN = 0
-
-  for (let y = 0; y < sh; y++) {
-    for (let x = 0; x < sw; x++) {
-      const i = (y * sw + x) * 4
-      const l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-      if (x < sw / 2) { leftL += l; leftN++ } else { rightL += l; rightN++ }
-      if (y < sh / 2) { topL += l; topN++ } else { bottomL += l; bottomN++ }
-    }
-  }
-
-  const dxRaw = (rightL / rightN - leftL / leftN) / 255   // positive = brighter on right → light from right → shadow falls left
-  const dyRaw = (bottomL / bottomN - topL / topN) / 255   // positive = brighter on bottom → light from below → shadow falls up
-
-  // Shadow falls AWAY from light: flip sign
-  // Clamp and soften to avoid extreme shadows when scene is balanced
-  const dx = Math.max(-1, Math.min(1, -dxRaw * 2))
-  const dy = Math.max(-1, Math.min(1, -dyRaw * 2))
-
-  return { dx, dy }
-}
 
 /**
  * Sample the average color within a region — used for tonal matching.
@@ -297,11 +259,6 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
   else if (best.name === 'bl') { x = pad; y = bannerBmp.height - drawH - pad }
   else if (best.name === 'br') { x = bannerBmp.width - drawW - pad; y = bannerBmp.height - drawH - pad }
 
-  // Scene-aware lighting detection — determines shadow direction
-  const lighting = detectLightingDirection(bannerBmp)
-  const shadowOffsetX = Math.round(drawW * 0.015 * lighting.dx)
-  const shadowOffsetY = Math.round(drawW * 0.015 * lighting.dy + drawW * 0.006) // bias slightly down (gravity)
-
   // Sample the region behind the logo — used to judge if backing is actually needed
   const regionColor = sampleRegionColor(bannerBmp, x, y, drawW, drawH)
   const regionLum = (0.299 * regionColor.r + 0.587 * regionColor.g + 0.114 * regionColor.b) / 255
@@ -336,10 +293,6 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
     const pr = Math.round(Math.min(pw, ph) * 0.1)
 
     ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.15)'
-    ctx.shadowBlur = Math.round(drawW * 0.06)
-    ctx.shadowOffsetX = shadowOffsetX * 0.5
-    ctx.shadowOffsetY = shadowOffsetY * 0.5 + Math.round(drawW * 0.005)
     ctx.fillStyle = `rgb(${logoBg.r},${logoBg.g},${logoBg.b})`
     roundRect(ctx, px, py, pw, ph, pr)
     ctx.fill()
@@ -357,24 +310,14 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
     ctx.save()
     // Softer backing: white on dark, slight translucency — don't scream "sticker"
     ctx.fillStyle = isDark ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.72)'
-    ctx.shadowColor = 'rgba(0,0,0,0.18)'
-    ctx.shadowBlur = Math.round(drawW * 0.06)
-    ctx.shadowOffsetX = shadowOffsetX * 0.6
-    ctx.shadowOffsetY = shadowOffsetY * 0.6 + Math.round(drawW * 0.008)
     roundRect(ctx, bx, by, bw, bh, br)
     ctx.fill()
     ctx.restore()
 
     ctx.drawImage(logoBmp, x, y, drawW, drawH)
   } else {
-    // Clean area + logo with alpha — scene-matched drop shadow only
-    ctx.save()
-    ctx.shadowColor = isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.14)'
-    ctx.shadowBlur = Math.round(drawW * 0.045)
-    ctx.shadowOffsetX = shadowOffsetX
-    ctx.shadowOffsetY = shadowOffsetY
+    // Clean area + logo with alpha — place directly, no shadow
     ctx.drawImage(logoBmp, x, y, drawW, drawH)
-    ctx.restore()
   }
 
   return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92))
