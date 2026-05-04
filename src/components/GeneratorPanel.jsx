@@ -734,33 +734,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       // (and overwrite previous edits on repeated text changes).
       const filename = isEditMode ? makeFilename(domain, fmt, { edit: true }) : originalKey
 
-      // --- AI caption: awaited before save so the text is embedded in XMP metadata ---
-      // The caption is stored in dc:description (XMP APP1 segment) inside the JPEG binary.
-      // XMP-aware tools (Lightroom, Bridge, Photoshop, Windows Explorer details pane) will
-      // surface it. Google Drive Details panel may also display it.
-      let captionText = null
-      if (!isEditMode) {
-        try {
-          const captionDataUrl = await blobToDataUrl(blob)
-          const captionRes = await fetch('/.netlify/functions/describe-banner', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: captionDataUrl, mediaType: 'image/jpeg', mode: 'caption' }),
-          })
-          if (captionRes.ok) {
-            const captionData = await captionRes.json()
-            captionText = captionData?.caption || null
-          }
-        } catch {}
-
-        if (captionText) {
-          // Embed into main blob and the no-logo version
-          blob = await injectXmpDescription(blob, captionText)
-          if (noLogoBlob) noLogoBlob = await injectXmpDescription(noLogoBlob, captionText)
-          setCaptions((prev) => ({ ...prev, [fmt.id]: captionText }))
-        }
-      }
-
+      // Show preview immediately — do NOT wait for caption
       const previewUrl = URL.createObjectURL(blob)
       setPreviews((prev) => ({ ...prev, [fmt.id]: previewUrl }))
 
@@ -827,6 +801,37 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       updateStatus(fmt.id, { status: 'done' })
       setDoneCount((c) => c + 1)
       evaluateBanner(fmt, blob).catch(() => {})
+
+      // AI caption: fire-and-forget AFTER banner is shown and saved.
+      // Adds UI overlay caption + XMP metadata without blocking generation.
+      // The caption arrives 3–8s later — the banner is already "done" by then.
+      if (!isEditMode) {
+        ;(async () => {
+          try {
+            const captionDataUrl = await blobToDataUrl(blob)
+            const captionRes = await fetch('/.netlify/functions/describe-banner', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: captionDataUrl, mediaType: 'image/jpeg', mode: 'caption' }),
+            })
+            if (!captionRes.ok) return
+            const captionData = await captionRes.json()
+            const captionText = captionData?.caption
+            if (!captionText) return
+            setCaptions((prev) => ({ ...prev, [fmt.id]: captionText }))
+            // Embed XMP metadata and overwrite the saved file (folder handle path only)
+            if (folderHandleRef.current) {
+              try {
+                const blobWithCaption = await injectXmpDescription(blob, captionText)
+                const fh = await folderHandleRef.current.getFileHandle(filename, { create: true })
+                const w = await fh.createWritable()
+                await w.write(blobWithCaption)
+                await w.close()
+              } catch {}
+            }
+          } catch {}
+        })()
+      }
     } catch (e) {
       // "source image could not be decoded" is a transient fal.ai server error — retry silently
       // (it is NOT a user file-format problem; the same request always succeeds on retry).
