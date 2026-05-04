@@ -65,8 +65,8 @@ function notContains(prompt, substr) {
 // ─── VARIANT_MATRIX ───────────────────────────────────────────────────────────
 
 describe('VARIANT_MATRIX', () => {
-  it('exports exactly 9 variants', () => {
-    assert.equal(VARIANT_MATRIX.length, 9)
+  it('exports exactly 10 variants', () => {
+    assert.equal(VARIANT_MATRIX.length, 10)
   })
 
   it('contains the correct variant names', () => {
@@ -80,6 +80,7 @@ describe('VARIANT_MATRIX', () => {
     assert.ok(names.includes('Gradient Premium'))
     assert.ok(names.includes('Social Proof'))
     assert.ok(names.includes('UGC / Authentic'))
+    assert.ok(names.includes('Z wzoru referencyjnego'))
   })
 
   for (const variant of VARIANT_MATRIX) {
@@ -424,8 +425,12 @@ describe('variant cycling', () => {
     contains(makePrompt({ variantIndex: 8 }), 'VARIANT 9 (UGC / Authentic)')
   })
 
-  it('variantIndex 9 wraps to VARIANT 10 (Hero lifestyle)', () => {
-    contains(makePrompt({ variantIndex: 9 }), 'VARIANT 10 (Hero lifestyle)')
+  it('variantIndex 9 → VARIANT 10 (Z wzoru referencyjnego)', () => {
+    contains(makePrompt({ variantIndex: 9 }), 'VARIANT 10 (Z wzoru referencyjnego)')
+  })
+
+  it('variantIndex 10 wraps to VARIANT 11 (Hero lifestyle)', () => {
+    contains(makePrompt({ variantIndex: 10 }), 'VARIANT 11 (Hero lifestyle)')
   })
 })
 
