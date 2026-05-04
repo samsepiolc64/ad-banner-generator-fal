@@ -909,7 +909,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       {/* Progress bar */}
       <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full mb-4">
         <div
-          className="h-1 bg-brand-orange rounded-full transition-all duration-400"
+          className="h-1 bg-blue-500 rounded-full transition-all duration-400"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -953,7 +953,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
               className={`rounded-xl overflow-hidden transition-colors border
                 ${st.status === 'done' ? 'border-brand-green/30 bg-brand-green-light dark:bg-green-950/30' : ''}
                 ${st.status === 'error' ? 'border-brand-red/30 bg-brand-red-light dark:bg-red-950/30' : ''}
-                ${st.status === 'generating' ? 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30' : ''}
+                ${st.status === 'generating' ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30' : ''}
                 ${st.status === 'idle' ? 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900/50' : ''}`}
             >
               {/* Thumbnail — fixed height 160px, fills card width */}
@@ -963,7 +963,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-gray-300 dark:text-gray-600">
                     {st.status === 'generating'
-                      ? <Zap size={28} strokeWidth={1.6} className="text-brand-orange animate-pulse" aria-hidden />
+                      ? <Zap size={28} strokeWidth={1.6} className="text-blue-500 animate-pulse" aria-hidden />
                       : <ImageIcon size={28} strokeWidth={1.6} aria-hidden />}
                   </div>
                 )}
@@ -989,7 +989,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
                       </span>
                     )}
                     {st.status === 'generating' && (
-                      <span className="inline-flex items-center gap-1 text-brand-orange text-xs font-semibold whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 text-blue-500 text-xs font-semibold whitespace-nowrap">
                         <Zap size={14} strokeWidth={1.8} aria-hidden /> generowanie...
                       </span>
                     )}
