@@ -231,13 +231,29 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
 
   const handleLogoDrop = useCallback((file) => {
     if (!file) return
-    if (!file.type.match(/^image\/(png|svg\+xml|jpe?g)$/i)) {
+    if (!file.type.match(/^image\/(png|svg\+xml|jpe?g|webp)$/i)) {
       return
     }
+    // Convert to JPEG via canvas — handles WebP, PNG with alpha, wrong MIME types.
+    // We inline the conversion here to avoid a stale-closure dependency on readFileAsJpegDataUrl.
     const reader = new FileReader()
-    reader.onload = (e) => setUploadedLogoDataUrl(e.target.result)
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onerror = () => setUploadedLogoDataUrl(e.target.result) // fallback: raw
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0)
+        setUploadedLogoDataUrl(canvas.toDataURL('image/jpeg', 0.92))
+      }
+      img.src = e.target.result
+    }
     reader.readAsDataURL(file)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = (e) => {
     e.preventDefault()

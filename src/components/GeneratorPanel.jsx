@@ -129,10 +129,17 @@ async function compressRefImage(dataUrl) {
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      // White background before draw — handles PNG transparency
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
       resolve(canvas.toDataURL('image/jpeg', 0.82))
     }
-    img.onerror = () => resolve(dataUrl)
+    // On error: return null — caller must skip null references.
+    // Never return the original data URL: it might be WebP or a malformed format
+    // that fal.ai can't decode, which would cause "source image could not be decoded".
+    img.onerror = () => resolve(null)
     img.src = dataUrl
   })
 }
@@ -565,22 +572,32 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       // Compress all data URL references before adding — Netlify body limit is 6 MB.
       // HTTPS URLs go through as-is (fal.ai fetches them server-side).
       // ORDER: style refs (visual tone) → product (fidelity) → mood (atmosphere) → logo (composited locally)
+      // compressRefImage returns null when it can't decode the image — filter those out
+      // to prevent fal.ai from receiving unsupported formats (e.g. WebP).
       if (styleReferenceImages?.length) {
         const compressed = await Promise.all(styleReferenceImages.map(compressRefImage))
-        submitImageUrls.push(...compressed)
+        submitImageUrls.push(...compressed.filter(Boolean))
       }
-      if (productImage) submitImageUrls.push(await compressRefImage(productImage))
-      else if (productRefUrl) {
+      if (productImage) {
+        const c = await compressRefImage(productImage)
+        if (c) submitImageUrls.push(c)
+      } else if (productRefUrl) {
         // Proxy HTTP URL through Netlify to avoid CORS and format issues (e.g. WebP CDN URLs).
         // compressRefImage then converts whatever format to JPEG before sending to fal.ai.
         const proxied = await fetchUrlAsDataUrl(productRefUrl)
-        if (proxied) submitImageUrls.push(await compressRefImage(proxied))
+        if (proxied) {
+          const c = await compressRefImage(proxied)
+          if (c) submitImageUrls.push(c)
+        }
       }
       if (moodImages?.length) {
         const compressed = await Promise.all(moodImages.map(compressRefImage))
-        submitImageUrls.push(...compressed)
+        submitImageUrls.push(...compressed.filter(Boolean))
       }
-      if (hasLogo) submitImageUrls.push(await compressRefImage(logoDataUrl))
+      if (hasLogo) {
+        const c = await compressRefImage(logoDataUrl)
+        if (c) submitImageUrls.push(c)
+      }
     }
 
     // Reuse the original seed for text-edit regeneration (improves visual similarity)
@@ -856,6 +873,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     try {
       const dataUrl = await blobToDataUrl(blob)
       const compressed = await compressRefImage(dataUrl)
+      if (!compressed) return // shouldn't happen for a just-generated JPEG blob, but guard anyway
       const base64 = compressed.split(',')[1]
       const isStories = fmt.channel === 'meta' && fmt.height > fmt.width && fmt.height / fmt.width > 1.5
       const res = await fetch('/.netlify/functions/evaluate-banner', {
