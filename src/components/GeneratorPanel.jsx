@@ -155,8 +155,9 @@ function friendlyError(err) {
   if (err?.name === 'AbortError' || /abort/i.test(msg)) return 'Czas oczekiwania minął. Spróbuj ponownie.'
   if (/timeout|nie odpowiedział/i.test(msg)) return 'Serwer nie odpowiada. Spróbuj za chwilę.'
 
-  // Image decoding — from fal.ai when format is unsupported (e.g. WebP passed as URL)
-  if (/source image could not be decoded/i.test(msg)) return 'Nie można wczytać zdjęcia referencyjnego. Sprawdź, czy plik to JPG lub PNG.'
+  // Image decoding — transient fal.ai server error; auto-retry handles it silently (max 2 attempts).
+  // This message is shown only if all retries fail.
+  if (/source image could not be decoded/i.test(msg)) return 'Błąd serwera fal.ai (nie można zdekodować obrazu). Kliknij Ponów.'
   if (/could not be decoded|decode/i.test(msg)) return 'Nie można zdekodować obrazu. Użyj pliku JPG lub PNG.'
 
   // Network / HTTP errors
@@ -458,7 +459,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   }
 
   // textOverrides = { headline, cta } — when provided, replaces copy in the prompt
-  const generateOne = async (fmt, signal, textOverrides = null) => {
+  // _retryCount — internal, do not pass from outside
+  const generateOne = async (fmt, signal, textOverrides = null, _retryCount = 0) => {
     updateStatus(fmt.id, { status: 'generating' })
 
     const isGptImage2 = imageModel === 'gpt-image-2'
@@ -826,6 +828,13 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       setDoneCount((c) => c + 1)
       evaluateBanner(fmt, blob).catch(() => {})
     } catch (e) {
+      // "source image could not be decoded" is a transient fal.ai server error — retry silently
+      // (it is NOT a user file-format problem; the same request always succeeds on retry).
+      const isTransient = /source image could not be decoded/i.test(e?.message || '')
+      if (isTransient && !signal.aborted && _retryCount < 2) {
+        await new Promise((r) => setTimeout(r, 1500))
+        return generateOne(fmt, signal, textOverrides, _retryCount + 1)
+      }
       updateStatus(fmt.id, { status: 'error', message: friendlyError(e) })
     }
   }
