@@ -118,7 +118,7 @@ export default function CampaignForm({
     headline: '',
     ctaType: 'auto',
     cta: '',
-    language: initialData?.language || 'pl',
+    language: 'pl',
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
   }))
   const [activeSection, setActiveSection] = useState(0)
