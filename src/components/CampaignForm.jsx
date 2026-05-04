@@ -74,13 +74,12 @@ const SECTIONS = [
     id: 'message',
     title: 'Co?',
     subtitle: 'Cel, hasło i CTA',
-    fields: ['goal', 'headline', 'cta', 'language'],
+    fields: ['goal', 'headline', 'cta'],
     isComplete: (f) => !!f.goal,
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
       const ct = f.ctaType === 'custom' ? (f.cta || 'własne CTA') : 'CTA auto'
-      const lang = AD_LANGUAGES.find((l) => l.code === f.language)?.label || 'Polski'
-      return [f.goal, hl, ct, lang].filter(Boolean).join(' — ')
+      return [f.goal, hl, ct].filter(Boolean).join(' — ')
     },
   },
   {
@@ -118,7 +117,6 @@ export default function CampaignForm({
     headline: '',
     ctaType: 'auto',
     cta: '',
-    language: 'pl',
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
   }))
   const [activeSection, setActiveSection] = useState(0)
@@ -620,7 +618,6 @@ function Field({ field, form, update, toggleArray, toggleChannel, toggleVariant,
     goal:         'Cel kampanii',
     headline:     'Hasło reklamowe',
     cta:          'Tekst CTA (przycisk)',
-    language:     'Język tekstów na grafikach',
     variants:     'Warianty kreatywne',
   }[field]
 
@@ -770,23 +767,6 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
         </div>
       )
 
-    case 'language':
-      return (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-1.5">
-            {AD_LANGUAGES.map((lang) => (
-              <button key={lang.code} type="button" onClick={() => update('language', lang.code)}
-                className={`pill ${form.language === lang.code ? 'pill-active' : ''}`}>
-                {lang.label}
-              </button>
-            ))}
-          </div>
-          <div className="text-[11px] text-gray-400 dark:text-gray-500">
-            Hasło, CTA i wszystkie teksty widoczne na grafikach będą w wybranym języku.
-          </div>
-        </div>
-      )
-
     case 'variants': {
       const selectedCount = form.variants.length
       return (
@@ -843,13 +823,13 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
             })}
           </div>
           {/* A/B hint */}
-          {selectedCount > 0 && selectedCount < 2 && (
-            <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0">
+          {selectedCount === 1 && (
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0 text-amber-400">
                 <path d="M7 1L13 12H1L7 1z"/>
                 <path d="M7 5v3M7 10v.5"/>
               </svg>
-              Zaznacz min. 2 warianty, żeby przeprowadzić test A/B i wybrać najlepiej konwertujący.
+              Działa z 1 wariantem. Min. 2 warianty umożliwiają test A/B i wybór najlepiej konwertującego.
             </div>
           )}
           {selectedCount === 0 && (

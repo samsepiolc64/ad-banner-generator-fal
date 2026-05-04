@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   AlertTriangle,
 } from 'lucide-react'
+import { AD_LANGUAGES } from './CampaignForm'
 
 const CATEGORY_LABELS = {
   product: 'Produkt',
@@ -30,6 +31,7 @@ const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
 
 export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit, onBack }) {
   const [imageModel, setImageModel] = useState(initialData?.imageModel || 'nanobanan')
+  const [language, setLanguage] = useState(initialData?.language || 'pl')
   const [notes, setNotes] = useState(initialData?.notes || '')
   const [logoMode, setLogoMode] = useState(initialData?.logoMode || 'none')
   const [uploadedLogoDataUrl, setUploadedLogoDataUrl] = useState(initialData?.logoDataUrl || null)
@@ -266,6 +268,7 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
 
     onSubmit({
       imageModel,
+      language,
       notes,
       logoMode,
       logoDataUrl: derivedLogoDataUrl,
@@ -324,7 +327,29 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
           </div>
         </div>
 
-        {/* B) Dodatkowe uwagi */}
+        {/* B) Język tekstów na grafikach */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Język tekstów na grafikach
+          </label>
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
+            {AD_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                onClick={() => setLanguage(lang.code)}
+                className={`pill ${language === lang.code ? 'pill-active' : ''}`}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">
+            Hasło, CTA i wszystkie teksty widoczne na grafikach będą w wybranym języku.
+          </p>
+        </div>
+
+        {/* C) Dodatkowe uwagi */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Dodatkowe uwagi <span className="font-normal text-gray-400">(opcjonalnie)</span>
@@ -338,7 +363,7 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
           />
         </div>
 
-        {/* C) Logo klienta */}
+        {/* D) Logo klienta */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Logo klienta
@@ -432,7 +457,7 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
           )}
         </div>
 
-        {/* D) Materiały i referencje */}
+        {/* E) Materiały i referencje */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Materiały i referencje <span className="font-normal text-gray-400">(opcjonalnie)</span>

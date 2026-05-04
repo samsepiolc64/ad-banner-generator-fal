@@ -274,7 +274,7 @@ export default function App() {
       // Priority 3: Claude generates headlines, with notes as highest-priority creative direction
       setCopyGenStatus('generating')
       try {
-        const adLang = AD_LANGUAGES.find((l) => l.code === (campaignData.language || 'pl'))
+        const adLang = AD_LANGUAGES.find((l) => l.code === (materialsData?.language || 'pl'))
         const res = await fetch('/.netlify/functions/generate-copy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -400,7 +400,7 @@ export default function App() {
         const effectiveImageModel = materialsData?.imageModel || 'nanobanan'
         const productImageForPrompt = materialsData?.classifiedMedia?.find((m) => m.category === 'product')?.dataUrl || null
         const isGptImage2 = effectiveImageModel === 'gpt-image-2'
-        const adLangForPrompt = AD_LANGUAGES.find((l) => l.code === (campaignData.language || 'pl'))?.engName || 'Polish'
+        const adLangForPrompt = AD_LANGUAGES.find((l) => l.code === (materialsData?.language || 'pl'))?.engName || 'Polish'
         const prompt = isGptImage2
           ? buildGptImage2Prompt({
               format: fmt,
