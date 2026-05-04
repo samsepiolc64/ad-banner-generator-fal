@@ -39,24 +39,35 @@ export async function compressToJpeg(srcBlob, maxBytes = 500000) {
   c.height = bmp.height
   c.getContext('2d').drawImage(bmp, 0, 0)
 
-  for (let q = 0.9; q >= 0.55; q = Math.round((q - 0.05) * 100) / 100) {
+  // Phase 1 — find the highest quality at full resolution that fits within maxBytes.
+  // Start at q=0.97 (near-lossless) and step down by 0.03 to q=0.70.
+  // Fine steps at the top mean simple images (flat bg, gradients) get maximum quality;
+  // complex images step down just enough to fit.
+  for (let q = 0.97; q >= 0.70; q = Math.round((q - 0.03) * 100) / 100) {
     const b = await new Promise((r) => c.toBlob(r, 'image/jpeg', q))
     if (b && b.size <= maxBytes) return b
   }
 
+  // Phase 2 — still at full resolution, coarser steps down to q=0.50
+  for (let q = 0.65; q >= 0.50; q = Math.round((q - 0.05) * 100) / 100) {
+    const b = await new Promise((r) => c.toBlob(r, 'image/jpeg', q))
+    if (b && b.size <= maxBytes) return b
+  }
+
+  // Phase 3 — scale down canvas as last resort (only for unusually large/complex images)
   for (let sc = 0.9; sc >= 0.2; sc = Math.round((sc - 0.1) * 10) / 10) {
     const c2 = document.createElement('canvas')
     c2.width = Math.round(bmp.width * sc)
     c2.height = Math.round(bmp.height * sc)
     c2.getContext('2d').drawImage(bmp, 0, 0, c2.width, c2.height)
-    for (let q = 0.75; q >= 0.4; q = Math.round((q - 0.1) * 10) / 10) {
+    for (let q = 0.85; q >= 0.50; q = Math.round((q - 0.05) * 10) / 10) {
       const b = await new Promise((r) => c2.toBlob(r, 'image/jpeg', q))
       if (b && b.size <= maxBytes) return b
     }
   }
 
-  // Absolute fallback — 20% scale, q=0.3: should be well under 500 KB for any banner size
-  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.3))
+  // Absolute fallback
+  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.5))
 }
 
 /**
