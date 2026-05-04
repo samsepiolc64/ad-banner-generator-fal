@@ -137,6 +137,48 @@ async function compressRefImage(dataUrl) {
   })
 }
 
+/**
+ * Translate a technical error into a short, plain-Polish message for end users.
+ * Keeps it to one sentence — no stack traces, no HTTP codes, no English.
+ */
+function friendlyError(err) {
+  const msg = err?.message || String(err)
+
+  // Abort / timeout
+  if (err?.name === 'AbortError' || /abort/i.test(msg)) return 'Czas oczekiwania minął. Spróbuj ponownie.'
+  if (/timeout|nie odpowiedział/i.test(msg)) return 'Serwer nie odpowiada. Spróbuj za chwilę.'
+
+  // Image decoding — from fal.ai when format is unsupported (e.g. WebP passed as URL)
+  if (/source image could not be decoded/i.test(msg)) return 'Nie można wczytać zdjęcia referencyjnego. Sprawdź, czy plik to JPG lub PNG.'
+  if (/could not be decoded|decode/i.test(msg)) return 'Nie można zdekodować obrazu. Użyj pliku JPG lub PNG.'
+
+  // Network / HTTP errors
+  if (/poll error|submit error/i.test(msg)) return 'Błąd połączenia z serwerem. Spróbuj ponownie.'
+  if (/HTTP 5/i.test(msg)) return 'Błąd serwera. Spróbuj za chwilę.'
+  if (/HTTP 4/i.test(msg)) return 'Błąd zapytania. Spróbuj ponownie.'
+
+  // Queue / generation failures
+  if (/generation failed|FAILED/i.test(msg)) return 'Generowanie nie powiodło się. Spróbuj ponownie.'
+  if (/No queue URLs|No image URL|brak odpowiedzi/i.test(msg)) return 'Brak odpowiedzi z serwera AI. Spróbuj ponownie.'
+
+  // Image analysis
+  if (/Analiza obrazu nie powiodła się/i.test(msg)) return 'Analiza obrazu nie powiodła się. Spróbuj ponownie.'
+  if (/Brak opisu obrazu/i.test(msg)) return 'Nie udało się przeanalizować obrazu. Spróbuj ponownie.'
+
+  // Edit mode — missing originals
+  if (/Brak oryginalnego banera/i.test(msg)) return 'Najpierw wygeneruj baner, a potem edytuj teksty.'
+  if (/Brak oryginalnego promptu/i.test(msg)) return 'Najpierw wygeneruj baner, a potem edytuj teksty.'
+
+  // API key missing
+  if (/not configured|api.?key/i.test(msg)) return 'Brak klucza API. Skontaktuj się z administratorem.'
+
+  // Fallback — return original but without technical prefixes
+  return msg
+    .replace(/^(Poll|Submit|Fetch) error:\s*/i, '')
+    .replace(/HTTP \d+[^.]*\.?/g, '')
+    .trim() || 'Nieznany błąd. Spróbuj ponownie.'
+}
+
 /** Extract the first http(s) URL from a string, or null */
 function extractUrl(text) {
   if (!text) return null
@@ -715,8 +757,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       setDoneCount((c) => c + 1)
       evaluateBanner(fmt, blob).catch(() => {})
     } catch (e) {
-      const msg = e.name === 'AbortError' ? 'Timeout — za długo' : e.message
-      updateStatus(fmt.id, { status: 'error', message: msg })
+      updateStatus(fmt.id, { status: 'error', message: friendlyError(e) })
     }
   }
 
