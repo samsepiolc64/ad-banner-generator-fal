@@ -68,6 +68,14 @@ export const VARIANT_MATRIX = [
     bg: 'Real-world environment with natural, imperfect light — slightly uneven, genuine; may include subtle film grain or natural vignette; deliberately NOT studio-produced',
     mood: 'Authentic, energetic, relatable — stops the scroll because it looks like organic content, not advertising; ideal for TikTok and Meta Stories; feels like a trusted friend\'s recommendation',
   },
+  {
+    name: 'Z wzoru referencyjnego',
+    isLayoutRef: true,
+    layout: 'DEFINED BY REFERENCE BANNER — replicate the spatial structure, zone proportions, and compositional flow of the attached reference banner exactly',
+    hero: 'DEFINED BY REFERENCE BANNER — mirror the hero element type and placement from the reference (product, person, graphic); replace with this brand\'s content',
+    bg: 'DEFINED BY REFERENCE BANNER — match the background type (photo, color block, gradient) and its proportions from the reference; replace colors with this brand\'s palette',
+    mood: 'DEFINED BY REFERENCE BANNER — preserve the overall visual energy and register from the reference; adapt to this brand\'s tone',
+  },
 ]
 
 const CHANNEL_REQUIREMENTS = {
@@ -301,10 +309,29 @@ ${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}\n⚠️ If these
 ⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
 CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
-- Layout: ${variant.layout}
+${variant.isLayoutRef ? `⚠️ LAYOUT REFERENCE MANDATE — HIGHEST PRIORITY:
+A reference banner is attached. Your task is to produce a NEW banner that replicates its compositional structure while replacing all brand-specific elements with this brand's identity.
+
+WHAT TO REPLICATE (structural DNA — non-negotiable):
+- Overall spatial zones: where the image lives, where the text lives, where the CTA lives — same proportions
+- Compositional flow: visual weight distribution, reading order, negative space usage
+- Element type and placement: if reference has full-bleed photo + bottom text panel, do the same; if split layout, replicate the split
+- Typographic scale relationships: ratio of headline size to subtext size, CTA button prominence
+
+WHAT TO REPLACE (brand identity):
+- All colors → this brand's color palette (primary, secondary, CTA color as specified above)
+- All text → the headline and CTA provided in AD COPY PLACEMENT below
+- All logos/brand marks → this brand's identity
+- Product/person → appropriate to this brand's category and style
+- Photography mood → adapted to this brand's tone while maintaining the reference's composition
+
+WHAT NOT TO DO:
+- Do NOT copy any text, slogans, logos, or brand marks from the reference
+- Do NOT copy color schemes from the reference — use only this brand's colors
+- The result must look unmistakably like THIS brand, structured like the reference` : `- Layout: ${variant.layout}
 - Hero element: ${variant.hero}
 - Background: ${variant.bg}
-- Mood/atmosphere: ${variant.mood}${variant.name === 'Typograficzny Bold' ? `
+- Mood/atmosphere: ${variant.mood}`}${variant.name === 'Typograficzny Bold' ? `
 ⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors.primary}. This is the single most important rule for this variant — no photography, no gradient, no other background color. All text must be in a high-contrast color that works against ${brand.colors.primary}. Use ${brand.ctaColor || brand.colors.accent} for the CTA button.` : ''}${variant.name === 'Gradient Premium' ? `
 ⚡ COLOR-CRITICAL: The gradient MUST be built from ${brand.colors.primary} → ${brand.colors.secondary} ONLY — these two brand colors are the ONLY colors in the gradient. No photography, no other colors. The gradient must feel warm, deep, and deliberately branded — not generic.` : ''}${variant.name === 'Lifestyle' ? `
 LIFESTYLE SCENE — brand-authentic direction (override generic stock-photo clichés with THIS brand's world):

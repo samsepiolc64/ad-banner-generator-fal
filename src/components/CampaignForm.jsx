@@ -46,6 +46,7 @@ const VARIANT_DEFINITIONS = [
   { index: 6, name: 'Gradient Premium',      shortDesc: 'Gradient z kolorów marki, produkt unosi się', tooltip: 'Bogaty gradient z primary + secondary koloru marki jako tło (nie foto). Produkt lekko glowing. Świetny dla tech, beauty, fintech — gdy nie masz zdjęć.' },
   { index: 7, name: 'Social Proof',          shortDesc: 'Duża liczba lub cytat jako bohater',       tooltip: 'Oversized stat ("4.9★", "+340% sprzedaży") lub cytat dominuje kompozycję. Kolor marki w tle. Bardzo skuteczny w Consideration i Retargeting.' },
   { index: 8, name: 'UGC / Authentic',       shortDesc: 'Surowy, organiczny styl jak TikTok native', tooltip: 'Celowo nieprodukowany styl — wygląda jak content użytkownika, nie reklama. Wysoki CTR na TikTok i Meta Stories. Autentyczny, energetyczny.' },
+  { index: 9, name: 'Z wzoru referencyjnego', shortDesc: 'Kopiuje układ istniejącego baneru, zmienia brand', tooltip: 'AI analizuje wgrany baner referencyjny i odwzorowuje jego kompozycję (strefy, proporcje, hierarchię). Zastępuje kolory, teksty i logo Twoją marką. Wymaga wgrania banera referencyjnego w sekcji Materiały.' },
 ]
 
 // Domyślne warianty per kanał — auto-zaznaczane przy wyborze kanału
@@ -803,9 +804,14 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
                       <span className={`text-sm font-medium ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                         {v.name}
                       </span>
-                      {v.index >= 5 && (
+                      {v.index >= 5 && v.index < 9 && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 flex-shrink-0">
                           Nowy
+                        </span>
+                      )}
+                      {v.index === 9 && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 flex-shrink-0">
+                          Wymaga wzoru
                         </span>
                       )}
                     </div>
@@ -835,6 +841,15 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
           {selectedCount === 0 && (
             <div className="text-[11px] text-gray-400 dark:text-gray-500">
               Zaznacz przynajmniej jeden wariant. Kanały reklamowe automatycznie sugerują najlepsze kombinacje.
+            </div>
+          )}
+          {form.variants.includes(9) && (
+            <div className="flex items-start gap-1.5 text-[11px] text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-2">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5">
+                <path d="M7 1L13 12H1L7 1z"/>
+                <path d="M7 5v3M7 10v.5"/>
+              </svg>
+              <span>Wariant <strong>Z wzoru referencyjnego</strong> wymaga wgrania banera w sekcji <strong>Materiały → Materiały i referencje</strong>. Bez niego generowanie zostanie zablokowane.</span>
             </div>
           )}
         </div>

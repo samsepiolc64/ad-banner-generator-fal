@@ -639,6 +639,7 @@ export default function App() {
                           <MaterialsForm
                             initialData={materialsData}
                             brandLogoDataUrl={brandData?.logoDataUrl || null}
+                            requireBannerRef={campaignData?.variants?.includes(9) ?? false}
                             onSubmit={(data) => { setMaterialsData(data); setStep(STEPS.BRAND) }}
                             onBack={() => setStep(STEPS.CAMPAIGN)}
                           />

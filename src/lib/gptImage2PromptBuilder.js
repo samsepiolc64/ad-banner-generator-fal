@@ -73,6 +73,14 @@ const VARIANT_MATRIX = [
     mood:
       'Authentic, energetic, relatable — stops the scroll because it looks like organic content, not advertising. Ideal for TikTok and Meta Stories. Feels like a trusted friend\'s recommendation.',
   },
+  {
+    name: 'Z wzoru referencyjnego',
+    isLayoutRef: true,
+    direction:
+      'LAYOUT IS DEFINED BY THE REFERENCE BANNER (see LAYOUT REFERENCE MANDATE below). Replicate its spatial structure exactly — zone proportions, compositional flow, hero placement, CTA position — while replacing all brand elements with this brand\'s identity, colors, and content.',
+    mood:
+      'DEFINED BY REFERENCE BANNER — preserve the visual energy and register of the reference; adapt it to this brand\'s tone.',
+  },
 ]
 
 const GOAL_DIRECTIVES = {
@@ -240,11 +248,29 @@ ${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)
 ⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
 CREATIVE DIRECTION — Variant ${variantIndex + 1} (${variant.name}):
-${variant.direction}
-Atmosphere and mood: ${variant.mood}
+${variant.isLayoutRef ? `⚠️ LAYOUT REFERENCE MANDATE — HIGHEST PRIORITY:
+A reference banner is described below (in STYLE REFERENCE section). Your task is to produce a NEW banner that replicates its compositional structure while replacing all brand-specific elements with this brand's identity.
+
+WHAT TO REPLICATE (structural DNA):
+- Spatial zones: where image lives, where text lives, where CTA lives — same proportions
+- Compositional flow: visual weight, reading order, negative space
+- Element type and placement: full-bleed vs. split vs. panelled — mirror the reference
+- Typographic scale: headline-to-subtext ratio, CTA button prominence
+
+WHAT TO REPLACE (brand identity):
+- All colors → this brand's palette (as specified above)
+- All text → headline and CTA from AD TEXT section below
+- Logo/brand marks → this brand only
+- Product/person → appropriate for this brand's category
+
+WHAT NOT TO DO:
+- Do NOT copy any text, logos, or brand marks from the reference
+- Do NOT copy color schemes — use only this brand's colors
+- Result must look like THIS brand, structured like the reference` : `${variant.direction}
+Atmosphere and mood: ${variant.mood}`}
 ${variant.name === 'Typograficzny Bold' ? `⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors?.primary}. No photography, no gradient — pure brand color block. All text in a high-contrast color that works against this background. CTA button in ${brand.ctaColor || brand.colors?.accent}.
 ` : ''}${variant.name === 'Gradient Premium' ? `⚡ COLOR-CRITICAL: Gradient MUST be built from ${brand.colors?.primary} → ${brand.colors?.secondary} ONLY — these two brand hex values are the only colors in the gradient. No photography. No other colors.
-` : ''}${!hasProductImage ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
+` : ''}${!hasProductImage && !variant.isLayoutRef ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
 
 KEY MESSAGE: ${brand.usp || primaryLine}
 ${brand.audience ? `TARGET AUDIENCE: ${brand.audience}` : ''}

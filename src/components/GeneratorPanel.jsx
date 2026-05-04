@@ -482,8 +482,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     // Style reference instruction — injected when existing client banners are supplied.
     const styleRefCount = styleReferenceImages?.length || 0
+    const isLayoutRefVariant = fmt.variantName === 'Z wzoru referencyjnego'
     const styleRefBlock = styleRefCount > 0
-      ? `\n\nSTYLE REFERENCE IMAGE${styleRefCount > 1 ? 'S' : ''} — CRITICAL VISUAL DIRECTION:\nThe first ${styleRefCount} reference image${styleRefCount > 1 ? 's are' : ' is'} the client's EXISTING ad creative${styleRefCount > 1 ? 's' : ''} — use ${styleRefCount > 1 ? 'them' : 'it'} as the authoritative style template:\n- Match the overall color palette and color proportions exactly\n- Match the visual mood, photographic style, and composition approach\n- Match the typography character (weight, scale, placement style)\n- The new banner must feel like it belongs to the same campaign family\nDo NOT copy layout or text — only extract the visual DNA (colors, mood, aesthetic treatment).`
+      ? isLayoutRefVariant
+        ? `\n\nLAYOUT REFERENCE BANNER${styleRefCount > 1 ? 'S' : ''} — STRUCTURAL TEMPLATE:\nThe first ${styleRefCount} image${styleRefCount > 1 ? 's are' : ' is'} the reference banner${styleRefCount > 1 ? 's' : ''} to use as a COMPOSITIONAL BLUEPRINT:\n- Replicate the spatial structure exactly: where the image zone is, where the text zone is, where the CTA sits — same proportions and layout logic\n- Mirror the compositional flow: visual weight distribution, reading direction, use of negative space\n- Match the element types: if reference uses full-bleed photo, do the same; if split layout, replicate the split; if text-heavy panel, replicate that structure\n- Match typographic hierarchy: scale relationships between headline, subtext, and CTA button\nDo NOT copy colors, logos, text, or brand identity from the reference — replace everything with this brand's identity.`
+        : `\n\nSTYLE REFERENCE IMAGE${styleRefCount > 1 ? 'S' : ''} — CRITICAL VISUAL DIRECTION:\nThe first ${styleRefCount} reference image${styleRefCount > 1 ? 's are' : ' is'} the client's EXISTING ad creative${styleRefCount > 1 ? 's' : ''} — use ${styleRefCount > 1 ? 'them' : 'it'} as the authoritative style template:\n- Match the overall color palette and color proportions exactly\n- Match the visual mood, photographic style, and composition approach\n- Match the typography character (weight, scale, placement style)\n- The new banner must feel like it belongs to the same campaign family\nDo NOT copy layout or text — only extract the visual DNA (colors, mood, aesthetic treatment).`
       : ''
 
     // Product reference instruction — injected when a reference image is supplied.
@@ -595,7 +598,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
               const styleBlock = bannerDescs.map((d, i) =>
                 bannerDescs.length > 1 ? `Reference ${i + 1}: ${d.text}` : d.text
               ).join('\n')
-              appendix += `\n\nSTYLE REFERENCE — EXISTING AD CREATIVE:\n${styleBlock}\nMatch this visual style DNA: same color palette approach, same mood, same compositional feeling. Do NOT copy layout or text — only extract the visual aesthetic.`
+              if (isLayoutRefVariant) {
+                appendix += `\n\nLAYOUT REFERENCE — STRUCTURAL BLUEPRINT:\n${styleBlock}\nReplicate the compositional structure of this reference: spatial zones, layout logic, reading order, element proportions, typographic hierarchy. Do NOT copy colors, logos, text, or brand identity — replace everything with this brand's identity.`
+              } else {
+                appendix += `\n\nSTYLE REFERENCE — EXISTING AD CREATIVE:\n${styleBlock}\nMatch this visual style DNA: same color palette approach, same mood, same compositional feeling. Do NOT copy layout or text — only extract the visual aesthetic.`
+              }
             }
             if (moodDescs.length > 0) {
               const atmBlock = moodDescs.map((d) => d.text).join(' ')

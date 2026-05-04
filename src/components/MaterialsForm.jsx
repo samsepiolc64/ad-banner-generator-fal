@@ -29,7 +29,7 @@ const CATEGORY_OPTIONS = [
 const MAX_FILES = 10
 const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
 
-export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit, onBack }) {
+export default function MaterialsForm({ initialData, brandLogoDataUrl, requireBannerRef = false, onSubmit, onBack }) {
   const [imageModel, setImageModel] = useState(initialData?.imageModel || 'nanobanan')
   const [language, setLanguage] = useState(initialData?.language || 'pl')
   const [notes, setNotes] = useState(initialData?.notes || '')
@@ -257,9 +257,12 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
     reader.readAsDataURL(file)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hasBannerRef = classifiedMedia.some((m) => m.category === 'banner')
+  const bannerRefMissing = requireBannerRef && !hasBannerRef
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (classifying) return
+    if (classifying || bannerRefMissing) return
 
     const derivedLogoDataUrl =
       logoMode === 'upload' ? uploadedLogoDataUrl
@@ -460,7 +463,11 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
         {/* E) Materiały i referencje */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-            Materiały i referencje <span className="font-normal text-gray-400">(opcjonalnie)</span>
+            Materiały i referencje{' '}
+            {requireBannerRef
+              ? <span className="font-normal text-orange-500">(wymagany baner referencyjny)</span>
+              : <span className="font-normal text-gray-400">(opcjonalnie)</span>
+            }
           </label>
           <div className="text-[11px] text-gray-400 dark:text-gray-500 mb-3 leading-relaxed">
             Wgraj zdjęcia produktów, istniejące banery klienta lub zdjęcia inspiracyjne.
@@ -624,11 +631,22 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
           )}
         </div>
 
+        {/* Validation: banner ref required */}
+        {bannerRefMissing && (
+          <div className="flex items-start gap-2 text-sm text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-xl px-3 py-2.5">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0 mt-0.5">
+              <path d="M7 1L13 12H1L7 1z"/>
+              <path d="M7 5v3M7 10v.5"/>
+            </svg>
+            <span>Wybrano wariant <strong>Z wzoru referencyjnego</strong> — wgraj baner referencyjny w sekcji <strong>Materiały i referencje</strong> powyżej (kategoria: <strong>Baner ref.</strong>).</span>
+          </div>
+        )}
+
         {/* Navigation buttons */}
         <div className="flex gap-2 pt-1">
           <button
             type="submit"
-            disabled={classifying}
+            disabled={classifying || bannerRefMissing}
             className="btn-primary flex-1 cursor-pointer"
           >
             {classifying ? (
