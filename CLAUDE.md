@@ -10,7 +10,7 @@ Wersja webowa skilla `ad-banner-generator-fal` z Cowork (Verseo).
 
 - **Frontend:** React 18 + Vite + Tailwind CSS
 - **Backend:** Netlify Functions (serverless)
-- **AI Image:** fal.ai Nano Banana 2 ($0.08/img) / Nano Banana Pro ($0.15/img)
+- **AI Image:** fal.ai Nano Banana 2 ($0.08/img) / Nano Banana Pro ($0.15/img) lub GPT Image 2 (OpenAI)
 - **AI Text (opcjonalnie):** Anthropic Claude API (Haiku 4.5) — auto-research domeny klienta
 
 ## Uruchamianie
@@ -25,18 +25,20 @@ Build produkcyjny: `npm run build` → output w `dist/`.
 
 ## Architektura
 
-### Flow aplikacji (3-step stepper)
+### Flow aplikacji (4-step stepper)
 
 1. **Kampania** (`CampaignForm`) — domena, cel kampanii, kanały, formaty, warianty, headline, CTA
-2. **Marka** (`BrandForm`) — dane brandu (kolory, styl, typografia) ręcznie lub auto-research przez Claude API
-3. **Generowanie** (`GeneratorPanel`) — upload logo, generowanie format × variant, progress bar, download
+2. **Materiały** (`MaterialsForm`) — wybór modelu AI, logo, materiały referencyjne (bannery wzorcowe), notatki
+3. **Marka** (`BrandForm`) — dane brandu (kolory, styl, typografia) ręcznie lub auto-research przez Claude API
+4. **Generowanie** (`GeneratorPanel`) — generowanie format × variant, progress bar, download
 
 ### Kluczowe moduły
 
-- `src/lib/promptBuilder.js` — budowanie promptów fal.ai z template (VARIANT_MATRIX × format × brand). Prompt zawiera: specs techniczne, kontekst marki, kierunek kreatywny, copy, wymagania kanału, negative prompt
+- `src/lib/promptBuilder.js` — budowanie promptów fal.ai (VARIANT_MATRIX × format × brand). Prompt zawiera: specs techniczne, kontekst marki, kierunek kreatywny, copy (z override z notatek), wymagania kanału, negative prompt
+- `src/lib/gptImage2PromptBuilder.js` — analogiczny builder dla GPT Image 2 (ten sam VARIANT_MATRIX, ta sama logika override notatek)
 - `src/lib/modelRouting.js` — routing NB2/NB Pro: natywne AR → NB2, inne → NB Pro + center-crop
 - `src/lib/formats.js` — definicje formatów (Social + IAB) z wymiarami i AR
-- `src/lib/imageUtils.js` — crop, kompresja JPEG (≤500KB), konwersja logo do data URL
+- `src/lib/imageUtils.js` — kompozyt logo na banerze (bez cieni), kompresja JPEG (≤500KB, start q=0.97), konwersja logo do data URL
 - `netlify/functions/generate-image.js` — proxy do fal.ai queue API (chroni API key)
 - `netlify/functions/research-domain.js` — research domeny przez Claude API (Haiku 4.5)
 
@@ -49,14 +51,44 @@ Build produkcyjny: `npm run build` → output w `dist/`.
 
 ### Prompt template
 
-Prompty budowane w `promptBuilder.js` zawierają sekcje:
+Prompty budowane w `promptBuilder.js` i `gptImage2PromptBuilder.js` zawierają sekcje:
 - TECHNICAL SPECS — wymiary, AR, kanał
-- BRAND CONTEXT — kolory, typografia, styl, tło
+- BRAND CONTEXT — kolory, typografia, styl, tło (pomijane dla wariantu "Z wzoru referencyjnego")
 - CANVAS CROP ZONE — dla non-native AR (safe zone obliczana dynamicznie)
-- CREATIVE DIRECTION — wariant z VARIANT_MATRIX (5 stylów: Produkt centralny, Lifestyle, Typograficzny, Asymetryczny minimalizm, Dynamiczny)
-- AD COPY PLACEMENT — headline + CTA
+- CREATIVE DIRECTION — wariant z VARIANT_MATRIX (10 wariantów, patrz niżej)
+- CLIENT AD COPY / AD COPY PLACEMENT — headline + CTA; jeśli użytkownik wpisał hasło/CTA w notatki, sekcja CLIENT AD COPY ma absolutny priorytet (VERBATIM), AD COPY PLACEMENT jest tylko fallbackiem
 - CHANNEL-SPECIFIC REQUIREMENTS — reguły per kanał (GDN, Meta, Meta Stories, Programmatic)
 - NEGATIVE PROMPT
+
+### VARIANT_MATRIX (10 wariantów)
+
+| Indeks | Nazwa | Uwagi |
+|--------|-------|-------|
+| 0 | Hero lifestyle | |
+| 1 | Product w scenie | |
+| 2 | Editorial split | |
+| 3 | Immersive cinematic | |
+| 4 | Minimalist éditorial | |
+| 5 | Typograficzny Bold | |
+| 6 | Gradient Premium | |
+| 7 | Social Proof | |
+| 8 | UGC / Authentic | |
+| 9 | Z wzoru referencyjnego | Wymaga uploadu banneru wzorcowego; marka jest tylko "swap info" — wzorzec jest jedynym autorytetem wizualnym |
+
+### Wariant "Z wzoru referencyjnego" — zachowanie
+
+- Flaga `variant.isLayoutRef = true` → prompt przełącza się w tryb MAXIMUM VISUAL FIDELITY
+- Pomijane: brand DNA, paleta kolorów, dyrektywy editorial, GOAL_DIRECTIVES
+- Używane: `layoutRefBrandInfo` (tylko nazwa marki, domena, branża) + opis zamiany (headline + CTA)
+- AI ma ZREPLIKOWAĆ wzorzec: tło, kolory, fixed elementy (stopki, naroża, paski), layout, typografię
+- Jedyne dwie rzeczy do podmiany: tekst headline + etykieta CTA
+- `requireBannerRef={true}` w `MaterialsForm` gdy wariant 9 wybrany → przycisk "Generuj" zablokowany bez pliku wzorca
+
+### Logo composite — `imageUtils.js`
+
+- `compositeLogoOnBanner()` — 3 ścieżki: solid-bg panel / alpha+dark backing / alpha+clean direct
+- **Bez cieni** — wszystkie `ctx.shadow*` usunięte
+- Kompresja JPEG: start q=0.97, krok 0.03 do q=0.70; potem krok 0.05 do q=0.50; ostateczność: scale-down canvas
 
 ## Konwencje
 
@@ -66,7 +98,7 @@ Prompty budowane w `promptBuilder.js` zawierają sekcje:
 - Styl: Tailwind CSS utility classes
 - Netlify Functions: ES modules (`export default async`)
 - Brak TypeScript — czysty JS/JSX
-- Brak testów (jeszcze)
+- Testy: `npm test` — node:test runner, pliki `*.test.js` (204 testów)
 - Brak state managementu poza useState/useCallback
 
 ## Ikony — konwencja
