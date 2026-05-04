@@ -19,6 +19,7 @@ function makeSessionFolder(moduleLabel) {
 import { ALL_FORMATS } from './lib/formats'
 import { buildPrompt, VARIANT_MATRIX } from './lib/promptBuilder'
 import { buildGptImage2Prompt } from './lib/gptImage2PromptBuilder'
+import { AD_LANGUAGES } from './components/CampaignForm'
 import { resolveModel } from './lib/modelRouting'
 import { normalizeDomain } from './lib/domain'
 import { extractAdCopy } from './lib/extractAdCopy'
@@ -273,6 +274,7 @@ export default function App() {
       // Priority 3: Claude generates headlines, with notes as highest-priority creative direction
       setCopyGenStatus('generating')
       try {
+        const adLang = AD_LANGUAGES.find((l) => l.code === (campaignData.language || 'pl'))
         const res = await fetch('/.netlify/functions/generate-copy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -282,6 +284,7 @@ export default function App() {
             channels: campaignData.channels,
             variantCount,
             copyHints,   // ← sugestie z pola "Dodatkowe uwagi" — najwyższy priorytet dla Claude
+            language: adLang?.engName || 'Polish',
           }),
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -397,6 +400,7 @@ export default function App() {
         const effectiveImageModel = materialsData?.imageModel || 'nanobanan'
         const productImageForPrompt = materialsData?.classifiedMedia?.find((m) => m.category === 'product')?.dataUrl || null
         const isGptImage2 = effectiveImageModel === 'gpt-image-2'
+        const adLangForPrompt = AD_LANGUAGES.find((l) => l.code === (campaignData.language || 'pl'))?.engName || 'Polish'
         const prompt = isGptImage2
           ? buildGptImage2Prompt({
               format: fmt,
@@ -409,6 +413,7 @@ export default function App() {
               compInsight,
               notes: finalNotesForFalAi,
               campaignChannels: campaignData.channels,
+              language: adLangForPrompt,
             })
           : buildPrompt({
               format: fmt,
@@ -421,6 +426,7 @@ export default function App() {
               notes: finalNotesForFalAi,
               modelInfo,
               campaignChannels: campaignData.channels,
+              language: adLangForPrompt,
             })
         allFormats.push({
           id: `${fmt.id}-v${i + 1}`,

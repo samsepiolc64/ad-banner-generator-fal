@@ -150,6 +150,7 @@ export function buildGptImage2Prompt({
   compInsight,      // string or null
   notes,            // string or null
   campaignChannels, // string[]
+  language = 'Polish', // English name of the language for all text in the image
 }) {
   const variant = VARIANT_MATRIX[variantIndex % VARIANT_MATRIX.length]
 
@@ -235,6 +236,8 @@ BRAND IDENTITY — this ad must look like it was made by ${brand.name}'s own des
 ${brandCtx}
 
 ${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
+
+⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
 CREATIVE DIRECTION — Variant ${variantIndex + 1} (${variant.name}):
 ${variant.direction}

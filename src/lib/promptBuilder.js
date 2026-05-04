@@ -198,6 +198,7 @@ export function buildPrompt({
   notes,            // string or null
   modelInfo,        // { type, ar, needsResize } from resolveModel()
   campaignChannels, // string[] — selected channels from campaign form
+  language = 'Polish', // English name of the language for all text in the image
 }) {
   const variant = VARIANT_MATRIX[variantIndex % VARIANT_MATRIX.length]
   const hasGdn = (campaignChannels || []).some((c) => c.includes('Google'))
@@ -296,6 +297,8 @@ Key message: ${brand.usp || headline}
 ${brand.audience ? `Target audience: ${brand.audience}` : ''}
 ${compInsight ? `\nCOMPETITIVE CONTEXT:\n- Market landscape: ${compInsight}\n- Differentiation directive: CREATE CONTRAST with competitors — stand out, don't blend in.` : ''}
 ${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD COPY PLACEMENT section above.` : ''}
+
+⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
 CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
 - Layout: ${variant.layout}

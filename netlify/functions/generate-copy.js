@@ -40,7 +40,7 @@ export default async (req) => {
   }
 
   try {
-    const { brand, goal, channels, variantCount, copyHints } = await req.json()
+    const { brand, goal, channels, variantCount, copyHints, language } = await req.json()
 
     if (!brand || !goal || !variantCount) {
       return new Response(
@@ -55,10 +55,12 @@ export default async (req) => {
       variants.push({ index: i + 1, ...VARIANT_HINTS[i % VARIANT_HINTS.length] })
     }
 
-    // Detect language from example taglines (Polish site → Polish copy)
-    const langHint = brand.domain?.endsWith('.pl') || brand.exampleTaglines?.some((t) => /[ąćęłńóśźż]/i.test(t))
-      ? 'Polish (Polski)'
-      : 'same language as the brand\'s website'
+    // Use explicit language from campaign settings; fall back to domain-based detection
+    const langHint = language
+      ? language
+      : (brand.domain?.endsWith('.pl') || brand.exampleTaglines?.some((t) => /[ąćęłńóśźż]/i.test(t))
+          ? 'Polish'
+          : 'same language as the brand\'s website')
 
     const prompt = `You are a senior advertising copywriter. Write ad headlines for a real brand. Every headline must sound like THIS brand's voice — not generic ad copy.
 ${copyHints ? `

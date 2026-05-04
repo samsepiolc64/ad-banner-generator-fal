@@ -4,6 +4,21 @@ import { normalizeDomain } from '../lib/domain'
 import { TEAM_MEMBERS_UNIQUE, CAMPAIGN_GOALS } from '../lib/teamMembers'
 
 const GOALS = CAMPAIGN_GOALS
+
+// Supported ad-copy languages — code is sent to prompt builders, engName is used in prompts
+export const AD_LANGUAGES = [
+  { code: 'pl', label: 'Polski',     engName: 'Polish' },
+  { code: 'en', label: 'English',    engName: 'English' },
+  { code: 'cs', label: 'Čeština',    engName: 'Czech' },
+  { code: 'sk', label: 'Slovenčina', engName: 'Slovak' },
+  { code: 'de', label: 'Deutsch',    engName: 'German' },
+  { code: 'es', label: 'Español',    engName: 'Spanish' },
+  { code: 'fr', label: 'Français',   engName: 'French' },
+  { code: 'it', label: 'Italiano',   engName: 'Italian' },
+  { code: 'ro', label: 'Română',     engName: 'Romanian' },
+  { code: 'hu', label: 'Magyar',     engName: 'Hungarian' },
+]
+
 const CHANNELS = [
   'Google Display Ads',
   'Meta Ads (Facebook / Instagram)',
@@ -59,12 +74,13 @@ const SECTIONS = [
     id: 'message',
     title: 'Co?',
     subtitle: 'Cel, hasło i CTA',
-    fields: ['goal', 'headline', 'cta'],
+    fields: ['goal', 'headline', 'cta', 'language'],
     isComplete: (f) => !!f.goal,
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
       const ct = f.ctaType === 'custom' ? (f.cta || 'własne CTA') : 'CTA auto'
-      return [f.goal, hl, ct].filter(Boolean).join(' — ')
+      const lang = AD_LANGUAGES.find((l) => l.code === f.language)?.label || 'Polski'
+      return [f.goal, hl, ct, lang].filter(Boolean).join(' — ')
     },
   },
   {
@@ -102,6 +118,7 @@ export default function CampaignForm({
     headline: '',
     ctaType: 'auto',
     cta: '',
+    language: initialData?.language || 'pl',
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
   }))
   const [activeSection, setActiveSection] = useState(0)
@@ -603,6 +620,7 @@ function Field({ field, form, update, toggleArray, toggleChannel, toggleVariant,
     goal:         'Cel kampanii',
     headline:     'Hasło reklamowe',
     cta:          'Tekst CTA (przycisk)',
+    language:     'Język tekstów na grafikach',
     variants:     'Warianty kreatywne',
   }[field]
 
@@ -749,6 +767,23 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
               placeholder="Wpisz tekst CTA..."
               className="input" autoFocus />
           )}
+        </div>
+      )
+
+    case 'language':
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {AD_LANGUAGES.map((lang) => (
+              <button key={lang.code} type="button" onClick={() => update('language', lang.code)}
+                className={`pill ${form.language === lang.code ? 'pill-active' : ''}`}>
+                {lang.label}
+              </button>
+            ))}
+          </div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500">
+            Hasło, CTA i wszystkie teksty widoczne na grafikach będą w wybranym języku.
+          </div>
         </div>
       )
 
