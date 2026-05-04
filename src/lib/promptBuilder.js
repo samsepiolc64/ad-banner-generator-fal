@@ -209,6 +209,7 @@ export function buildPrompt({
   language = 'Polish', // English name of the language for all text in the image
 }) {
   const variant = VARIANT_MATRIX[variantIndex % VARIANT_MATRIX.length]
+  const isLayoutRef = !!variant.isLayoutRef
   const hasGdn = (campaignChannels || []).some((c) => c.includes('Google'))
   const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
   const isTikTokVertical = format.channel === 'tiktok' && format.ar === '9:16'
@@ -241,6 +242,14 @@ ${sz.instruction}\n`
         brand.bodyFont && brand.bodyFont !== brand.headingFont ? `body text: "${brand.bodyFont}"` : null,
       ].filter(Boolean).join(' / ')
     : null
+
+  // Minimal swap info for layout-ref mode — no color/style mandates that would fight the reference
+  const layoutRefBrandInfo = `BRAND SWAP INFO — only these 3 elements change from the reference:
+- Brand name: ${brand.name} | ${brand.domain}${brand.industry ? ` | ${brand.industry}` : ''}
+- Logo: provided in the LOGO section below — place it in the same position as the logo in the reference banner
+- Headline + CTA text: see AD COPY PLACEMENT — render in the same font style, weight, and position as in the reference
+
+⚠️ Do NOT apply any color palette, typography rules, or visual style from BRAND INFO sections — the reference banner is the SOLE visual authority.`
 
   const brandDna = `⚡ BRAND CONSISTENCY MANDATE: This ad must look like it was made by ${brand.name}'s own design team. Someone who knows the ${brand.domain} website must instantly recognize it. Do NOT use generic ad aesthetics — every color, font, and visual choice must match THIS brand exactly.
 
@@ -287,7 +296,7 @@ VISUAL IDENTITY:
 - The output must look like a real ad ready for publication — NEVER like a design spec sheet or style guide
 - Zero tolerance for any technical markup, annotations, labels, or measurement indicators visible in the final image
 
-⚠ MODERN EDITORIAL AESTHETIC — NON-NEGOTIABLE:
+${isLayoutRef ? '' : `⚠ MODERN EDITORIAL AESTHETIC — NON-NEGOTIABLE:
 1. ALWAYS include real lifestyle photography, a product-in-scene, or an atmospheric visual — text-only compositions are STRICTLY FORBIDDEN
 2. Photography or imagery must occupy at least 60% of the canvas visual area — imagery dominates, text supports
 3. FORBIDDEN aesthetics (instant fail): flat solid-color background with text floating in the middle · blank white/grey bg with a product cutout · clip-art or stock-photo-generic style · corporate brochure grid layout · template-banner feel · gradient blob with copy
@@ -295,40 +304,48 @@ VISUAL IDENTITY:
 5. Composition must be designed: every element has intentional placement, visual tension, and breathing room — NOT just "image left, text right"
 6. Shoot for the feeling of: a luxury fashion campaign · a premium lifestyle brand's Instagram · an editorial spread in a design-forward magazine
 
-${brandDna}
+`}${isLayoutRef ? layoutRefBrandInfo : brandDna}
 
 {{LOGO_BLOCK}}
-${cropZone}
-${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
+${cropZone}${isLayoutRef ? '' : `${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
 
 Key message: ${brand.usp || headline}
 ${brand.audience ? `Target audience: ${brand.audience}` : ''}
 ${compInsight ? `\nCOMPETITIVE CONTEXT:\n- Market landscape: ${compInsight}\n- Differentiation directive: CREATE CONTRAST with competitors — stand out, don't blend in.` : ''}
-${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD COPY PLACEMENT section above.` : ''}
+${notes ? `\nADDITIONAL CREATIVE NOTES (from client):\n${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD COPY PLACEMENT section above.` : ''}`}
 
 ⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
 CREATIVE DIRECTION — VARIANT ${variantIndex + 1} (${variant.name}):
-${variant.isLayoutRef ? `⚠️ LAYOUT REFERENCE MANDATE — HIGHEST PRIORITY:
-A reference banner is attached. Your task is to produce a NEW banner that replicates its compositional structure while replacing all brand-specific elements with this brand's identity.
+${isLayoutRef ? `🎯 REFERENCE BANNER REPLICATION — MAXIMUM VISUAL FIDELITY MODE
 
-WHAT TO REPLICATE (structural DNA — non-negotiable):
-- Overall spatial zones: where the image lives, where the text lives, where the CTA lives — same proportions
-- Compositional flow: visual weight distribution, reading order, negative space usage
-- Element type and placement: if reference has full-bleed photo + bottom text panel, do the same; if split layout, replicate the split
-- Typographic scale relationships: ratio of headline size to subtext size, CTA button prominence
+The attached reference banner is the SINGLE SOURCE OF TRUTH for ALL visual decisions.
+Your goal: produce a banner that is visually INDISTINGUISHABLE from the reference at first glance.
+Someone seeing both side-by-side should immediately recognize they share the same design DNA.
 
-WHAT TO REPLACE (brand identity):
-- All colors → this brand's color palette (primary, secondary, CTA color as specified above)
-- All text → the headline and CTA provided in AD COPY PLACEMENT below
-- All logos/brand marks → this brand's identity
-- Product/person → appropriate to this brand's category and style
-- Photography mood → adapted to this brand's tone while maintaining the reference's composition
+✅ REPLICATE EXACTLY — copy these 1:1 from the reference (do NOT change):
+- Background: exact color, texture, gradient, or photographic style — match it pixel-perfectly
+- All colors: every accent, highlight, icon color, button color, decorative element color — from the reference, not from brand data
+- Layout zones: where each element sits, its proportions, exact spatial relationships
+- Imagery style: 3D render / photography / flat illustration / icon clusters — replicate the same visual language
+- Visual elements: floating icons, arrows, decorative shapes, charts, objects — same type, same approximate positions
+- Typography style: font weight hierarchy (bold/regular ratio), text alignment, size relationships between headline and subline
+- Shadows, depth, lighting, perspective, rendering style
+- Spacing, margins, breathing room between elements
+- Overall visual energy, mood, and production quality level
 
-WHAT NOT TO DO:
-- Do NOT copy any text, slogans, logos, or brand marks from the reference
-- Do NOT copy color schemes from the reference — use only this brand's colors
-- The result must look unmistakably like THIS brand, structured like the reference` : `- Layout: ${variant.layout}
+🔄 REPLACE ONLY THESE 3 THINGS (everything else stays):
+1. Logo → place the client's logo (from LOGO section) in exactly the same position as the logo in the reference
+2. Headline text → use the text from AD COPY PLACEMENT below — same font style, same size, same position as reference headline
+3. CTA button text → use the CTA from AD COPY PLACEMENT — same button style, same position, same color as reference CTA button
+
+⚠️ STRICT PROHIBITIONS for this mode:
+- Do NOT apply any brand colors from the BRAND SWAP INFO — use reference colors for everything except text content
+- Do NOT change the visual style based on any brand personality or style data
+- Do NOT add visual elements that are not present in the reference
+- Do NOT remove visual elements that are present in the reference
+- Do NOT apply "editorial aesthetic" rules — follow the reference regardless of its design style
+- Do NOT copy any text, slogans, taglines, or brand marks from the reference — only the visual/structural DNA` : `- Layout: ${variant.layout}
 - Hero element: ${variant.hero}
 - Background: ${variant.bg}
 - Mood/atmosphere: ${variant.mood}`}${variant.name === 'Typograficzny Bold' ? `

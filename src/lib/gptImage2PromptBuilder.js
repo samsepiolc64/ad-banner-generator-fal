@@ -161,6 +161,7 @@ export function buildGptImage2Prompt({
   language = 'Polish', // English name of the language for all text in the image
 }) {
   const variant = VARIANT_MATRIX[variantIndex % VARIANT_MATRIX.length]
+  const isLayoutRef = !!variant.isLayoutRef
 
   const hasGdn = (campaignChannels || []).some((c) => c.includes('Google'))
   const isStories = !hasGdn && format.channel === 'meta' && format.ar === '9:16'
@@ -236,49 +237,67 @@ export function buildGptImage2Prompt({
     brand.productType ? `What they sell: ${brand.productType}.` : null,
   ].filter(Boolean).join('\n')
 
-  const prompt = `Create a production-ready ${channelLabel} advertising banner for ${brand.name}${brand.domain ? ` (${brand.domain})` : ''}.
+  // Minimal brand swap info for layout-ref mode — no color/style mandates that fight the reference
+  const layoutRefBrandInfo = `BRAND SWAP INFO — only these 3 elements change from the reference:
+- Brand name: ${brand.name}${brand.domain ? ` (${brand.domain})` : ''}${brand.industry ? ` | ${brand.industry}` : ''}
+- Logo: will be composited onto the banner — leave the same corner clean as in the reference
+- Headline + CTA text: see AD TEXT section below — render in the same font style, weight, and position as the reference
+
+⚠️ Do NOT apply any color palette, typography mandates, or visual style directives from brand data — the reference banner is the SOLE visual authority.`
+
+  const prompt = `Create a production-ready ${channelLabel} advertising banner${isLayoutRef ? ` for ${brand.name}` : ` for ${brand.name}${brand.domain ? ` (${brand.domain})` : ''}`}.
 
 IMAGE SIZE: ${format.width}×${format.height} pixels, aspect ratio ${format.ar}.
 
-BRAND IDENTITY — this ad must look like it was made by ${brand.name}'s own design team. Someone who knows the brand's website must instantly recognize it. Every color, font, and visual choice must match this brand exactly — do not use generic ad aesthetics.
-${brandCtx}
-
+${isLayoutRef ? layoutRefBrandInfo : `BRAND IDENTITY — this ad must look like it was made by ${brand.name}'s own design team. Someone who knows the brand's website must instantly recognize it. Every color, font, and visual choice must match this brand exactly — do not use generic ad aesthetics.
+${brandCtx}`}
+${isLayoutRef ? '' : `
 ${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
-
+`}
 ⚠️ LANGUAGE MANDATE — NON-NEGOTIABLE: ALL visible text rendered inside this image — the headline, the CTA button label, any tagline, descriptor, or body copy — MUST be written in ${language}. This is absolute. Every single word of visible text must be in ${language}. Do not use any other language anywhere in the image.
 
 CREATIVE DIRECTION — Variant ${variantIndex + 1} (${variant.name}):
-${variant.isLayoutRef ? `⚠️ LAYOUT REFERENCE MANDATE — HIGHEST PRIORITY:
-A reference banner is described below (in STYLE REFERENCE section). Your task is to produce a NEW banner that replicates its compositional structure while replacing all brand-specific elements with this brand's identity.
+${isLayoutRef ? `🎯 REFERENCE BANNER REPLICATION — MAXIMUM VISUAL FIDELITY MODE
 
-WHAT TO REPLICATE (structural DNA):
-- Spatial zones: where image lives, where text lives, where CTA lives — same proportions
-- Compositional flow: visual weight, reading order, negative space
-- Element type and placement: full-bleed vs. split vs. panelled — mirror the reference
-- Typographic scale: headline-to-subtext ratio, CTA button prominence
+The attached reference banner is the SINGLE SOURCE OF TRUTH for ALL visual decisions.
+Your goal: produce a banner that is visually INDISTINGUISHABLE from the reference at first glance.
+Someone seeing both side-by-side should immediately recognize they share the same design DNA.
 
-WHAT TO REPLACE (brand identity):
-- All colors → this brand's palette (as specified above)
-- All text → headline and CTA from AD TEXT section below
-- Logo/brand marks → this brand only
-- Product/person → appropriate for this brand's category
+✅ REPLICATE EXACTLY — copy these 1:1 from the reference (do NOT change):
+- Background: exact color, texture, gradient, or photographic style — match it pixel-perfectly
+- All colors: every accent, highlight, icon color, button color, decorative element color — from the reference, not from brand data
+- Layout zones: where each element sits, its proportions, exact spatial relationships
+- Imagery style: 3D render / photography / flat illustration / icon clusters — replicate the same visual language
+- Visual elements: floating icons, arrows, decorative shapes, charts, objects — same type, same approximate positions
+- Typography style: font weight hierarchy (bold/regular ratio), text alignment, size relationships between headline and subline
+- Shadows, depth, lighting, perspective, rendering style
+- Spacing, margins, breathing room between elements
+- Overall visual energy, mood, and production quality level
 
-WHAT NOT TO DO:
-- Do NOT copy any text, logos, or brand marks from the reference
-- Do NOT copy color schemes — use only this brand's colors
-- Result must look like THIS brand, structured like the reference` : `${variant.direction}
+🔄 REPLACE ONLY THESE 3 THINGS (everything else stays):
+1. Logo → place the client's logo (composited separately) in exactly the same position as the logo in the reference
+2. Headline text → use the text from AD TEXT section below — same font style, same size, same position as reference headline
+3. CTA button text → use the CTA from AD TEXT — same button style, same position, same color as reference CTA button
+
+⚠️ STRICT PROHIBITIONS for this mode:
+- Do NOT apply brand colors — use reference colors for everything except text content
+- Do NOT change the visual style based on any brand personality or style data
+- Do NOT add visual elements not present in the reference
+- Do NOT remove visual elements present in the reference
+- Do NOT apply "editorial aesthetic" rules — follow the reference regardless of its design style
+- Do NOT copy any text, slogans, taglines, or brand marks from the reference — only the visual/structural DNA` : `${variant.direction}
 Atmosphere and mood: ${variant.mood}`}
-${variant.name === 'Typograficzny Bold' ? `⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors?.primary}. No photography, no gradient — pure brand color block. All text in a high-contrast color that works against this background. CTA button in ${brand.ctaColor || brand.colors?.accent}.
-` : ''}${variant.name === 'Gradient Premium' ? `⚡ COLOR-CRITICAL: Gradient MUST be built from ${brand.colors?.primary} → ${brand.colors?.secondary} ONLY — these two brand hex values are the only colors in the gradient. No photography. No other colors.
-` : ''}${!hasProductImage && !variant.isLayoutRef ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
-
+${!isLayoutRef && variant.name === 'Typograficzny Bold' ? `⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors?.primary}. No photography, no gradient — pure brand color block. All text in a high-contrast color that works against this background. CTA button in ${brand.ctaColor || brand.colors?.accent}.
+` : ''}${!isLayoutRef && variant.name === 'Gradient Premium' ? `⚡ COLOR-CRITICAL: Gradient MUST be built from ${brand.colors?.primary} → ${brand.colors?.secondary} ONLY — these two brand hex values are the only colors in the gradient. No photography. No other colors.
+` : ''}${!isLayoutRef && !hasProductImage ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${!isLayoutRef && compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
+${isLayoutRef ? '' : `
 KEY MESSAGE: ${brand.usp || primaryLine}
 ${brand.audience ? `TARGET AUDIENCE: ${brand.audience}` : ''}
 ${notes ? `ADDITIONAL CREATIVE NOTES: ${notes}\n⚠️ If these notes specify a headline or CTA text, treat them as OVERRIDES — use those values instead of the AD TEXT section above.` : ''}
 
 VISUAL COMPOSITION REQUIREMENTS:
 The image must be a finished, editorial-quality advertising image — not a generic digital banner. Photography or imagery must dominate at least 60% of the canvas. The composition must feel intentionally designed: every element has deliberate placement, visual tension, and breathing room. It must feel like a high-end magazine editorial or a premium brand campaign. Do not use a flat solid-color background with text floating in the middle, blank white or grey background with a product cutout, clip-art or stock-photo-generic style, corporate brochure grid layout, or gradient blob with copy.
-
+`}
 ${textBlock}
 
 ${logoInstruction}
