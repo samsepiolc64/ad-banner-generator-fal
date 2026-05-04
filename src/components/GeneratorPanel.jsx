@@ -200,6 +200,51 @@ function isImageUrl(url) {
 }
 
 /**
+ * Extract headline (primary + optional secondary) and CTA from a stored prompt string.
+ * Handles both promptBuilder.js and gptImage2PromptBuilder.js output formats.
+ *
+ * Returns: { headline: string|null, cta: string|null }
+ *   headline may contain \n when two-part hierarchy is detected.
+ */
+function extractTextsFromPrompt(prompt) {
+  if (!prompt) return { headline: null, cta: null }
+
+  let primary = null
+  let secondary = null
+  let cta = null
+
+  // ── Primary headline ────────────────────────────────────────────────────────
+  // promptBuilder two-part:    - PRIMARY HEADLINE: "…"
+  // gptImage2 two-part:        - PRIMARY HEADLINE (…): "…"
+  const mPrimary = prompt.match(/- PRIMARY HEADLINE[^:]*:\s*"([^"]+)"/)
+  if (mPrimary) {
+    primary = mPrimary[1]
+  } else {
+    // promptBuilder single-line: - Headline: "…" — position…
+    // gptImage2 single-line:     - HEADLINE (…): "…"
+    const mHeadline = prompt.match(/- (?:Headline|HEADLINE)[^:]*:\s*"([^"]+)"/)
+    if (mHeadline) primary = mHeadline[1]
+  }
+
+  // ── Secondary line (only present when two-part hierarchy) ───────────────────
+  // promptBuilder:  - SECONDARY LINE: "…"
+  // gptImage2:      - SECONDARY LINE directly below…: "…"
+  const mSecondary = prompt.match(/- SECONDARY LINE[^:]*:\s*"([^"]+)"/)
+  if (mSecondary) secondary = mSecondary[1]
+
+  // ── CTA ─────────────────────────────────────────────────────────────────────
+  // promptBuilder:  - CTA button: "…" —
+  // gptImage2:      - CTA BUTTON with text "…"
+  const mCta = prompt.match(/- CTA (?:button|BUTTON with text)\s*[:"]\s*"?([^"\n—]+)"?/)
+  if (mCta) cta = mCta[1].trim().replace(/^"|"$/, '')
+
+  if (!primary) return { headline: null, cta: cta || null }
+
+  const headline = secondary ? `${primary}\n${secondary}` : primary
+  return { headline, cta: cta || null }
+}
+
+/**
  * Replace ad copy texts (headline + CTA) in an already-built prompt string.
  * Targets the fixed patterns emitted by promptBuilder.js — single-line or two-part hierarchy.
  */
@@ -842,15 +887,28 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     const isCurrentlyOpen = !!expandedTexts[filename]
 
     if (!isCurrentlyOpen) {
-      // Initialize form from saved texts (only if not already set)
+      // Initialize form values — always, even if no saved data exists.
+      // Priority: editingTexts (already open) → textsMapRef → prompt extraction → empty fields
       if (!editingTexts[filename]) {
+        // Level 1: texts saved after generation
         const saved = textsMapRef.current[filename]
-        if (saved) {
-          const parts = (saved.headline || '').split('\n').map((s) => s.trim()).filter(Boolean)
+        if (saved?.headline) {
+          const parts = saved.headline.split('\n').map((s) => s.trim()).filter(Boolean)
           setEditingTexts((prev) => ({
             ...prev,
             [filename]: { primary: parts[0] || '', secondary: parts[1] || '', cta: saved.cta || '' },
           }))
+        } else {
+          // Level 2: extract from stored prompt (survives re-renders, covers edge cases
+          //          where textsMapRef was empty when the button was clicked mid-generation)
+          const extracted = extractTextsFromPrompt(promptsMapRef.current[filename])
+          const parts = (extracted.headline || '').split('\n').map((s) => s.trim()).filter(Boolean)
+          setEditingTexts((prev) => ({
+            ...prev,
+            [filename]: { primary: parts[0] || '', secondary: parts[1] || '', cta: extracted.cta || '' },
+          }))
+          // Level 3 is implicit — if both are empty we still set the key, so `ed` is truthy
+          // and the form renders with empty fields the user can fill in.
         }
       }
       // Close prompt panel if open
@@ -945,7 +1003,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           const isTextsOpen = !!expandedTexts[filename]
           const ed = editingTexts[filename]
           const savedTexts = textsMapRef.current[filename]
-          const hasTwoLines = !!(savedTexts?.headline?.includes('\n'))
+          // hasTwoLines: check saved texts first, then fall back to what's in the editor
+          // (ed is populated from prompt extraction when savedTexts is unavailable)
+          const hasTwoLines = !!(savedTexts?.headline?.includes('\n') || ed?.secondary)
 
           return (
             <div
