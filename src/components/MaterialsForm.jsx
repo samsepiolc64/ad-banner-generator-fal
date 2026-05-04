@@ -73,6 +73,36 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
       reader.readAsDataURL(file)
     })
 
+  /**
+   * Read a file and convert it to a JPEG data URL via canvas.
+   * Handles any browser-renderable format (JPEG, PNG, WebP, AVIF, etc.)
+   * including files with incorrect MIME types (e.g. WebP saved as .jpg).
+   * Stored at original resolution — compressRefImage in GeneratorPanel handles
+   * resizing before sending to fal.ai.
+   */
+  const readFileAsJpegDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = reject
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onerror = () => resolve(e.target.result) // fallback: return raw if canvas fails
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          const ctx = canvas.getContext('2d')
+          // Fill white background before drawing (handles PNG transparency)
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/jpeg', 0.92))
+        }
+        img.src = e.target.result
+      }
+      reader.readAsDataURL(file)
+    })
+
   // Compress image to max 768px and JPEG q=0.75 — keeps it under Netlify's 6 MB body limit
   const compressForClassification = (dataUrl) =>
     new Promise((resolve) => {
@@ -116,10 +146,11 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, onSubmit,
 
       if (validFiles.length === 0) return
 
-      // Read all as data URLs
+      // Read all as JPEG data URLs (canvas conversion ensures correct format regardless
+      // of file extension — handles WebP saved as .jpg, PNG with alpha, etc.)
       const newItems = await Promise.all(
         validFiles.map(async (file) => ({
-          dataUrl: await readFileAsDataUrl(file),
+          dataUrl: await readFileAsJpegDataUrl(file),
           filename: file.name,
           category: null, // pending classification
           originalCategory: null,

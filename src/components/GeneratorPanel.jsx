@@ -89,9 +89,31 @@ FORBIDDEN everywhere outside the product surface:
 - Do NOT add any brand identity text element that was not explicitly listed in AD COPY PLACEMENT`
 
 /**
+ * Fetch an external image URL via the proxy-image Netlify function and return
+ * a base64 data URL. This solves two issues:
+ *   1. CORS restrictions that prevent client-side canvas access.
+ *   2. Format problems — fal.ai can't decode WebP; we proxy then convert to JPEG.
+ * Returns null on error (non-fatal — caller skips the reference).
+ */
+async function fetchUrlAsDataUrl(url) {
+  try {
+    const res = await fetch('/.netlify/functions/proxy-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.dataUrl || null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Compress a data URL to max 1024px and JPEG q=0.82 before sending to fal.ai.
  * Keeps reference quality good while staying well under Netlify's 6 MB body limit.
- * HTTPS URLs are returned unchanged (fal.ai fetches them directly).
+ * NOTE: Only handles data URLs — HTTP URLs must be proxied first via fetchUrlAsDataUrl.
  */
 async function compressRefImage(dataUrl) {
   if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl
@@ -506,7 +528,12 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         submitImageUrls.push(...compressed)
       }
       if (productImage) submitImageUrls.push(await compressRefImage(productImage))
-      else if (productRefUrl) submitImageUrls.push(productRefUrl)
+      else if (productRefUrl) {
+        // Proxy HTTP URL through Netlify to avoid CORS and format issues (e.g. WebP CDN URLs).
+        // compressRefImage then converts whatever format to JPEG before sending to fal.ai.
+        const proxied = await fetchUrlAsDataUrl(productRefUrl)
+        if (proxied) submitImageUrls.push(await compressRefImage(proxied))
+      }
       if (moodImages?.length) {
         const compressed = await Promise.all(moodImages.map(compressRefImage))
         submitImageUrls.push(...compressed)

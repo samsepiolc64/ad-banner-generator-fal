@@ -48,10 +48,15 @@ export default async (req) => {
 
     const statusData = await statusRes.json()
 
-    // Not done yet — return status
+    // Not done yet — return status (include fal.ai error message if FAILED)
     if (statusData.status !== 'COMPLETED') {
+      const falError = statusData.error?.message || statusData.error || null
       return new Response(
-        JSON.stringify({ status: statusData.status, queue_position: statusData.queue_position }),
+        JSON.stringify({
+          status: statusData.status,
+          queue_position: statusData.queue_position,
+          ...(falError ? { error: falError } : {}),
+        }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
