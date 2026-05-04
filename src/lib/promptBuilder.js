@@ -321,31 +321,36 @@ ${isLayoutRef ? `🎯 REFERENCE BANNER REPLICATION — MAXIMUM VISUAL FIDELITY M
 
 The attached reference banner is the SINGLE SOURCE OF TRUTH for ALL visual decisions.
 Your goal: produce a banner that is visually INDISTINGUISHABLE from the reference at first glance.
-Someone seeing both side-by-side should immediately recognize they share the same design DNA.
+Someone seeing both side-by-side must immediately recognise the same design template.
 
-✅ REPLICATE EXACTLY — copy these 1:1 from the reference (do NOT change):
-- Background: exact color, texture, gradient, or photographic style — match it pixel-perfectly
-- All colors: every accent, highlight, icon color, button color, decorative element color — from the reference, not from brand data
-- Layout zones: where each element sits, its proportions, exact spatial relationships
-- Imagery style: 3D render / photography / flat illustration / icon clusters — replicate the same visual language
-- Visual elements: floating icons, arrows, decorative shapes, charts, objects — same type, same approximate positions
-- Typography style: font weight hierarchy (bold/regular ratio), text alignment, size relationships between headline and subline
-- Shadows, depth, lighting, perspective, rendering style
-- Spacing, margins, breathing room between elements
-- Overall visual energy, mood, and production quality level
+⚡ BACKGROUND — HIGHEST PRIORITY, NON-NEGOTIABLE:
+Study the reference background carefully and reproduce it with absolute precision:
+- If reference has a clean white or off-white background → use exactly that; do NOT shift it to grey, lavender, beige, or cream
+- If reference has a gradient → reproduce the exact gradient direction, colors, and proportions
+- If reference has a dark footer bar or bottom strip → reproduce it at the same height, same color, same style
+- Any deviation from the reference background is an automatic failure
 
-🔄 REPLACE ONLY THESE 3 THINGS (everything else stays):
-1. Logo → place the client's logo (from LOGO section) in exactly the same position as the logo in the reference
-2. Headline text → use the text from AD COPY PLACEMENT below — same font style, same size, same position as reference headline
-3. CTA button text → use the CTA from AD COPY PLACEMENT — same button style, same position, same color as reference CTA button
+✅ REPLICATE EXACTLY — every one of these must match the reference (do NOT change):
+- Background: exact color(s), any gradient, any texture — see above
+- All colors everywhere: accent color, highlight color, 3D object colors, button color, decorative element colors — all from the reference
+- Fixed brand template elements: any small text in corners (top-right agency name, tagline under logo area), footer bars, gradient strips, decorative lines or badges — replicate these in the same position, same style, same approximate text
+- Layout zones: exact spatial relationships — where the image cluster lives, where the text lives, where the CTA lives, same proportions
+- Imagery style: if reference uses 3D renders → use 3D renders; if photography → photography; replicate the same visual language
+- Visual elements: every floating object, icon, arrow, chart, prop in the reference — same type, same approximate position and scale
+- Typography style: match the font weight (heavy/black if reference uses heavy), text color, capitalization, and size hierarchy — headline weight, subline weight, the ratio between them
+- Shadows, depth, lighting, perspective — same render style throughout
+- Spacing and breathing room — same margins, same density of elements
 
-⚠️ STRICT PROHIBITIONS for this mode:
-- Do NOT apply any brand colors from the BRAND SWAP INFO — use reference colors for everything except text content
-- Do NOT change the visual style based on any brand personality or style data
-- Do NOT add visual elements that are not present in the reference
-- Do NOT remove visual elements that are present in the reference
-- Do NOT apply "editorial aesthetic" rules — follow the reference regardless of its design style
-- Do NOT copy any text, slogans, taglines, or brand marks from the reference — only the visual/structural DNA` : `- Layout: ${variant.layout}
+🔄 REPLACE ONLY THESE 2 THINGS:
+1. Main headline text → use the text from AD COPY PLACEMENT below — same font weight, same color, same position as the headline in the reference
+2. CTA button label → use the CTA from AD COPY PLACEMENT — same button shape, same color, same position as in the reference
+
+⚠️ STRICT PROHIBITIONS:
+- Do NOT shift the background color — white stays white, not lavender or beige
+- Do NOT add visual elements not present in the reference
+- Do NOT remove visual elements present in the reference
+- Do NOT apply brand color palette or editorial style rules — reference is the only authority
+- Do NOT invent new decorative elements or change the rendering style of existing ones` : `- Layout: ${variant.layout}
 - Hero element: ${variant.hero}
 - Background: ${variant.bg}
 - Mood/atmosphere: ${variant.mood}`}${variant.name === 'Typograficzny Bold' ? `
