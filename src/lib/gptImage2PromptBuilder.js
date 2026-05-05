@@ -237,15 +237,14 @@ export function buildGptImage2Prompt({
     brand.productType ? `What they sell: ${brand.productType}.` : null,
   ].filter(Boolean).join('\n')
 
-  // Minimal brand swap info for layout-ref mode — no color/style mandates that fight the reference
-  const layoutRefBrandInfo = `BRAND SWAP INFO — only these 3 elements change from the reference:
-- Brand name: ${brand.name}${brand.domain ? ` (${brand.domain})` : ''}${brand.industry ? ` | ${brand.industry}` : ''}
+  // Layout-ref mode: only logo + text swap — no brand identity info that could fight the reference
+  const layoutRefBrandInfo = `LAYOUT REFERENCE MODE — replicate the attached reference banner exactly:
 - Logo: will be composited onto the banner — leave the same corner clean as in the reference
 - Headline + CTA text: see AD TEXT section below — render in the same font style, weight, and position as the reference
 
-⚠️ Do NOT apply any color palette, typography mandates, or visual style directives from brand data — the reference banner is the SOLE visual authority.`
+⚠️ Do NOT apply any brand name, color palette, typography mandates, or visual style directives from brand data — the reference banner is the SOLE visual authority.`
 
-  const prompt = `Create a production-ready ${channelLabel} advertising banner${isLayoutRef ? ` for ${brand.name}` : ` for ${brand.name}${brand.domain ? ` (${brand.domain})` : ''}`}.
+  const prompt = `Create a production-ready ${channelLabel} advertising banner${isLayoutRef ? '' : ` for ${brand.name}${brand.domain ? ` (${brand.domain})` : ''}`}.
 
 IMAGE SIZE: ${format.width}×${format.height} pixels, aspect ratio ${format.ar}.
 

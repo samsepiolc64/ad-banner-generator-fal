@@ -243,13 +243,12 @@ ${sz.instruction}\n`
       ].filter(Boolean).join(' / ')
     : null
 
-  // Minimal swap info for layout-ref mode — no color/style mandates that would fight the reference
-  const layoutRefBrandInfo = `BRAND SWAP INFO — only these 3 elements change from the reference:
-- Brand name: ${brand.name} | ${brand.domain}${brand.industry ? ` | ${brand.industry}` : ''}
+  // Layout-ref mode: only logo + text swap — no brand identity info that could fight the reference
+  const layoutRefBrandInfo = `LAYOUT REFERENCE MODE — replicate the attached reference banner exactly:
 - Logo: provided in the LOGO section below — place it in the same position as the logo in the reference banner
-- Headline + CTA text: see AD COPY PLACEMENT — render in the same font style, weight, and position as in the reference
+- Headline + CTA text: see AD COPY PLACEMENT below — render in the same font style, weight, and position as in the reference
 
-⚠️ Do NOT apply any color palette, typography rules, or visual style from BRAND INFO sections — the reference banner is the SOLE visual authority.`
+⚠️ Do NOT apply any brand name, color palette, typography rules, or visual style from any brand data — the reference banner is the SOLE visual authority.`
 
   const brandDna = `⚡ BRAND CONSISTENCY MANDATE: This ad must look like it was made by ${brand.name}'s own design team. Someone who knows the ${brand.domain} website must instantly recognize it. Do NOT use generic ad aesthetics — every color, font, and visual choice must match THIS brand exactly.
 
