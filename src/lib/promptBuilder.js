@@ -306,7 +306,10 @@ ${isLayoutRef ? '' : `⚠ MODERN EDITORIAL AESTHETIC — NON-NEGOTIABLE:
 `}${isLayoutRef ? layoutRefBrandInfo : brandDna}
 
 {{LOGO_BLOCK}}
-${cropZone}${isLayoutRef ? '' : `${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
+${cropZone}${isLayoutRef ? (notes ? `\n⚡ CLIENT AD COPY — THESE EXACT WORDS ONLY (highest priority, overrides AD COPY PLACEMENT):
+${notes}
+
+⚠️ VERBATIM MANDATE: Use the text above EXACTLY as written — not paraphrased, not improved, not reordered. These words replace the headline and/or CTA in AD COPY PLACEMENT below.` : '') : `${GOAL_DIRECTIVES[brand.campaignGoal] || GOAL_DIRECTIVES['Conversion (Sprzedaż)']}
 
 Key message: ${brand.usp || headline}
 ${brand.audience ? `Target audience: ${brand.audience}` : ''}
@@ -369,12 +372,13 @@ Study the reference background carefully and reproduce it with absolute precisio
 - Do NOT invent new decorative elements or change the rendering style of existing ones
 
 🚫 TEXT CONTENT FROM REFERENCE — ABSOLUTE PROHIBITION:
-Do NOT copy the actual words visible in the reference banner:
-- No headlines, slogans, taglines, or body copy text from the reference
+Every word, phrase, number, or character visible in the reference banner is FORBIDDEN from appearing in the output:
+- No headlines, slogans, taglines, or body copy from the reference
 - No CTA button labels, prices, or promotional text from the reference
 - No brand names, domain names, company names, or contact details from the reference
 - No fine print, disclaimers, phone numbers, URLs, or any other written text from the reference
-The ONLY text words that may appear are those explicitly provided in AD COPY PLACEMENT below.
+- This includes partially visible text, text in corners, text on decorative elements, and any text anywhere in the reference image
+Treat the reference as if all its text were redacted — invisible. The ONLY text that may appear in the output is exactly what is provided in AD COPY PLACEMENT below.
 
 ✅ TYPOGRAPHY STYLE FROM REFERENCE — REPLICATE EXACTLY:
 While the text content is forbidden, copy the VISUAL STYLE of the typography:
@@ -384,6 +388,16 @@ While the text content is forbidden, copy the VISUAL STYLE of the typography:
 - Font size hierarchy (ratio of headline size to subline to CTA label)
 - Text alignment, positioning, and spacing on canvas
 Render the provided headline and CTA in the SAME typographic style as the reference text.
+
+⚡ GRAPHIC ELEMENTS — EXACT REPLICATION:
+Every non-text visual element from the reference must be reproduced faithfully:
+- 3D rendered objects → reproduce as 3D renders in the same rendering style and lighting
+- Icons, arrows, badges, geometric shapes → same shape, same approximate position, same scale
+- Decorative lines, strips, bars, dividers → same position, thickness, color, and style
+- Background patterns, textures, gradients → same type, same direction, same density
+- Floating objects, props, product renders → same style, same approximate arrangement and quantity
+- Shadows, glows, depth effects, overlays → same rendering approach throughout
+The reference's entire graphic language is fixed — do not replace, remove, or add any graphical element.
 
 ⚡ COLOR EXTRACTION MANDATE — NON-NEGOTIABLE:
 Extract the exact hex color values directly from the reference banner pixels. Use ONLY those extracted colors — do not invent, approximate, or substitute with any color not visibly present in the reference. Every color in your output (background, accents, text, decorative elements, button) must map precisely to a color from the reference image.
@@ -412,7 +426,10 @@ ${(() => {
   const parts = headline.split('\n').map(s => s.trim()).filter(Boolean)
   const primary = parts[0] || headline
   const secondary = parts[1] || null
-  return `AD COPY PLACEMENT${notes ? ' — USE ONLY IF CLIENT AD COPY ABOVE CONTAINS NO HEADLINE/CTA' : ''}:
+  const adCopyLabel = isLayoutRef
+    ? 'AD COPY PLACEMENT' + (notes ? ' — OVERRIDDEN BY CLIENT AD COPY ABOVE' : '')
+    : 'AD COPY PLACEMENT' + (notes ? ' — USE ONLY IF CLIENT AD COPY ABOVE CONTAINS NO HEADLINE/CTA' : '')
+  return `${adCopyLabel}:
 ${secondary
   ? `TYPOGRAPHIC HIERARCHY — critical for visual impact:
 - PRIMARY HEADLINE: "${primary}"
@@ -426,7 +443,13 @@ ${secondary
   · The reader's eye MUST land on the primary first, then drift to the secondary`
   : `- Headline: "${primary}" — position: center, size: large, weight: bold`
 }${(isStories || isTikTokVertical) ? '' : `
-- CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}`
+- CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}
+${isLayoutRef ? `
+⚡ STRICT TEXT MANDATE — NON-NEGOTIABLE:
+The ONLY text permitted on this banner is exactly what is listed above (headline${secondary ? ', secondary line' : ''}${!(isStories || isTikTokVertical) ? ', CTA button' : ''}).
+Do NOT add any sublines, taglines, descriptors, body copy, fine print, slogans, or any other text invented by the model.
+Do NOT reproduce any text from the reference banner image — those words are forbidden.
+Zero tolerance: any word not explicitly listed above must not appear anywhere on the banner.` : ''}`
 })()}
 
 TYPOGRAPHY REQUIREMENTS:
@@ -441,7 +464,7 @@ PLACEMENT AND COMPOSITION RULES:
 ${channelReqs}
 
 DO NOT RENDER ANY OF THE FOLLOWING:
-text-only composition, no photography no lifestyle scene, flat color background with only text, blank white background with product cutout floating, solid color background with text floating in center, empty background with text, template banner layout, generic digital banner aesthetic, corporate brochure style, clip art product on plain background, stock photo cliché, gradient blob background, flat vector illustration style, blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner, any visible text labels describing image zones or areas, any text indicating "left", "right", "center", "top", "bottom" as position labels, any text reading "headline", "CTA", "logo", "placement", "safe", "zone", "area", "content", "composition", "banner", "ad", "display", "leaderboard", "skyscraper", "billboard", any channel name rendered as text, any format name rendered as text, any technical instruction rendered as visible text in the image${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top 14% of the image, any text or visual element in the bottom 33% of the image, any content near the left or right edges, Instagram Stories UI overlay, Instagram Stories chrome, social media app interface, app navigation bar, platform header bar, profile avatar circle, username overlay, account name text, story viewer header, timestamp text, story controls, send message bar, reply box, message input field, heart icon row, share icon, paper plane icon, swipe up indicator, swipe up text, story progress bar, story dots indicator, any simulated mobile phone UI, any simulated app UI, white strip at top of image, white strip at bottom of image, grey strip at top, grey strip at bottom, empty white bar at top, empty white bar at bottom, light colored band at top edge, light colored band at bottom edge, blank top margin, blank bottom margin, letterbox bars, pillarbox bars, canvas padding, image surrounded by white border, image surrounded by grey border, unfilled canvas area, empty canvas area, background color not reaching edges, background not filling full canvas' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
+${isLayoutRef ? 'any text copied from the reference banner image, any word or phrase visible in the reference image, any slogan or tagline from the reference, any brand name or domain from the reference, any price or offer text from the reference, any fine print from the reference, any text not explicitly listed in AD COPY PLACEMENT above, invented sublines, invented taglines, invented body copy, invented descriptors, additional text beyond the provided headline and CTA, ' : ''}text-only composition, no photography no lifestyle scene, flat color background with only text, blank white background with product cutout floating, solid color background with text floating in center, empty background with text, template banner layout, generic digital banner aesthetic, corporate brochure style, clip art product on plain background, stock photo cliché, gradient blob background, flat vector illustration style, blurry, pixelated, low resolution, deformed text, illegible font, stretched image, distorted proportions, poor lighting, amateur quality, generic stock photo feel, multiple conflicting fonts, floating brand logo outside the product, standalone brand mark in corner, brand wordmark as graphic element outside product packaging, corner badge with brand name, emblem with brand name, medallion with brand name, seal with brand name, sticker with brand name outside product surface, brand watermark in background, brand watermark in corner, URL watermark, duplicate brand logo, brand name rendered as large decorative text, brand monogram as hero element, hallucinated logo, AI-generated logo floating in empty space, any numeric labels, any measurement text, "px" text, pixel values, percentage labels, "min." labels, "max." labels, "margin" text, "safe zone" text, "safe area" text, zone indicator overlays, percentage overlay text, composition percentage markers, dimension arrows, size arrows, size callouts, ruler overlays, ruler marks, corner brackets, registration marks, crop marks, dashed borders indicating zones, dotted rectangles, placeholder boxes with labels, technical diagram markup, blueprint annotations, spec sheet overlays, style guide annotations, mood board labels, white rectangle in corner, white box in corner, white card in corner, gray rectangle in corner, gray box in corner, light gray panel in corner, semi-transparent rectangle, frosted glass rectangle, rounded white box, empty white shape, empty rounded rectangle, logo placeholder shape, logo placeholder box, reserved area indicator, blank white area with distinct edges, white overlay box, white frame in corner, any visible text labels describing image zones or areas, any text indicating "left", "right", "center", "top", "bottom" as position labels, any text reading "headline", "CTA", "logo", "placement", "safe", "zone", "area", "content", "composition", "banner", "ad", "display", "leaderboard", "skyscraper", "billboard", any channel name rendered as text, any format name rendered as text, any technical instruction rendered as visible text in the image${isStories ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top 14% of the image, any text or visual element in the bottom 33% of the image, any content near the left or right edges, Instagram Stories UI overlay, Instagram Stories chrome, social media app interface, app navigation bar, platform header bar, profile avatar circle, username overlay, account name text, story viewer header, timestamp text, story controls, send message bar, reply box, message input field, heart icon row, share icon, paper plane icon, swipe up indicator, swipe up text, story progress bar, story dots indicator, any simulated mobile phone UI, any simulated app UI, white strip at top of image, white strip at bottom of image, grey strip at top, grey strip at bottom, empty white bar at top, empty white bar at bottom, light colored band at top edge, light colored band at bottom edge, blank top margin, blank bottom margin, letterbox bars, pillarbox bars, canvas padding, image surrounded by white border, image surrounded by grey border, unfilled canvas area, empty canvas area, background color not reaching edges, background not filling full canvas' : ''}${isTikTokVertical ? ', CTA button, buy now button, shop now button, any interactive element, any text or visual element in the top strip of the image, any text or visual element in the bottom 35% of the image, any content near the right edge of the image' : ''}`
 
   return prompt
 }

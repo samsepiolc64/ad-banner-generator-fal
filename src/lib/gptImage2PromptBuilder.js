@@ -292,12 +292,13 @@ Study the reference background carefully and reproduce it with absolute precisio
 - Do NOT invent new decorative elements or change the rendering style of existing ones
 
 🚫 TEXT CONTENT FROM REFERENCE — ABSOLUTE PROHIBITION:
-Do NOT copy the actual words visible in the reference banner:
-- No headlines, slogans, taglines, or body copy text from the reference
+Every word, phrase, number, or character visible in the reference banner is FORBIDDEN from appearing in the output:
+- No headlines, slogans, taglines, or body copy from the reference
 - No CTA button labels, prices, or promotional text from the reference
 - No brand names, domain names, company names, or contact details from the reference
 - No fine print, disclaimers, phone numbers, URLs, or any other written text from the reference
-The ONLY text words that may appear are those explicitly provided in AD TEXT below.
+- This includes partially visible text, corner text, text on decorative elements, and any text anywhere in the reference
+Treat the reference as if all its text were redacted — invisible. The ONLY text that may appear is what is provided in AD TEXT below.
 
 ✅ TYPOGRAPHY STYLE FROM REFERENCE — REPLICATE EXACTLY:
 While the text content is forbidden, copy the VISUAL STYLE of the typography:
@@ -307,6 +308,16 @@ While the text content is forbidden, copy the VISUAL STYLE of the typography:
 - Font size hierarchy (ratio of headline size to subline to CTA label)
 - Text alignment, positioning, and spacing on canvas
 Render the provided headline and CTA in the SAME typographic style as the reference text.
+
+⚡ GRAPHIC ELEMENTS — EXACT REPLICATION:
+Every non-text visual element from the reference must be reproduced faithfully:
+- 3D rendered objects → reproduce as 3D renders in the same rendering style and lighting
+- Icons, arrows, badges, geometric shapes → same shape, same approximate position, same scale
+- Decorative lines, strips, bars, dividers → same position, thickness, color, and style
+- Background patterns, textures, gradients → same type, same direction, same density
+- Floating objects, props, product renders → same style, same approximate arrangement and quantity
+- Shadows, glows, depth effects, overlays → same rendering approach throughout
+The reference's entire graphic language is fixed — do not replace, remove, or add any graphical element.
 
 ⚡ COLOR EXTRACTION MANDATE — NON-NEGOTIABLE:
 Extract the exact hex color values directly from the reference banner pixels. Use ONLY those extracted colors — do not invent, approximate, or substitute with any color not visibly present in the reference. Every color in your output (background, accents, text, decorative elements, button) must map precisely to a color from the reference image.
@@ -320,7 +331,12 @@ Atmosphere and mood: ${variant.mood}`}
 ${!isLayoutRef && variant.name === 'Typograficzny Bold' ? `⚡ COLOR-CRITICAL: The ENTIRE canvas background MUST be exactly ${brand.colors?.primary}. No photography, no gradient — pure brand color block. All text in a high-contrast color that works against this background. CTA button in ${brand.ctaColor || brand.colors?.accent}.
 ` : ''}${!isLayoutRef && variant.name === 'Gradient Premium' ? `⚡ COLOR-CRITICAL: Gradient MUST be built from ${brand.colors?.primary} → ${brand.colors?.secondary} ONLY — these two brand hex values are the only colors in the gradient. No photography. No other colors.
 ` : ''}${!isLayoutRef && !hasProductImage ? `No specific product image was provided. Show a lifestyle scene or atmospheric visual that evokes the brand's world and product category (${brand.productType || brand.industry || 'this brand'}) — use a beautiful, representative, unlabeled prop or a scene that implies the product without showing a specific item.` : ''}${!isLayoutRef && compInsight ? `\n\nCOMPETITIVE CONTEXT: ${compInsight} Create clear visual contrast with competitors — the ad must stand out, not blend in.` : ''}
-${isLayoutRef ? '' : `
+${isLayoutRef
+  ? (notes ? `\n⚡ CLIENT AD COPY — THESE EXACT WORDS ONLY (highest priority, overrides AD TEXT below):
+${notes}
+
+⚠️ VERBATIM MANDATE: Use the text above EXACTLY as written — not paraphrased, not improved, not reordered. These words replace the headline and/or CTA in AD TEXT below.` : '')
+  : `
 KEY MESSAGE: ${brand.usp || primaryLine}
 ${brand.audience ? `TARGET AUDIENCE: ${brand.audience}` : ''}
 ${notes ? `⚡ CLIENT AD COPY — ABSOLUTE PRIORITY (read before AD TEXT section below):
@@ -345,8 +361,14 @@ IF no identifiable headline or CTA is found in the text above:
 VISUAL COMPOSITION REQUIREMENTS:
 The image must be a finished, editorial-quality advertising image — not a generic digital banner. Photography or imagery must dominate at least 60% of the canvas. The composition must feel intentionally designed: every element has deliberate placement, visual tension, and breathing room. It must feel like a high-end magazine editorial or a premium brand campaign. Do not use a flat solid-color background with text floating in the middle, blank white or grey background with a product cutout, clip-art or stock-photo-generic style, corporate brochure grid layout, or gradient blob with copy.
 `}
-AD TEXT${notes ? ' — USE ONLY IF CLIENT AD COPY ABOVE CONTAINS NO HEADLINE/CTA' : ''}:
+AD TEXT${isLayoutRef ? (notes ? ' — OVERRIDDEN BY CLIENT AD COPY ABOVE' : '') : (notes ? ' — USE ONLY IF CLIENT AD COPY ABOVE CONTAINS NO HEADLINE/CTA' : '')}:
 ${textBlock}
+${isLayoutRef ? `
+⚡ STRICT TEXT MANDATE — NON-NEGOTIABLE:
+The ONLY text permitted on this banner is exactly what is listed in AD TEXT above${notes ? ' (overridden by CLIENT AD COPY)' : ''}.
+Do NOT add any sublines, taglines, descriptors, body copy, fine print, slogans, or any other text invented by the model.
+Do NOT reproduce any word or phrase from the reference banner image — all reference text is forbidden.
+Zero tolerance: any word not explicitly listed above must not appear anywhere on the banner.` : ''}
 
 ${logoInstruction}
 
