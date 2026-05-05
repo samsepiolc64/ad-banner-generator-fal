@@ -368,6 +368,15 @@ Study the reference background carefully and reproduce it with absolute precisio
 - Do NOT apply brand color palette or editorial style rules — reference is the only authority
 - Do NOT invent new decorative elements or change the rendering style of existing ones
 
+🚫 TEXT FROM REFERENCE — ABSOLUTE PROHIBITION:
+Do NOT copy, reproduce, or render ANY text that is visible in the reference banner image:
+- No headlines, slogans, taglines, or body copy from the reference
+- No CTA button labels, prices, or promotional text from the reference
+- No brand names, domain names, company names, or contact details from the reference
+- No fine print, disclaimers, phone numbers, URLs, or any other text from the reference
+The ONLY text permitted in the output is what is explicitly provided in AD COPY PLACEMENT below.
+Every other piece of text visible in the reference image must be IGNORED completely.
+
 ⚡ COLOR EXTRACTION MANDATE — NON-NEGOTIABLE:
 Extract the exact hex color values directly from the reference banner pixels. Use ONLY those extracted colors — do not invent, approximate, or substitute with any color not visibly present in the reference. Every color in your output (background, accents, text, decorative elements, button) must map precisely to a color from the reference image.
 
