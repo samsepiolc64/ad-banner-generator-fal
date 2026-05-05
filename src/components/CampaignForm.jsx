@@ -75,7 +75,7 @@ const SECTIONS = [
     id: 'message',
     title: 'Co?',
     subtitle: 'Cel, hasło i CTA',
-    fields: ['goal', 'headline', 'cta'],
+    fields: ['goal'],
     isComplete: (f) => !!f.goal,
     summary: (f) => {
       const hl = f.headlineType === 'custom' ? (f.headline || 'własne hasło') : 'AI dobierze hasło'
