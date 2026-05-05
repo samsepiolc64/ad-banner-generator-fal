@@ -28,8 +28,8 @@ function toSlug(str) {
 
 /**
  * Buduje nazwę pliku JPEG dla bannera.
- * Format: {domena}_{szerokość}x{wysokość}_{wariant-slug}[_edytowany].jpg
- * Przykład: verseo.pl_1200x628_hero-lifestyle.jpg
+ * Format: {domena}_{szerokość}x{wysokość}_{wariant-slug}_v{num}[_edytowany].jpg
+ * Przykład: verseo.pl_1200x628_hero-lifestyle_v1.jpg
  */
 function makeFilename(domain, fmt, { edit = false } = {}) {
   const safeDomain = (domain || '')
@@ -39,7 +39,8 @@ function makeFilename(domain, fmt, { edit = false } = {}) {
     .replace(/_+$/g, '')
   const size = `${fmt.width}x${fmt.height}`
   const variant = toSlug(fmt.variantName || '')
-  const base = variant ? `${safeDomain}_${size}_${variant}` : `${safeDomain}_${size}`
+  const vNum = fmt.variantNum ? `_v${fmt.variantNum}` : ''
+  const base = variant ? `${safeDomain}_${size}_${variant}${vNum}` : `${safeDomain}_${size}${vNum}`
   return edit ? `${base}_edytowany.jpg` : `${base}.jpg`
 }
 

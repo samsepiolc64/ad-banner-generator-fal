@@ -441,6 +441,7 @@ export default function App() {
           ar: fmt.ar,
           channel: fmt.channel,
           variantName,
+          variantNum: i + 1,
           prompt,
           headline: headlines[i] || headlines[0],
           cta,
