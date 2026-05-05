@@ -84,11 +84,71 @@ async function pickBestRefIndex(images, fmt) {
 }
 
 /**
+ * Parses an AR string like "16:9" or "1:1" into a numeric ratio.
+ * Returns null if unparseable.
+ */
+function parseArString(arStr) {
+  if (!arStr) return null
+  const m = String(arStr).match(/^(\d+(?:\.\d+)?)[:/](\d+(?:\.\d+)?)$/)
+  if (!m) return null
+  const ratio = parseFloat(m[1]) / parseFloat(m[2])
+  return isFinite(ratio) && ratio > 0 ? ratio : null
+}
+
+/**
+ * Returns a human-readable AR adaptation instruction when the reference AR
+ * and target format AR differ significantly (>10% relative difference).
+ *
+ * @param {string} refArStr  — AR extracted by Vision, e.g. "16:9"
+ * @param {object} fmt       — target format { width, height, ar }
+ */
+function buildArAdaptationHint(refArStr, fmt) {
+  const refRatio = parseArString(refArStr)
+  const targetRatio = fmt.width / fmt.height
+  if (!refRatio) return null
+
+  const diff = Math.abs(refRatio - targetRatio) / targetRatio
+  if (diff < 0.1) return null // ARs are close enough — no adaptation needed
+
+  const targetArLabel = fmt.ar || `${fmt.width}:${fmt.height}`
+  const isTargetWider = targetRatio > refRatio
+  const isTargetTaller = targetRatio < refRatio
+
+  let hint = `\n🔄 ASPECT RATIO ADAPTATION REQUIRED:\n`
+  hint += `Reference banner AR: ${refArStr} | Target format AR: ${targetArLabel}\n`
+
+  if (isTargetWider) {
+    hint += `The target canvas is WIDER than the reference. Adapt the layout:\n`
+    hint += `  • Extend the composition horizontally — add more breathing room on the sides, or widen the visual zone\n`
+    hint += `  • If reference has a vertical stack (image top / text bottom), consider shifting to a horizontal split (image left / text right)\n`
+    hint += `  • Keep the same element count and hierarchy — just spread them across the wider canvas\n`
+    hint += `  • Text and CTA remain in the same relative position within their zone`
+  } else if (isTargetTaller) {
+    hint += `The target canvas is TALLER than the reference. Adapt the layout:\n`
+    hint += `  • Extend the composition vertically — add more breathing room top/bottom, or taller visual zone\n`
+    hint += `  • If reference has a horizontal split (image left / text right), consider shifting to a vertical stack (image top / text bottom)\n`
+    hint += `  • Keep the same element count and hierarchy — just restack them for the taller canvas\n`
+    hint += `  • Text and CTA remain in the same relative position within their zone`
+  }
+
+  return hint
+}
+
+/**
  * Builds a structured analysis block to append to the prompt when Claude Vision
  * has analysed the reference banner (layoutref mode from describe-banner.js).
+ *
+ * @param {object} analysis  — structured JSON from describe-banner layoutref mode
+ * @param {object} fmt       — target format { width, height, ar } for AR adaptation hint
  */
-function buildLayoutRefAnalysisBlock(analysis) {
+function buildLayoutRefAnalysisBlock(analysis, fmt) {
   const lines = ['\n\n📊 REFERENCE BANNER — PRECISION ANALYSIS (AI vision, highest authority):']
+
+  // AR adaptation hint — inject FIRST so the model sees it before structural data
+  if (fmt && analysis.ar) {
+    const arHint = buildArAdaptationHint(analysis.ar, fmt)
+    if (arHint) lines.push(arHint)
+  }
 
   if (analysis.colors?.length) {
     lines.push(`\n🎨 EXACT COLORS — use ONLY these, no others:\n  ${analysis.colors.join('  ')}`)
@@ -590,7 +650,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           if (analysisRes.ok) {
             const analysisData = await analysisRes.json()
             if (analysisData.analysis) {
-              layoutRefAnalysisInjection = buildLayoutRefAnalysisBlock(analysisData.analysis)
+              layoutRefAnalysisInjection = buildLayoutRefAnalysisBlock(analysisData.analysis, fmt)
             }
           }
         }
