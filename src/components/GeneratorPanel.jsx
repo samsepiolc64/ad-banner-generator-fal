@@ -54,6 +54,87 @@ async function runPool(fns, limit = 3) {
   await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, worker))
 }
 
+// ── Layout-ref utilities ─────────────────────────────────────────────────────
+
+/** Returns the natural AR (w/h) of an image data URL using a browser Image element. */
+function getImageAR(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve(img.naturalWidth / img.naturalHeight)
+    img.onerror = () => resolve(null)
+    img.src = dataUrl
+  })
+}
+
+/**
+ * Returns the index of the reference image whose aspect ratio is closest to the
+ * target format's AR. Falls back to index 0 on error.
+ */
+async function pickBestRefIndex(images, fmt) {
+  if (!images || images.length <= 1) return 0
+  const targetAR = fmt.width / fmt.height
+  const ars = await Promise.all(images.map(getImageAR))
+  let bestIdx = 0, bestDiff = Infinity
+  ars.forEach((ar, i) => {
+    if (ar == null) return
+    const diff = Math.abs(ar - targetAR)
+    if (diff < bestDiff) { bestDiff = diff; bestIdx = i }
+  })
+  return bestIdx
+}
+
+/**
+ * Builds a structured analysis block to append to the prompt when Claude Vision
+ * has analysed the reference banner (layoutref mode from describe-banner.js).
+ */
+function buildLayoutRefAnalysisBlock(analysis) {
+  const lines = ['\n\n📊 REFERENCE BANNER — PRECISION ANALYSIS (AI vision, highest authority):']
+
+  if (analysis.colors?.length) {
+    lines.push(`\n🎨 EXACT COLORS — use ONLY these, no others:\n  ${analysis.colors.join('  ')}`)
+    if (analysis.background_color) lines.push(`  Background: ${analysis.background_color}`)
+  }
+  if (analysis.element_count != null) {
+    lines.push(`\n🔢 ELEMENT COUNT: ${analysis.element_count} distinct visual elements — reproduce EXACTLY this many, no more, no fewer`)
+  }
+  if (analysis.zones) {
+    const z = analysis.zones
+    const parts = []
+    if (z.image_pct != null) parts.push(`visual/image: ~${z.image_pct}%`)
+    if (z.text_pct != null) parts.push(`text/copy: ~${z.text_pct}%`)
+    if (z.decorative_pct != null) parts.push(`decorative: ~${z.decorative_pct}%`)
+    if (z.empty_pct != null) parts.push(`breathing room: ~${z.empty_pct}%`)
+    if (parts.length) lines.push(`\n📐 ZONE PROPORTIONS (% of canvas): ${parts.join(' | ')}`)
+  }
+  if (analysis.typography) {
+    const t = analysis.typography
+    const hParts = []
+    if (t.headline_weight) hParts.push(`weight: ${t.headline_weight}`)
+    if (t.headline_color) hParts.push(`color: ${t.headline_color}`)
+    if (t.headline_size) hParts.push(`size: ${t.headline_size}`)
+    if (t.headline_position) hParts.push(`position: ${t.headline_position}`)
+    if (hParts.length) lines.push(`\n✍️ HEADLINE STYLE: ${hParts.join(', ')}`)
+    if (t.cta_style || t.cta_bg_color) {
+      const cParts = []
+      if (t.cta_style) cParts.push(t.cta_style)
+      if (t.cta_bg_color) cParts.push(`background: ${t.cta_bg_color}`)
+      lines.push(`   CTA BUTTON: ${cParts.join(', ')}`)
+    }
+  }
+  if (analysis.layout) {
+    const l = analysis.layout
+    const parts = []
+    if (l.hero_position) parts.push(`hero: ${l.hero_position}`)
+    if (l.text_position) parts.push(`text: ${l.text_position}`)
+    if (l.cta_position) parts.push(`CTA: ${l.cta_position}`)
+    if (parts.length) lines.push(`\n🗂️ LAYOUT: ${parts.join(' | ')}`)
+  }
+  if (analysis.fixed_elements?.length) {
+    lines.push(`\n📌 FIXED TEMPLATE ELEMENTS — replicate ALL:\n${analysis.fixed_elements.map((e) => `  • ${e}`).join('\n')}`)
+  }
+  return lines.join('\n')
+}
+
 // Used when a real logo WILL be composited after generation — reserve a clean corner
 const LOGO_BLOCK_WITH_LOGO = `LOGO RULES — CRITICAL, read carefully:
 
@@ -485,9 +566,43 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Style reference instruction — injected when existing client banners are supplied.
     const styleRefCount = styleReferenceImages?.length || 0
     const isLayoutRefVariant = fmt.variantName === 'Z wzoru referencyjnego'
+
+    // ── Layout-ref: AR matching + Claude Vision pre-analysis ─────────────────
+    // For layout-ref variants: pick the reference image whose AR most closely
+    // matches the target format, then run the 'layoutref' vision mode to extract
+    // precise structural data (colors, element count, zones, typography, layout).
+    // Both outputs are injected into the final prompt before sending to fal.ai.
+    // Non-fatal — generation proceeds even if this step fails.
+    let layoutRefBestIdx = 0
+    let layoutRefAnalysisInjection = ''
+    if (isLayoutRefVariant && styleReferenceImages?.length > 0) {
+      layoutRefBestIdx = await pickBestRefIndex(styleReferenceImages, fmt)
+      try {
+        const refToAnalyze = styleReferenceImages[layoutRefBestIdx]
+        const compressed = await compressRefImage(refToAnalyze)
+        if (compressed) {
+          const analysisRes = await fetch('/.netlify/functions/describe-banner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: compressed, mediaType: 'image/jpeg', mode: 'layoutref' }),
+            signal,
+          })
+          if (analysisRes.ok) {
+            const analysisData = await analysisRes.json()
+            if (analysisData.analysis) {
+              layoutRefAnalysisInjection = buildLayoutRefAnalysisBlock(analysisData.analysis)
+            }
+          }
+        }
+      } catch {
+        // Non-fatal — proceed without analysis block
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const styleRefBlock = styleRefCount > 0
       ? isLayoutRefVariant
-        ? `\n\nLAYOUT REFERENCE BANNER${styleRefCount > 1 ? 'S' : ''} — STRUCTURAL TEMPLATE:\nThe first ${styleRefCount} image${styleRefCount > 1 ? 's are' : ' is'} the reference banner${styleRefCount > 1 ? 's' : ''} to use as a COMPOSITIONAL BLUEPRINT:\n- Replicate the spatial structure exactly: where the image zone is, where the text zone is, where the CTA sits — same proportions and layout logic\n- Mirror the compositional flow: visual weight distribution, reading direction, use of negative space\n- Match the element types: if reference uses full-bleed photo, do the same; if split layout, replicate the split; if text-heavy panel, replicate that structure\n- Match typographic hierarchy: scale relationships between headline, subtext, and CTA button\nDo NOT copy colors, logos, text, or brand identity from the reference — replace everything with this brand's identity.`
+        ? `\n\nLAYOUT REFERENCE BANNER — STRUCTURAL TEMPLATE:\nThe attached reference banner is the COMPOSITIONAL BLUEPRINT:\n- Replicate the spatial structure exactly: where the image zone is, where the text zone is, where the CTA sits — same proportions and layout logic\n- Mirror the compositional flow: visual weight distribution, reading direction, use of negative space\n- Match the element types: if reference uses full-bleed photo, do the same; if split layout, replicate the split; if text-heavy panel, replicate that structure\n- Match typographic hierarchy: scale relationships between headline, subtext, and CTA button\nDo NOT copy colors, logos, text, or brand identity from the reference — replace everything with this brand's identity.`
         : `\n\nSTYLE REFERENCE IMAGE${styleRefCount > 1 ? 'S' : ''} — CRITICAL VISUAL DIRECTION:\nThe first ${styleRefCount} reference image${styleRefCount > 1 ? 's are' : ' is'} the client's EXISTING ad creative${styleRefCount > 1 ? 's' : ''} — use ${styleRefCount > 1 ? 'them' : 'it'} as the authoritative style template:\n- Match the overall color palette and color proportions exactly\n- Match the visual mood, photographic style, and composition approach\n- Match the typography character (weight, scale, placement style)\n- The new banner must feel like it belongs to the same campaign family\nDo NOT copy layout or text — only extract the visual DNA (colors, mood, aesthetic treatment).`
       : ''
 
@@ -616,12 +731,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           // Non-fatal — proceed without descriptions
         }
       }
+      // Inject layout-ref precision analysis (after describe-materials appendix)
+      if (layoutRefAnalysisInjection) finalPrompt += layoutRefAnalysisInjection
     } else {
       // Normal generation: full prompt + product/logo references
       const basePrompt = fmt.prompt
       finalPrompt = (basePrompt + styleRefBlock + productRefBlock + moodRefBlock)
         .replace('{{LOGO_BLOCK}}', logoBlock)
         .replace('{{BRAND_NAME_SUPPRESS}}', brandNameSuppress)
+      // Inject layout-ref precision analysis block
+      if (layoutRefAnalysisInjection) finalPrompt += layoutRefAnalysisInjection
       submitImageUrls = []
       // Compress all data URL references before adding — Netlify body limit is 6 MB.
       // HTTPS URLs go through as-is (fal.ai fetches them server-side).
@@ -629,8 +748,15 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       // compressRefImage returns null when it can't decode the image — filter those out
       // to prevent fal.ai from receiving unsupported formats (e.g. WebP).
       if (styleReferenceImages?.length) {
-        const compressed = await Promise.all(styleReferenceImages.map(compressRefImage))
-        submitImageUrls.push(...compressed.filter(Boolean))
+        if (isLayoutRefVariant) {
+          // For layout-ref: use ONLY the best AR-matched reference image.
+          // Sending multiple refs confuses the model — one precise ref is better.
+          const c = await compressRefImage(styleReferenceImages[layoutRefBestIdx])
+          if (c) submitImageUrls.push(c)
+        } else {
+          const compressed = await Promise.all(styleReferenceImages.map(compressRefImage))
+          submitImageUrls.push(...compressed.filter(Boolean))
+        }
       }
       if (productImage) {
         const c = await compressRefImage(productImage)

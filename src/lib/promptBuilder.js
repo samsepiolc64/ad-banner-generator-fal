@@ -366,7 +366,16 @@ Study the reference background carefully and reproduce it with absolute precisio
 - Do NOT add visual elements not present in the reference
 - Do NOT remove visual elements present in the reference
 - Do NOT apply brand color palette or editorial style rules — reference is the only authority
-- Do NOT invent new decorative elements or change the rendering style of existing ones` : `- Layout: ${variant.layout}
+- Do NOT invent new decorative elements or change the rendering style of existing ones
+
+⚡ COLOR EXTRACTION MANDATE — NON-NEGOTIABLE:
+Extract the exact hex color values directly from the reference banner pixels. Use ONLY those extracted colors — do not invent, approximate, or substitute with any color not visibly present in the reference. Every color in your output (background, accents, text, decorative elements, button) must map precisely to a color from the reference image.
+
+⚡ ELEMENT COUNT CONSTRAINT:
+Count every distinct visual element in the reference: each product/object, person, icon, text block, button, badge, decorative shape. Reproduce EXACTLY that number — do not add any element not present in the reference, do not remove any element that is present.
+
+⚡ ZONE PROPORTIONS — PRESERVE EXACTLY:
+Study what percentage of the canvas each zone occupies in the reference: the image/visual area, the text/copy area, the decorative element area, and the empty/breathing-room area. Reproduce these same spatial proportions — the visual weight distribution must match the reference.` : `- Layout: ${variant.layout}
 - Hero element: ${variant.hero}
 - Background: ${variant.bg}
 - Mood/atmosphere: ${variant.mood}`}${variant.name === 'Typograficzny Bold' ? `

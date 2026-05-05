@@ -39,6 +39,64 @@ function extractJsonObject(text) {
 
 const CAPTION_PROMPT = `Opisz w 1-2 zdaniach po polsku co widzisz na tym banerze reklamowym. Opisz główną scenę, główny obiekt/temat i nastrój. Bądź konkretny i zwięzły. Odpowiedz tylko samym opisem, bez żadnych wstępów.`
 
+const LAYOUTREF_PROMPT = `You are an expert advertising design analyst. Analyze this reference banner image and extract precise structural data so another AI model can replicate its visual design with maximum fidelity.
+
+Return a JSON object (no markdown fences, no code block) with this exact schema:
+
+{
+  "colors": ["#hex1", "#hex2", "#hex3"],
+  "background_color": "#hex",
+  "element_count": 5,
+  "zones": {
+    "image_pct": 60,
+    "text_pct": 25,
+    "decorative_pct": 10,
+    "empty_pct": 5
+  },
+  "typography": {
+    "headline_weight": "black",
+    "headline_color": "#hex",
+    "headline_size": "large",
+    "headline_position": "bottom-left",
+    "cta_style": "rounded pill button with white text",
+    "cta_bg_color": "#hex"
+  },
+  "layout": {
+    "hero_position": "right half",
+    "text_position": "left half",
+    "cta_position": "bottom-left"
+  },
+  "fixed_elements": [
+    "dark blue footer bar occupying bottom 12% of canvas",
+    "small text label in top-right corner"
+  ],
+  "ar": "16:9"
+}
+
+Field definitions:
+- colors: all distinct colors as 6-digit lowercase hex codes (#rrggbb), most dominant first (5–10 colors). Extract actual pixel values — not approximations.
+- background_color: dominant background hex color (#rrggbb)
+- element_count: count every distinct visual object — each person, product/object, icon, text block, button, decorative shape counts as 1. Integer.
+- zones: percentage of canvas area per zone type (integers, must sum to ~100). image_pct = visual/photographic area; text_pct = headline + subline + body copy combined; decorative_pct = shapes, lines, badges, graphic elements; empty_pct = breathing room / white space.
+- typography.headline_weight: CSS-style weight name (thin / light / regular / medium / semibold / bold / extrabold / black)
+- typography.headline_color: hex code of the headline text color
+- typography.headline_size: relative size (small / medium / large / xlarge / dominant — where "dominant" means headline fills 30%+ of canvas height)
+- typography.headline_position: spatial description (e.g. "lower-left", "top-center", "right-center")
+- typography.cta_style: button shape and style (e.g. "rounded pill button with white text", "rectangular button with sharp corners and dark text")
+- typography.cta_bg_color: hex code of CTA button background; null if no CTA visible
+- layout.hero_position: where the main visual element sits (e.g. "right half", "center", "top portion", "full bleed")
+- layout.text_position: where the text block sits (e.g. "left third", "bottom quarter", "center overlay")
+- layout.cta_position: where the CTA button sits (e.g. "bottom-left", "bottom-center", "right-center"); null if no CTA
+- fixed_elements: permanent structural/template elements that would appear in EVERY banner using this template (footer bars, decorative strips, background textures, corner badges, recurring patterns, background gradients). Be specific: include position, color, and approximate size as % of canvas. Empty array [] if none.
+- ar: estimated aspect ratio as string (e.g. "16:9", "1:1", "9:16", "4:3", "2:1")
+
+CRITICAL RULES:
+- ALL hex codes: 6-digit lowercase format only (#aabbcc)
+- Do NOT include actual text content from the banner — style and position only
+- Be precise about colors — analyze actual pixel values, not guesses
+- Fixed elements = template frame elements, NOT main content (headline, product, model are NOT fixed elements)
+- If a field is not applicable: use null for scalars/objects, [] for arrays`
+
 const SCHEMA_INSTRUCTIONS = `Return a JSON object (no markdown fences) describing this advertising banner in enough detail that another AI model could recreate it almost identically. Follow this exact schema:
 
 {
@@ -91,6 +149,7 @@ export default async (req) => {
     const body = await req.json()
     const { imageBase64, mediaType, mode } = body
     const isCaption = mode === 'caption'
+    const isLayoutRef = mode === 'layoutref'
 
     if (!imageBase64) {
       return new Response(
@@ -111,7 +170,7 @@ export default async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: isCaption ? 256 : 3072,
+        max_tokens: isCaption ? 256 : isLayoutRef ? 1024 : 3072,
         messages: [
           {
             role: 'user',
@@ -124,7 +183,9 @@ export default async (req) => {
                 type: 'text',
                 text: isCaption
                   ? CAPTION_PROMPT
-                  : `You are an expert advertising art director. Analyze this banner image and extract a complete structured description.\n\n${SCHEMA_INSTRUCTIONS}`,
+                  : isLayoutRef
+                    ? LAYOUTREF_PROMPT
+                    : `You are an expert advertising art director. Analyze this banner image and extract a complete structured description.\n\n${SCHEMA_INSTRUCTIONS}`,
               },
             ],
           },
@@ -149,6 +210,29 @@ export default async (req) => {
         JSON.stringify({ caption: responseText.trim() }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Layout-ref analysis mode — parse structured JSON
+    if (isLayoutRef) {
+      const jsonStr = extractJsonObject(responseText)
+      if (!jsonStr) {
+        return new Response(
+          JSON.stringify({ error: 'Could not parse layout analysis', raw: responseText.slice(0, 300) }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      try {
+        const analysis = JSON.parse(jsonStr)
+        return new Response(
+          JSON.stringify({ analysis }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      } catch (parseErr) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid JSON from Claude: ' + parseErr.message }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Full describe mode — parse JSON
