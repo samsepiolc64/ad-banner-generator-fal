@@ -119,6 +119,7 @@ export default function CampaignForm({
     ctaType: 'auto',
     cta: '',
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
+    layoutRefCount: 1,  // liczba kopii wariantu "Z wzoru referencyjnego" (1–10)
   }))
   const [activeSection, setActiveSection] = useState(0)
   const [maxSection, setMaxSection] = useState(0)
@@ -816,6 +817,27 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
                       )}
                     </div>
                     <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{v.shortDesc}</div>
+                    {/* Liczba kopii — tylko dla wariantu Z wzoru referencyjnego gdy aktywny */}
+                    {v.index === 9 && isActive && (
+                      <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">Liczba kopii:</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => update('layoutRefCount', Math.max(1, (form.layoutRefCount || 1) - 1))}
+                            className="w-6 h-6 rounded-md border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-bold leading-none"
+                          >−</button>
+                          <span className="w-6 text-center text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
+                            {form.layoutRefCount || 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => update('layoutRefCount', Math.min(10, (form.layoutRefCount || 1) + 1))}
+                            className="w-6 h-6 rounded-md border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-bold leading-none"
+                          >+</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {/* Tooltip hint */}
                   <span className="flex-shrink-0 mt-0.5 text-gray-300 dark:text-gray-600" title={v.tooltip}>
