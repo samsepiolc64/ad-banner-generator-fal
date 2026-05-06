@@ -258,8 +258,15 @@ export async function compositeLogoOnBanner(bannerBlob, logoDataUrl, targetW, ta
 
   // Skip logo entirely if even the best corner has text-like edge density.
   // Better no logo than a logo stamped on top of headline text.
+  // Use a wider zone for text detection: the logo panel (solid-bg logos) adds ~12% panPad on each
+  // side beyond the logo itself, so text that starts just outside analysisW/analysisH can still be
+  // covered by the panel. The extended zone catches text adjacent to the logo placement area.
+  const textCheckW = Math.round(drawW * 1.6 + pad * 3)
+  const textCheckH = Math.round(drawH * 1.8 + pad * 3)
+  const cornersForText = analyzeCorners(bannerBmp, textCheckW, textCheckH)
+  const bestForText = cornersForText.find((c) => c.name === best.name) || cornersForText[0]
   const TEXT_EDGE_THRESHOLD = 0.07
-  if (best.edgeDensity > TEXT_EDGE_THRESHOLD) {
+  if (bestForText.edgeDensity > TEXT_EDGE_THRESHOLD) {
     return bannerBlob
   }
 
