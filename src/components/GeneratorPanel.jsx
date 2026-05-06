@@ -296,6 +296,7 @@ function friendlyError(err) {
 
   // Abort / timeout
   if (err?.name === 'AbortError' || /abort/i.test(msg)) return 'Czas oczekiwania minął. Spróbuj ponownie.'
+  if (/GPT Image 2 generuje wolniej/i.test(msg)) return 'GPT Image 2 jest powolny lub kolejka fal.ai jest obciążona. Kliknij Ponów.'
   if (/timeout|nie odpowiedział/i.test(msg)) return 'Serwer nie odpowiada. Spróbuj za chwilę.'
 
   // Image decoding — transient fal.ai server error; auto-retry handles it silently (max 2 attempts).
@@ -576,8 +577,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   }
 
   const pollForResult = async (statusUrl, responseUrl, signal) => {
+    // GPT Image 2 (OpenAI model via fal.ai) generates in 60–150s, NB2/Pro in 10–30s.
+    // Poll limit is set per model: 120 × 3s = 6 min for GPT Image 2, 80 × 3s = 4 min for NB.
     const POLL_INTERVAL = 3000
-    const MAX_POLLS = 60 // 3s × 60 = 3 minutes max
+    const isGptImage2Poll = imageModel === 'gpt-image-2'
+    const MAX_POLLS = isGptImage2Poll ? 120 : 80
 
     for (let i = 0; i < MAX_POLLS; i++) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -603,7 +607,8 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       await new Promise((r) => setTimeout(r, POLL_INTERVAL))
     }
 
-    throw new Error('Timeout — fal.ai nie odpowiedział w 3 minuty')
+    const minutes = isGptImage2Poll ? 6 : 4
+    throw new Error(`Timeout — fal.ai nie odpowiedział w ${minutes} minuty${isGptImage2Poll ? '. GPT Image 2 generuje wolniej — spróbuj ponownie.' : ''}`)
   }
 
   // textOverrides = { headline, cta } — when provided, replaces copy in the prompt
