@@ -534,6 +534,11 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
   // Prevents re-running Vision on every text edit of the same banner — one description
   // per banner, reused across multiple text-edit regenerations.
   const descriptionsMapRef = useRef({})
+  // Cache of { refImageIndex → analysis } for layout-ref Vision pre-analysis.
+  // Pre-computed ONCE in generateAll before the pool starts — shared across all
+  // layout-ref variants so each reference image is analyzed only once, not N times
+  // in parallel (which caused timeouts and silent fallbacks to weaker prompts).
+  const layoutRefAnalysisCacheRef = useRef({})
   // Tracks which banner rows have their prompt expanded (filename → bool)
   const [expandedPrompts, setExpandedPrompts] = useState({})
   // Tracks which banner rows have their text editor open (filename → bool)
@@ -638,25 +643,35 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     let layoutRefAnalysisInjection = ''
     if (isLayoutRefVariant && styleReferenceImages?.length > 0) {
       layoutRefBestIdx = await pickBestRefIndex(styleReferenceImages, fmt)
-      try {
-        const refToAnalyze = styleReferenceImages[layoutRefBestIdx]
-        const compressed = await compressRefImage(refToAnalyze)
-        if (compressed) {
-          const analysisRes = await fetch('/.netlify/functions/describe-banner', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: compressed, mediaType: 'image/jpeg', mode: 'layoutref' }),
-            signal,
-          })
-          if (analysisRes.ok) {
-            const analysisData = await analysisRes.json()
-            if (analysisData.analysis) {
-              layoutRefAnalysisInjection = buildLayoutRefAnalysisBlock(analysisData.analysis, fmt)
+      // Primary path: read from pre-computed cache (populated in generateAll before the pool).
+      // This guarantees each reference image is analyzed only once — no concurrent API calls.
+      const cachedAnalysis = layoutRefAnalysisCacheRef.current[layoutRefBestIdx]
+      if (cachedAnalysis) {
+        layoutRefAnalysisInjection = buildLayoutRefAnalysisBlock(cachedAnalysis, fmt)
+      } else {
+        // Fallback: cache miss (e.g. retry of a single banner, or pre-analysis failed).
+        // Run analysis inline for this format only.
+        try {
+          const refToAnalyze = styleReferenceImages[layoutRefBestIdx]
+          const compressed = await compressRefImage(refToAnalyze)
+          if (compressed) {
+            const analysisRes = await fetch('/.netlify/functions/describe-banner', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: compressed, mediaType: 'image/jpeg', mode: 'layoutref' }),
+              signal,
+            })
+            if (analysisRes.ok) {
+              const analysisData = await analysisRes.json()
+              if (analysisData.analysis) {
+                layoutRefAnalysisCacheRef.current[layoutRefBestIdx] = analysisData.analysis
+                layoutRefAnalysisInjection = buildLayoutRefAnalysisBlock(analysisData.analysis, fmt)
+              }
             }
           }
+        } catch {
+          // Non-fatal — proceed without analysis block
         }
-      } catch {
-        // Non-fatal — proceed without analysis block
       }
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -1051,6 +1066,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     seedMapRef.current = {}
     originalBlobsRef.current = {}
     descriptionsMapRef.current = {}
+    layoutRefAnalysisCacheRef.current = {}
     setExpandedPrompts({})
     setExpandedTexts({})
     setEditingTexts({})
@@ -1060,6 +1076,48 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     abortRef.current = controller
 
     const pending = formats.filter((f) => statuses[f.id]?.status !== 'done')
+
+    // ── Layout-ref Vision pre-analysis — run ONCE per unique reference image ──
+    // Problem: when multiple layout-ref variants run in parallel (pool limit=3),
+    // each fires describe-banner simultaneously → concurrent Claude API calls →
+    // some timeout silently (non-fatal catch) → those variants get no analysis
+    // injection → much weaker prompt → poor fidelity.
+    // Fix: pre-analyze each unique reference image sequentially here, cache the
+    // raw analysis JSON by refIndex. generateOne reads from cache instead of
+    // calling describe-banner itself.
+    const layoutRefPending = pending.filter((f) => f.variantName === 'Z wzoru referencyjnego')
+    if (layoutRefPending.length > 0 && styleReferenceImages?.length > 0) {
+      // Compute best reference image index for each layout-ref format, deduplicate
+      const refIdxSet = new Set()
+      for (const fmt of layoutRefPending) {
+        const idx = await pickBestRefIndex(styleReferenceImages, fmt)
+        refIdxSet.add(idx)
+      }
+      // Run Vision analysis sequentially for each unique reference image
+      for (const refIdx of refIdxSet) {
+        try {
+          const refToAnalyze = styleReferenceImages[refIdx]
+          const compressed = await compressRefImage(refToAnalyze)
+          if (compressed) {
+            const analysisRes = await fetch('/.netlify/functions/describe-banner', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: compressed, mediaType: 'image/jpeg', mode: 'layoutref' }),
+              signal: controller.signal,
+            })
+            if (analysisRes.ok) {
+              const analysisData = await analysisRes.json()
+              if (analysisData.analysis) {
+                layoutRefAnalysisCacheRef.current[refIdx] = analysisData.analysis
+              }
+            }
+          }
+        } catch {
+          // Non-fatal — generateOne will fall back to its own attempt
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Pre-flight: create Drive folders ONCE before parallel uploads.
     if (!driveFolderRef.current) {

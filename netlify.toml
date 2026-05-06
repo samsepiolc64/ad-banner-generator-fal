@@ -48,6 +48,9 @@
 [functions."evaluate-banner"]
   timeout = 30
 
+[functions."describe-banner"]
+  timeout = 30
+
 [functions."describe-materials"]
   timeout = 45
 
