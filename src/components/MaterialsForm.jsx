@@ -46,6 +46,8 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, requireBa
   const mediaInputRef = useRef(null)
   const logoInputRef = useRef(null)
   const dragCounterRef = useRef(0)
+  const logoDragCounterRef = useRef(0)
+  const [logoDragOver, setLogoDragOver] = useState(false)
 
   // Global paste handler for media files
   useEffect(() => {
@@ -435,9 +437,23 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, requireBa
               ) : (
                 <div
                   onClick={() => logoInputRef.current?.click()}
-                  className="cursor-pointer rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-900/50 px-4 py-5 text-center transition-colors"
+                  onDragEnter={(e) => { e.preventDefault(); logoDragCounterRef.current++; setLogoDragOver(true) }}
+                  onDragLeave={(e) => { e.preventDefault(); logoDragCounterRef.current--; if (logoDragCounterRef.current <= 0) { logoDragCounterRef.current = 0; setLogoDragOver(false) } }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    logoDragCounterRef.current = 0
+                    setLogoDragOver(false)
+                    const file = e.dataTransfer?.files?.[0]
+                    if (file) handleLogoDrop(file)
+                  }}
+                  className={`cursor-pointer rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors
+                    ${logoDragOver
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-900/50'}`}
                 >
-                  <Upload size={18} strokeWidth={1.6} className="mx-auto mb-1.5 text-gray-400" aria-hidden />
+                  <Upload size={18} strokeWidth={1.6} className={`mx-auto mb-1.5 ${logoDragOver ? 'text-blue-500' : 'text-gray-400'}`} aria-hidden />
                   <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
                     Kliknij lub przeciągnij logo
                   </div>
