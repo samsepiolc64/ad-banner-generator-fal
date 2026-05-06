@@ -234,18 +234,6 @@ export default function App() {
       }).catch(() => {})
     }
 
-    setClients((prev) => {
-      const normalized = normalizeDomain(campaignData.domain)
-      const existingIdx = prev.findIndex((c) => normalizeDomain(c.domain) === normalized)
-      const entry = { domain: campaignData.domain, brand_data: brand, updated_at: new Date().toISOString() }
-      if (existingIdx >= 0) {
-        const next = [...prev]
-        next[existingIdx] = { ...next[existingIdx], ...entry }
-        return next
-      }
-      return [...prev, entry]
-    })
-
     const selectedFormats = ALL_FORMATS.filter((f) => campaignData.formats.includes(f.id))
     // Backward-compat: variants może być liczbą (stare dane) lub tablicą indeksów (nowe)
     const baseVariants = Array.isArray(campaignData.variants)
@@ -389,6 +377,24 @@ export default function App() {
 
     setResolvedNotes(notesForPrompt)
     setNotesImageUrl(detectedImageUrl)
+
+    setClients((prev) => {
+      const normalized = normalizeDomain(campaignData.domain)
+      const existingIdx = prev.findIndex((c) => normalizeDomain(c.domain) === normalized)
+      const entry = {
+        domain: campaignData.domain,
+        brand_data: brand,
+        updated_at: new Date().toISOString(),
+        opiekun: campaignData.opiekun || null,
+        cel_kampanii: campaignData.goal || null,
+      }
+      if (existingIdx >= 0) {
+        const next = [...prev]
+        next[existingIdx] = { ...next[existingIdx], ...entry }
+        return next
+      }
+      return [...prev, entry]
+    })
 
     const allFormats = []
     // Compute hasLogo once — same logic as logoDataUrl prop passed to GeneratorPanel
