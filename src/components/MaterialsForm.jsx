@@ -638,7 +638,7 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, requireBa
               <path d="M7 1L13 12H1L7 1z"/>
               <path d="M7 5v3M7 10v.5"/>
             </svg>
-            <span>Wybrano wariant <strong>Z wzoru referencyjnego</strong> — wgraj baner referencyjny w sekcji <strong>Materiały i referencje</strong> powyżej (kategoria: <strong>Baner ref.</strong>).</span>
+            <span>Wybrano wariant <strong>Ze wzoru referencyjnego</strong> — wgraj baner referencyjny w sekcji <strong>Materiały i referencje</strong> powyżej (kategoria: <strong>Baner ref.</strong>).</span>
           </div>
         )}
 

@@ -251,7 +251,7 @@ export default function App() {
     const baseVariants = Array.isArray(campaignData.variants)
       ? campaignData.variants
       : Array.from({ length: campaignData.variants || 2 }, (_, i) => i)
-    // Wariant 9 (Z wzoru referencyjnego) może być powielony layoutRefCount razy
+    // Wariant 9 (Ze wzoru referencyjnego) może być powielony layoutRefCount razy
     const layoutRefCount = Math.max(1, Math.min(10, campaignData.layoutRefCount || 1))
     const selectedVariants = baseVariants.flatMap((v) =>
       v === 9 ? Array(layoutRefCount).fill(9) : [v]

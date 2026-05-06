@@ -80,7 +80,7 @@ describe('VARIANT_MATRIX', () => {
     assert.ok(names.includes('Gradient Premium'))
     assert.ok(names.includes('Social Proof'))
     assert.ok(names.includes('UGC / Authentic'))
-    assert.ok(names.includes('Z wzoru referencyjnego'))
+    assert.ok(names.includes('Ze wzoru referencyjnego'))
   })
 
   for (const variant of VARIANT_MATRIX) {
@@ -425,8 +425,8 @@ describe('variant cycling', () => {
     contains(makePrompt({ variantIndex: 8 }), 'VARIANT 9 (UGC / Authentic)')
   })
 
-  it('variantIndex 9 → VARIANT 10 (Z wzoru referencyjnego)', () => {
-    contains(makePrompt({ variantIndex: 9 }), 'VARIANT 10 (Z wzoru referencyjnego)')
+  it('variantIndex 9 → VARIANT 10 (Ze wzoru referencyjnego)', () => {
+    contains(makePrompt({ variantIndex: 9 }), 'VARIANT 10 (Ze wzoru referencyjnego)')
   })
 
   it('variantIndex 10 wraps to VARIANT 11 (Hero lifestyle)', () => {

@@ -74,7 +74,7 @@ const VARIANT_MATRIX = [
       'Authentic, energetic, relatable — stops the scroll because it looks like organic content, not advertising. Ideal for TikTok and Meta Stories. Feels like a trusted friend\'s recommendation.',
   },
   {
-    name: 'Z wzoru referencyjnego',
+    name: 'Ze wzoru referencyjnego',
     isLayoutRef: true,
     direction:
       'LAYOUT IS DEFINED BY THE REFERENCE BANNER (see LAYOUT REFERENCE MANDATE below). Replicate its spatial structure exactly — zone proportions, compositional flow, hero placement, CTA position — while replacing all brand elements with this brand\'s identity, colors, and content.',

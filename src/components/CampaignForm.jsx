@@ -46,7 +46,7 @@ const VARIANT_DEFINITIONS = [
   { index: 6, name: 'Gradient Premium',      shortDesc: 'Gradient z kolorów marki, produkt unosi się', tooltip: 'Bogaty gradient z primary + secondary koloru marki jako tło (nie foto). Produkt lekko glowing. Świetny dla tech, beauty, fintech — gdy nie masz zdjęć.' },
   { index: 7, name: 'Social Proof',          shortDesc: 'Duża liczba lub cytat jako bohater',       tooltip: 'Oversized stat ("4.9★", "+340% sprzedaży") lub cytat dominuje kompozycję. Kolor marki w tle. Bardzo skuteczny w Consideration i Retargeting.' },
   { index: 8, name: 'UGC / Authentic',       shortDesc: 'Surowy, organiczny styl jak TikTok native', tooltip: 'Celowo nieprodukowany styl — wygląda jak content użytkownika, nie reklama. Wysoki CTR na TikTok i Meta Stories. Autentyczny, energetyczny.' },
-  { index: 9, name: 'Z wzoru referencyjnego', shortDesc: 'Kopiuje układ istniejącego baneru, zmienia brand', tooltip: 'AI analizuje wgrany baner referencyjny i odwzorowuje jego kompozycję (strefy, proporcje, hierarchię). Zastępuje kolory, teksty i logo Twoją marką. Wymaga wgrania banera referencyjnego w sekcji Materiały.' },
+  { index: 9, name: 'Ze wzoru referencyjnego', shortDesc: 'Kopiuje układ istniejącego baneru, zmienia brand', tooltip: 'AI analizuje wgrany baner referencyjny i odwzorowuje jego kompozycję (strefy, proporcje, hierarchię). Zastępuje kolory, teksty i logo Twoją marką. Wymaga wgrania banera referencyjnego w sekcji Materiały.' },
 ]
 
 // Domyślne warianty per kanał — auto-zaznaczane przy wyborze kanału
@@ -119,7 +119,7 @@ export default function CampaignForm({
     ctaType: 'auto',
     cta: '',
     variants: [],  // tablica indeksów VARIANT_MATRIX — auto-zaznaczana przy wyborze kanałów
-    layoutRefCount: 1,  // liczba kopii wariantu "Z wzoru referencyjnego" (1–10)
+    layoutRefCount: 1,  // liczba kopii wariantu "Ze wzoru referencyjnego" (1–10)
   }))
   const [activeSection, setActiveSection] = useState(0)
   const [maxSection, setMaxSection] = useState(0)
@@ -817,7 +817,7 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
                       )}
                     </div>
                     <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{v.shortDesc}</div>
-                    {/* Liczba kopii — tylko dla wariantu Z wzoru referencyjnego gdy aktywny */}
+                    {/* Liczba kopii — tylko dla wariantu Ze wzoru referencyjnego gdy aktywny */}
                     {v.index === 9 && isActive && (
                       <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
                         <span className="text-[11px] text-gray-500 dark:text-gray-400">Liczba kopii:</span>
@@ -871,7 +871,7 @@ function FieldInput({ field, form, update, toggleArray, toggleChannel, toggleVar
                 <path d="M7 1L13 12H1L7 1z"/>
                 <path d="M7 5v3M7 10v.5"/>
               </svg>
-              <span>Wariant <strong>Z wzoru referencyjnego</strong> wymaga wgrania banera w sekcji <strong>Materiały → Materiały i referencje</strong>. Bez niego generowanie zostanie zablokowane.</span>
+              <span>Wariant <strong>Ze wzoru referencyjnego</strong> wymaga wgrania banera w sekcji <strong>Materiały → Materiały i referencje</strong>. Bez niego generowanie zostanie zablokowane.</span>
             </div>
           )}
         </div>

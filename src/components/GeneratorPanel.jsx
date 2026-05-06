@@ -631,7 +631,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
     // Style reference instruction — injected when existing client banners are supplied.
     const styleRefCount = styleReferenceImages?.length || 0
-    const isLayoutRefVariant = fmt.variantName === 'Z wzoru referencyjnego'
+    const isLayoutRefVariant = fmt.variantName === 'Ze wzoru referencyjnego'
 
     // ── Layout-ref: AR matching + Claude Vision pre-analysis ─────────────────
     // For layout-ref variants: pick the reference image whose AR most closely
@@ -1085,7 +1085,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     // Fix: pre-analyze each unique reference image sequentially here, cache the
     // raw analysis JSON by refIndex. generateOne reads from cache instead of
     // calling describe-banner itself.
-    const layoutRefPending = pending.filter((f) => f.variantName === 'Z wzoru referencyjnego')
+    const layoutRefPending = pending.filter((f) => f.variantName === 'Ze wzoru referencyjnego')
     if (layoutRefPending.length > 0 && styleReferenceImages?.length > 0) {
       // Compute best reference image index for each layout-ref format, deduplicate
       const refIdxSet = new Set()
@@ -1222,8 +1222,35 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     }
   }
 
+  // ── Button state — shared between sticky bar and bottom button ──────────────
+  const errorCount = Object.values(statuses).filter((s) => s.status === 'error').length
+  const allDone = Object.values(statuses).every((s) => s.status === 'done')
+  let btnIcon, btnText
+  if (running) {
+    btnIcon = <Square size={18} strokeWidth={2} fill="currentColor" aria-hidden />
+    btnText = 'Zatrzymaj generowanie'
+  } else if (allDone) {
+    btnIcon = <CheckCircle2 size={18} strokeWidth={2} aria-hidden />
+    btnText = 'Wszystkie wygenerowane'
+  } else if (errorCount > 0) {
+    btnIcon = <RotateCcw size={18} strokeWidth={2} aria-hidden />
+    btnText = `Ponów nieudane (${errorCount})`
+  } else {
+    btnIcon = <Zap size={18} strokeWidth={2} aria-hidden />
+    btnText = `Generuj wszystkie (${totalFormats} grafik)`
+  }
+  const btnDisabled = (!folderName && fsaOk) || allDone
+  const btnClassName = `inline-flex items-center justify-center gap-2 w-full rounded-xl font-bold transition-colors
+    ${running
+      ? 'bg-red-600 text-white hover:bg-red-700'
+      : allDone
+      ? 'bg-green-600 text-white cursor-default'
+      : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500 disabled:cursor-not-allowed'
+    }`
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
-    <div>
+    <div className="pb-20">
       {/* Header */}
       <h2 className="text-xl font-bold mb-0.5 text-gray-900 dark:text-white">Banery reklamowe — {brandName}</h2>
       <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">
@@ -1529,42 +1556,36 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
         })}
       </div>
 
-      {/* Generate button */}
-      {(() => {
-        const errorCount = Object.values(statuses).filter((s) => s.status === 'error').length
-        const allDone = Object.values(statuses).every((s) => s.status === 'done')
-        let btnIcon, btnText
-        if (running) {
-          btnIcon = <Square size={18} strokeWidth={2} fill="currentColor" aria-hidden />
-          btnText = 'Zatrzymaj generowanie'
-        } else if (allDone) {
-          btnIcon = <CheckCircle2 size={18} strokeWidth={2} aria-hidden />
-          btnText = 'Wszystkie wygenerowane'
-        } else if (errorCount > 0) {
-          btnIcon = <RotateCcw size={18} strokeWidth={2} aria-hidden />
-          btnText = `Ponów nieudane (${errorCount})`
-        } else {
-          btnIcon = <Zap size={18} strokeWidth={2} aria-hidden />
-          btnText = `Generuj wszystkie (${totalFormats} grafik)`
-        }
-        return (
+      {/* Generate button — bottom anchor (end of list) */}
+      <button
+        onClick={running ? stopGeneration : generateAll}
+        disabled={btnDisabled}
+        className={`${btnClassName} py-4 text-base`}
+      >
+        {btnIcon}
+        {btnText}
+      </button>
+
+      {/* ── Sticky bottom bar — always visible ───────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-950/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 shadow-[0_-4px_20px_rgba(0,0,0,0.10)] px-4 py-3">
+        <div className="max-w-screen-xl mx-auto flex items-center gap-3">
           <button
             onClick={running ? stopGeneration : generateAll}
-            disabled={(!folderName && fsaOk) || allDone}
-            className={`inline-flex items-center justify-center gap-2 w-full rounded-xl py-4 text-base font-bold transition-colors
-              ${running
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : allDone
-                ? 'bg-green-600 text-white cursor-default'
-                : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500 disabled:cursor-not-allowed'
-              }`}
+            disabled={btnDisabled}
+            className={`${btnClassName} flex-1 py-3 text-sm`}
           >
             {btnIcon}
             {btnText}
           </button>
-        )
-      })()}
-
+          <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap tabular-nums">
+            {doneCount}/{totalFormats}
+            {running && progress > 0 && (
+              <span className="ml-1 text-blue-500">{Math.round(progress)}%</span>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* ──────────────────────────────────────────────────────────────────────── */}
 
     </div>
   )

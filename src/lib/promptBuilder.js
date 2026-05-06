@@ -69,7 +69,7 @@ export const VARIANT_MATRIX = [
     mood: 'Authentic, energetic, relatable — stops the scroll because it looks like organic content, not advertising; ideal for TikTok and Meta Stories; feels like a trusted friend\'s recommendation',
   },
   {
-    name: 'Z wzoru referencyjnego',
+    name: 'Ze wzoru referencyjnego',
     isLayoutRef: true,
     layout: 'DEFINED BY REFERENCE BANNER — replicate the spatial structure, zone proportions, and compositional flow of the attached reference banner exactly',
     hero: 'DEFINED BY REFERENCE BANNER — mirror the hero element type and placement from the reference (product, person, graphic); replace with this brand\'s content',
