@@ -508,7 +508,7 @@ async function uploadToDrive(blob, filename, sessionFolderId, mimeType = 'image/
   })
 }
 
-export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImage, notesImageUrl, styleReferenceImages = [], moodImages = [], falMode = 'test', imageModel = 'nanobanan' }) {
+export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain, notes, productImages = [], notesImageUrl, styleReferenceImages = [], moodImages = [], falMode = 'test', imageModel = 'nanobanan' }) {
   const [statuses, setStatuses] = useState(() => {
     const s = {}
     formats.forEach((f) => (s[f.id] = { status: 'idle' }))
@@ -613,14 +613,14 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
     const isGptImage2 = imageModel === 'gpt-image-2'
     const model = resolveModel(fmt)
     const hasLogo = !!logoDataUrl
-    // productImage (base64) > notesImageUrl (confirmed image URL from App.jsx probe) > fallback extension check
+    // productImages[] (base64) > notesImageUrl (confirmed image URL from App.jsx probe) > fallback extension check
     // Webpage URLs must never reach fal.ai as image_urls (causes 502).
-    const rawNotesUrl = !productImage && !notesImageUrl ? extractUrl(notes) : null
-    const productRefUrl = productImage ? null
+    const rawNotesUrl = productImages.length === 0 && !notesImageUrl ? extractUrl(notes) : null
+    const productRefUrl = productImages.length > 0 ? null
       : notesImageUrl ? notesImageUrl
       : (rawNotesUrl && isImageUrl(rawNotesUrl)) ? rawNotesUrl
       : null
-    const hasProductRef = !!productImage || !!productRefUrl
+    const hasProductRef = productImages.length > 0 || !!productRefUrl
     const hasRef = hasLogo || hasProductRef
 
     // Pick the right logo block based on whether a real logo will be composited
@@ -683,11 +683,18 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
       : ''
 
     // Product reference instruction — injected when a reference image is supplied.
-    // Order in submitImageUrls: style refs → product → mood → logo
-    const productRefImg = styleRefCount + 1  // product image index in the array
-    const productRefBlock = hasProductRef
-      ? `\n\nPRODUCT REFERENCE IMAGE — ABSOLUTE FIDELITY REQUIRED:\nReference image #${productRefImg} shows the EXACT product to feature. This is NON-NEGOTIABLE:\n- Reproduce the product's EXACT shape, silhouette, and proportions — no simplification\n- Reproduce the EXACT colors, materials, surface textures, and finish\n- Reproduce EVERY detail of the packaging: label text, graphic elements, logo on packaging, color blocks, any printed design\n- Reproduce the EXACT size relationships between all parts of the product\n- Whether the product appears as a standalone object, worn by a model, held in hand, or integrated into a scene — it MUST be recognizable as THIS specific product from THIS reference image\n- A viewer who knows the real product must immediately confirm "yes, that's the correct product"\nDO NOT redesign, stylize, simplify, or reinterpret. Unfaithful product reproduction = failed creative.`
-      : ''
+    // Order in submitImageUrls: style refs → products → mood → logo
+    const productStartImg = styleRefCount + 1  // 1-based index of first product in image_urls
+    const productImgCount = productImages.length + (productRefUrl ? 1 : 0) // total product refs
+    const productEndImg = styleRefCount + productImgCount
+    let productRefBlock = ''
+    if (hasProductRef) {
+      if (productImgCount > 1) {
+        productRefBlock = `\n\nPRODUCT REFERENCE IMAGES (images #${productStartImg}–#${productEndImg}) — ALL ${productImgCount} PRODUCTS MUST APPEAR IN THE BANNER:\nThese ${productImgCount} reference images show ALL the products that MUST be featured. This is NON-NEGOTIABLE:\n- ⚡ ALL ${productImgCount} products from these reference images must appear together in the banner — not just one, not just the most prominent\n- Reproduce each product's EXACT shape, silhouette, proportions, colors, materials, and surface finish\n- Reproduce EVERY packaging detail for each product: label text, graphic elements, logo, color blocks\n- Arrange all ${productImgCount} products in the composition so each is clearly visible and individually recognizable\n- A viewer who knows all these products must confirm "yes, every product is correctly shown"\nDO NOT show only one product and ignore the others. All products must be present and clearly visible. Featuring fewer than all ${productImgCount} products = creative failure.`
+      } else {
+        productRefBlock = `\n\nPRODUCT REFERENCE IMAGE — ABSOLUTE FIDELITY REQUIRED:\nReference image #${productStartImg} shows the EXACT product to feature. This is NON-NEGOTIABLE:\n- Reproduce the product's EXACT shape, silhouette, and proportions — no simplification\n- Reproduce the EXACT colors, materials, surface textures, and finish\n- Reproduce EVERY detail of the packaging: label text, graphic elements, logo on packaging, color blocks, any printed design\n- Reproduce the EXACT size relationships between all parts of the product\n- Whether the product appears as a standalone object, worn by a model, held in hand, or integrated into a scene — it MUST be recognizable as THIS specific product from THIS reference image\n- A viewer who knows the real product must immediately confirm "yes, that's the correct product"\nDO NOT redesign, stylize, simplify, or reinterpret. Unfaithful product reproduction = failed creative.`
+      }
+    }
 
     // Mood / atmosphere reference instruction
     const moodRefCount = moodImages?.length || 0
@@ -755,7 +762,7 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
 
       const materialItems = [
         ...(styleReferenceImages?.map((u) => ({ dataUrl: u, category: 'banner' })) || []),
-        ...(productImage ? [{ dataUrl: productImage, category: 'product' }] : []),
+        ...(productImages?.map((u) => ({ dataUrl: u, category: 'product' })) || []),
         ...(moodImages?.map((u) => ({ dataUrl: u, category: 'mood' })) || []),
       ]
 
@@ -779,13 +786,16 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
             const descriptions = descData.descriptions || []
 
             // Format descriptions as prompt appendix blocks
-            const productDesc = descriptions.find((d) => d.category === 'product')
+            const productDescs = descriptions.filter((d) => d.category === 'product')
             const bannerDescs = descriptions.filter((d) => d.category === 'banner')
             const moodDescs = descriptions.filter((d) => d.category === 'mood')
 
             let appendix = ''
-            if (productDesc?.text) {
-              appendix += `\n\nPRODUCT REFERENCE — REPRODUCE WITH EXACT FIDELITY:\n${productDesc.text}\nThis specific product must appear in the ad, reproduced as faithfully as possible — correct shape, colors, materials, packaging. Whether shown standalone, worn by a model, or integrated into a scene, it must be immediately recognizable as this product.`
+            if (productDescs.length === 1) {
+              appendix += `\n\nPRODUCT REFERENCE — REPRODUCE WITH EXACT FIDELITY:\n${productDescs[0].text}\nThis specific product must appear in the ad, reproduced as faithfully as possible — correct shape, colors, materials, packaging. Whether shown standalone, worn by a model, or integrated into a scene, it must be immediately recognizable as this product.`
+            } else if (productDescs.length > 1) {
+              const allProductsText = productDescs.map((d, i) => `Product ${i + 1}: ${d.text}`).join('\n')
+              appendix += `\n\nPRODUCT REFERENCES — ALL ${productDescs.length} PRODUCTS MUST APPEAR IN THE BANNER:\n${allProductsText}\n\n⚡ NON-NEGOTIABLE: ALL ${productDescs.length} products described above must be clearly visible and individually recognizable in the banner. Do NOT feature only one and ignore the others. Arrange all products together in the composition so each can be identified. Reproduce each product's exact shape, colors, materials, and packaging details as described. Featuring fewer than all ${productDescs.length} products = creative failure.`
             }
             if (bannerDescs.length > 0) {
               const styleBlock = bannerDescs.map((d, i) =>
@@ -834,9 +844,9 @@ export default function GeneratorPanel({ formats, logoDataUrl, brandName, domain
           submitImageUrls.push(...compressed.filter(Boolean))
         }
       }
-      if (productImage) {
-        const c = await compressRefImage(productImage)
-        if (c) submitImageUrls.push(c)
+      if (productImages.length > 0) {
+        const compressed = await Promise.all(productImages.map(compressRefImage))
+        submitImageUrls.push(...compressed.filter(Boolean))
       } else if (productRefUrl) {
         // Proxy HTTP URL through Netlify to avoid CORS and format issues (e.g. WebP CDN URLs).
         // compressRefImage then converts whatever format to JPEG before sending to fal.ai.

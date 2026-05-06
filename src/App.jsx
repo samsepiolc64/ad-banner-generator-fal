@@ -421,7 +421,7 @@ export default function App() {
         const variantName = VARIANT_MATRIX[v % VARIANT_MATRIX.length].name
         const modelInfo = resolveModel(fmt)
         const effectiveImageModel = materialsData?.imageModel || 'nanobanan'
-        const productImageForPrompt = materialsData?.classifiedMedia?.find((m) => m.category === 'product')?.dataUrl || null
+        const productImagesForPrompt = materialsData?.classifiedMedia?.filter((m) => m.category === 'product').map((m) => m.dataUrl) || []
         const isGptImage2 = effectiveImageModel === 'gpt-image-2'
         const adLangForPrompt = AD_LANGUAGES.find((l) => l.code === (materialsData?.language || 'pl'))?.engName || 'Polish'
         const prompt = isGptImage2
@@ -430,7 +430,7 @@ export default function App() {
               variantIndex: v,
               brand: { ...brand, campaignGoal: campaignData.goal },
               headline: headlines[i] || headlines[0],
-              hasProductImage: !!productImageForPrompt,
+              hasProductImage: productImagesForPrompt.length > 0,
               hasLogo,
               cta,
               compInsight,
@@ -443,7 +443,7 @@ export default function App() {
               variantIndex: v,
               brand: { ...brand, campaignGoal: campaignData.goal },
               headline: headlines[i] || headlines[0],
-              hasProductImage: !!productImageForPrompt,
+              hasProductImage: productImagesForPrompt.length > 0,
               cta,
               compInsight,
               notes: finalNotesForFalAi,
@@ -698,8 +698,8 @@ export default function App() {
                               brandName={brandData?.name}
                               domain={campaignData?.domain}
                               notes={resolvedNotes ?? materialsData?.notes}
-                              productImage={
-                                materialsData?.classifiedMedia?.find((m) => m.category === 'product')?.dataUrl || null
+                              productImages={
+                                materialsData?.classifiedMedia?.filter((m) => m.category === 'product').map((m) => m.dataUrl) || []
                               }
                               notesImageUrl={notesImageUrl}
                               styleReferenceImages={
