@@ -266,7 +266,8 @@ describe('Meta Feed (non-Stories)', () => {
       modelInfo:        MODEL_NB2,
       campaignChannels: ['Meta Ads'],
     })
-    contains(prompt, 'CTA button: "Sprawdź ofertę"')
+    contains(prompt, 'MANDATORY CTA BUTTON')
+    contains(prompt, '"Sprawdź ofertę"')
   })
 
   it('does NOT include Stories restrictions', () => {

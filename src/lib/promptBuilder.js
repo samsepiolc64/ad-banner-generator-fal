@@ -446,7 +446,15 @@ ${secondary
   · The reader's eye MUST land on the primary first, then drift to the secondary`
   : `- Headline: "${primary}" — position: center, size: large, weight: bold`
 }${(isStories || isTikTokVertical) ? '' : `
-- CTA button: "${cta}" — prominent button, rounded corners, background color ${brand.ctaColor || brand.colors.accent} (brand CTA color), white text, clearly readable`}
+
+⚡ MANDATORY CTA BUTTON — NON-NEGOTIABLE — THIS MUST APPEAR IN THE IMAGE:
+Render a standalone, visually distinct button element clearly separated below the headline:
+  · Label: "${cta}" — this exact text, nothing else
+  · Shape: pill or rounded rectangle, SOLID color fill (not outline-only, not text-only)
+  · Background fill: ${brand.ctaColor || brand.colors.accent} (brand CTA color — use this exact hex)
+  · Text color: white, bold, legible at any display size
+  · Position: below the headline with clear vertical separation — NOT inline with the headline text
+  · This is a required visual element — a banner missing a CTA button is a creative failure`}
 ${isLayoutRef ? `
 ⚡ STRICT TEXT MANDATE — NON-NEGOTIABLE:
 The ONLY text permitted on this banner is exactly what is listed above (headline${secondary ? ', secondary line' : ''}${!(isStories || isTikTokVertical) ? ', CTA button' : ''}).
