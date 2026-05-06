@@ -342,9 +342,9 @@ export default function App() {
           notesForPrompt = notesForPrompt.replace(url, '').trim() || null
           notesForFalAi = notesForPrompt
         } else {
-          // Strona → URL zawsze usuwamy z fal.ai promptu (model image-gen tego nie przetworzy)
+          // Strona → URL usuwamy z fal.ai promptu (model image-gen nie przetworzy pełnej treści)
           notesForFalAi = notesForFalAi.replace(url, '').trim() || null
-          // Pobierz treść strony jako dodatkowy kontekst (dla budowania nagłówków)
+          // Pobierz treść strony — dla nagłówków (Claude) i skróconego opisu produktów (fal.ai)
           try {
             const urlRes = await fetch('/.netlify/functions/fetch-url-content', {
               method: 'POST',
@@ -354,10 +354,22 @@ export default function App() {
             if (urlRes.ok) {
               const urlData = await urlRes.json()
               if (urlData.content) {
+                // Pełna treść → dla Claude (nagłówki, research)
                 notesForPrompt = notesForPrompt.replace(
                   url,
                   `\n[Treść strony ${url} — źródło: ${urlData.source}]:\n${urlData.content}\n`
                 )
+                // Skrócony opis produktów (~400 znaków) → dla modelu generującego grafikę
+                // Bierzemy środkową część tekstu (pomijamy nawigację na początku)
+                const rawContent = urlData.content
+                const productStart = Math.min(200, Math.floor(rawContent.length * 0.1))
+                const productSnippet = rawContent.slice(productStart, productStart + 450).replace(/\s+/g, ' ').trim()
+                if (productSnippet.length > 50) {
+                  const productHint = `⚡ PRODUKTY DO POKAZANIA NA GRAFICE (ze strony klienta — NAJWYŻSZY PRIORYTET):\n${productSnippet} [...]\nPokaz te konkretne produkty/przedmioty jako wizualny bohater grafiki. To jest ważniejsze niż ogólne tło i styl branży.`
+                  notesForFalAi = notesForFalAi
+                    ? `${productHint}\n\n${notesForFalAi}`
+                    : productHint
+                }
               }
             }
           } catch {}
