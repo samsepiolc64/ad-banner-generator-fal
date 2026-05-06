@@ -45,6 +45,7 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, requireBa
 
   const mediaInputRef = useRef(null)
   const logoInputRef = useRef(null)
+  const dragCounterRef = useRef(0)
 
   // Global paste handler for media files
   useEffect(() => {
@@ -477,10 +478,13 @@ export default function MaterialsForm({ initialData, brandLogoDataUrl, requireBa
           {/* Upload zone */}
           {classifiedMedia.length < MAX_FILES && (
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
+              onDragEnter={(e) => { e.preventDefault(); dragCounterRef.current++; setDragOver(true) }}
+              onDragLeave={(e) => { e.preventDefault(); dragCounterRef.current--; if (dragCounterRef.current <= 0) { dragCounterRef.current = 0; setDragOver(false) } }}
+              onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault()
+                e.stopPropagation()
+                dragCounterRef.current = 0
                 setDragOver(false)
                 const files = Array.from(e.dataTransfer.files)
                 if (files.length > 0) handleMediaFiles(files)

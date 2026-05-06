@@ -24,6 +24,9 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
   const [aiRemoving, setAiRemoving] = useState(false)
   const [aiError, setAiError] = useState(null)
   const inputRef = useRef(null)
+  // Counts dragenter/dragleave pairs — prevents isDragging flickering when
+  // cursor moves over child elements (icon, text) inside the drop zone.
+  const dragCounterRef = useRef(0)
 
   // Przy zmianie trybu — emit odpowiednie logo
   const switchMode = (newMode) => {
@@ -77,8 +80,29 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
     if (inputRef.current) inputRef.current.value = ''
   }
 
+  const handleDragEnter = (e) => {
+    e.preventDefault()
+    dragCounterRef.current++
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    dragCounterRef.current--
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0
+      setIsDragging(false)
+    }
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+  }
+
   const handleDrop = (e) => {
     e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current = 0
     setIsDragging(false)
     const file = e.dataTransfer?.files?.[0]
     if (file) processFile(file)
@@ -166,8 +190,9 @@ export default function LogoUpload({ onLogoChange, brandLogoDataUrl }) {
           {!uploadedUrl ? (
             <div
               onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-              onDragLeave={() => setIsDragging(false)}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-colors
                 ${isDragging ? 'border-brand-orange bg-brand-orange-light' : 'border-gray-200 dark:border-gray-700 hover:border-brand-orange hover:bg-brand-orange-light'}`}
