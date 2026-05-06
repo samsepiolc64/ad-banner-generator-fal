@@ -210,11 +210,12 @@ FORBIDDEN — NOWHERE ELSE in the composition:
 - No duplicate brand marks — if the brand name appears on the product, it must NOT appear again anywhere else in the frame
 - No "inspired-by" lookalike logos, stylized monograms, or typography that reads as a brand mark
 
-CLEAN CORNER REQUIREMENT — this is where our real logo will be composited later:
-- At least ONE corner (top-left preferred, or top-right) must be naturally uncluttered: filled only with the background color or gradient — no objects, no text, no decorative elements
-- Achieve this through natural composition (push hero content away from that corner) — NOT by drawing any shape, box, or frame
-- ABSOLUTELY FORBIDDEN in the clean corner: white box, white card, white rectangle, gray box, gray rectangle, rounded rectangle, frosted panel, semi-transparent overlay, glowing area, empty frame, border outline, badge shape, or ANY distinct geometric shape
-- The corner must look like a natural part of the background — same texture, same color, indistinguishable from the rest of the background`
+CLEAN CORNER REQUIREMENT — a real brand logo will be overlaid in post-production:
+- Compose the scene so the top-left corner (roughly the top-left 20% × 15% of the canvas) contains ONLY the natural scene background — same colors, same texture, same lighting as the surrounding area, completely indistinguishable from the adjacent background
+- Achieve this through natural composition only: push hero elements (people, products, text) away from that corner so the background naturally fills it
+- ⚠️ DO NOT MARK THE CORNER IN ANY WAY. Do NOT draw: any rectangle, square, rounded rectangle, white box, light-colored box, gray box, semi-transparent panel, frosted overlay, glowing area, empty frame, dashed outline, dotted border, badge placeholder, or ANY geometric shape of any kind — even if it looks "invisible" or "subtle"
+- ⚠️ A light-colored or white rectangular area in the corner IS a creative failure, even if it has no border. The corner pixel colors must match the surrounding background exactly — no distinct rectangular region of any kind
+- The corner must be pixel-perfect natural background — as if the logo corner requirement did not exist`
 
 // Used when NO logo is provided — no corner reservation needed, still forbid floating logos
 const LOGO_BLOCK_NO_LOGO = `LOGO RULES — CRITICAL, read carefully:
